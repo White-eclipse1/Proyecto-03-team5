@@ -303,3 +303,41 @@ DVC separa `quality_report` de `quality_gate` e incorpora código y parámetros 
 splits (train/val/test/seed). El stage `split` depende del marcador que solo se
 escribe cuando la compuerta pasa; una evaluación failed hace fallar DVC y no
 ejecuta el downstream. No se persisten assignments en este stage.
+
+## APP-01 — Contratos de las pantallas de modelos (`ml_contracts.py`)
+
+Las pantallas Training, Experiments, Evaluation, Models e Inference del portal
+(`/ml/*`) consumen cinco contratos v1.0 más un `ErrorResponse` común. El espejo
+en Zod está en `frontend/src/ml/schemas.ts`.
+
+| Contrato | Endpoint previsto | Contenido |
+|---|---|---|
+| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled` |
+| `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) |
+| `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas por checkpoint en `validation`/`test` |
+| `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
+| `InferenceResponse` | `POST /api/ml/inference` | Predicciones COCO trazables al modelo |
+| `ErrorResponse` | Cualquier respuesta no 2xx | `{code, message, retryable}` |
+
+Ningún servicio implementa todavía estos endpoints: los conectan APP-02…APP-07.
+Mientras tanto, las pantallas muestran "fuente no conectada" (404) y nunca datos
+de ejemplo.
+
+IDs obligatorios y con formato fijo:
+
+- `dataset_version`: release del dataset (mismo formato que en P2).
+- `manifest_hash`: `md5:<32 hex>` (hash DVC) o `sha256:<64 hex>`.
+- `experiment_id` / `run_id`: IDs de MLflow (numérico / 32 hex en minúsculas).
+- `checkpoint`: `runs:/<run_id>/<ruta>`, siempre del mismo `run_id` que lo declara.
+- `model_version`: versión del Model Registry (entero positivo como string). Es un
+  campo distinto de `dataset_version` y no acepta su formato.
+
+El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
+`checkpoint`, uno `failed` exige `error` y uno `queued` todavía no tiene `run_id`.
+
+**Corpus compartido.** `examples/ml/` tiene un ejemplo válido por contrato e
+`invalid_cases.json`, con casos que ambos lados deben rechazar. Los validan
+`tests/test_ml_contracts.py` (Pydantic) y `frontend/tests/ml-contracts.test.ts`
+(Zod). Si un contrato cambia en un solo lado, fallan los tests del otro. Al
+cambiar un contrato hay que actualizar ambos lados y el corpus en el mismo PR.
+Los ejemplos son solo para tests y desarrollo, nunca fuente de producción.

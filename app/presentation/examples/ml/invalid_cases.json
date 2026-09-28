@@ -1,0 +1,992 @@
+[
+  {
+    "name": "training_succeeded_without_checkpoint",
+    "contract": "training_jobs",
+    "reason": "Un job succeeded debe tener checkpoint.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": null,
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_checkpoint_from_other_run",
+    "contract": "training_jobs",
+    "reason": "El checkpoint debe pertenecer al mismo run_id.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_failed_without_error",
+    "contract": "training_jobs",
+    "reason": "Un job failed debe traer error.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0002",
+          "status": "failed",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
+          "checkpoint": null,
+          "params": {
+            "epochs": 50,
+            "imgsz": 1280
+          },
+          "created_at": "2026-01-14T18:00:00Z",
+          "started_at": "2026-01-14T18:00:40Z",
+          "finished_at": "2026-01-14T18:07:02Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_queued_with_run_id",
+    "contract": "training_jobs",
+    "reason": "Un job queued todavía no tiene run_id.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0004",
+          "status": "queued",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": null,
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-15T10:30:00Z",
+          "started_at": null,
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_running_without_run_id",
+    "contract": "training_jobs",
+    "reason": "Un job running ya tiene run_id MLflow.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0003",
+          "status": "running",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": null,
+          "checkpoint": null,
+          "params": {
+            "epochs": 50,
+            "imgsz": 640,
+            "augment": true
+          },
+          "created_at": "2026-01-15T09:00:00Z",
+          "started_at": "2026-01-15T09:01:12Z",
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_terminal_without_finished_at",
+    "contract": "training_jobs",
+    "reason": "Un job terminado debe tener finished_at.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_unknown_status",
+    "contract": "training_jobs",
+    "reason": "Estado fuera del catálogo.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "done",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_missing_manifest_hash",
+    "contract": "training_jobs",
+    "reason": "manifest_hash es obligatorio.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_bad_manifest_hash",
+    "contract": "training_jobs",
+    "reason": "manifest_hash debe ser md5:<32 hex> o sha256:<64 hex>.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_timestamp_without_timezone",
+    "contract": "training_jobs",
+    "reason": "Los timestamps son ISO 8601 en UTC (sufijo Z).",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "epochs": 50,
+            "imgsz": 640
+          },
+          "created_at": "2026-01-14T12:00:00",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_uppercase_run_id",
+    "contract": "runs",
+    "reason": "run_id MLflow son 32 hex en minúsculas.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0A1B2C3D4E5F60718293A4B5C6D7E8F9",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_short_run_id",
+    "contract": "runs",
+    "reason": "run_id MLflow son 32 hex.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_finished_without_end_time",
+    "contract": "runs",
+    "reason": "Un run terminado debe tener end_time.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_running_with_end_time",
+    "contract": "runs",
+    "reason": "Un run activo no tiene end_time.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640-augment",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": "2026-01-15T10:00:00Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640",
+            "augment": "true"
+          },
+          "metrics": {
+            "train_loss": 1.482
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_non_numeric_experiment_id",
+    "contract": "runs",
+    "reason": "experiment_id MLflow es numérico.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "exp-1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_unknown_field",
+    "contract": "runs",
+    "reason": "Los contratos no aceptan campos extra.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          },
+          "artifact_uri": "s3://bucket/x"
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_duplicate_run_id",
+    "contract": "runs",
+    "reason": "run_id es único en la lista.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640-augment",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640",
+            "augment": "true"
+          },
+          "metrics": {
+            "train_loss": 1.482
+          }
+        },
+        {
+          "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz1280",
+          "status": "FAILED",
+          "start_time": "2026-01-14T18:00:40Z",
+          "end_time": "2026-01-14T18:07:02Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "1280"
+          },
+          "metrics": {}
+        },
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640"
+          },
+          "metrics": {
+            "train_loss": 0.412,
+            "val_map50": 0.781,
+            "val_map50_95": 0.524
+          }
+        },
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "yolo-imgsz640-augment",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "epochs": "50",
+            "imgsz": "640",
+            "augment": "true"
+          },
+          "metrics": {
+            "train_loss": 1.482
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_model_name_without_version",
+    "contract": "evaluations",
+    "reason": "model_name y model_version van juntos.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-detector",
+          "model_version": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "metrics": {
+            "map50": 0.772,
+            "map50_95": 0.511,
+            "precision": 0.804,
+            "recall": 0.733
+          },
+          "per_class": [
+            {
+              "category_name": "cat",
+              "ap50": 0.751,
+              "support": 88
+            },
+            {
+              "category_name": "dog",
+              "ap50": 0.793,
+              "support": 92
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_metric_out_of_range",
+    "contract": "evaluations",
+    "reason": "Las métricas de evaluación son proporciones [0, 1].",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "metrics": {
+            "map50": 1.2,
+            "map50_95": 0.511,
+            "precision": 0.804,
+            "recall": 0.733
+          },
+          "per_class": [
+            {
+              "category_name": "cat",
+              "ap50": 0.751,
+              "support": 88
+            },
+            {
+              "category_name": "dog",
+              "ap50": 0.793,
+              "support": 92
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_unknown_split",
+    "contract": "evaluations",
+    "reason": "Solo se evalúa en validation o test.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "train",
+          "metrics": {
+            "map50": 0.772,
+            "map50_95": 0.511,
+            "precision": 0.804,
+            "recall": 0.733
+          },
+          "per_class": [
+            {
+              "category_name": "cat",
+              "ap50": 0.751,
+              "support": 88
+            },
+            {
+              "category_name": "dog",
+              "ap50": 0.793,
+              "support": 92
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_schema_version_2",
+    "contract": "evaluations",
+    "reason": "schema_version está congelado en 1.0.",
+    "document": {
+      "schema_version": "2.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "metrics": {
+            "map50": 0.772,
+            "map50_95": 0.511,
+            "precision": 0.804,
+            "recall": 0.733
+          },
+          "per_class": [
+            {
+              "category_name": "cat",
+              "ap50": 0.751,
+              "support": 88
+            },
+            {
+              "category_name": "dog",
+              "ap50": 0.793,
+              "support": 92
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        },
+        {
+          "evaluation_id": "eval-0001",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": null,
+          "model_version": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "validation",
+          "metrics": {
+            "map50": 0.781,
+            "map50_95": 0.524,
+            "precision": 0.812,
+            "recall": 0.745
+          },
+          "per_class": [
+            {
+              "category_name": "cat",
+              "ap50": 0.764,
+              "support": 90
+            },
+            {
+              "category_name": "dog",
+              "ap50": 0.798,
+              "support": 90
+            }
+          ],
+          "created_at": "2026-01-14T13:50:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_version_with_dataset_version_format",
+    "contract": "models",
+    "reason": "model_version es la versión del registry (entero), no un dataset_version.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-detector",
+          "model_version": "demo-v1.0.0",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_missing_dataset_version",
+    "contract": "models",
+    "reason": "dataset_version y model_version son campos distintos y ambos obligatorios.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_missing_model_version",
+    "contract": "models",
+    "reason": "model_version es obligatorio aunque exista dataset_version.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-detector",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_duplicate_alias",
+    "contract": "models",
+    "reason": "Un alias apunta a una sola versión por modelo.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "pet-detector",
+          "model_version": "2",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_duplicate_version",
+    "contract": "models",
+    "reason": "(model_name, model_version) es único.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "pet-detector",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_bbox_outside_image",
+    "contract": "inference",
+    "reason": "La bbox debe caber en la imagen.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-detector",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "image": {
+        "width": 640,
+        "height": 480
+      },
+      "predictions": [
+        {
+          "category_name": "dog",
+          "score": 0.912,
+          "bbox": [
+            600.0,
+            40.5,
+            210.0,
+            300.0
+          ]
+        },
+        {
+          "category_name": "cat",
+          "score": 0.874,
+          "bbox": [
+            320.0,
+            120.0,
+            180.0,
+            200.0
+          ]
+        }
+      ],
+      "latency_ms": 42.5
+    }
+  },
+  {
+    "name": "inference_score_above_one",
+    "contract": "inference",
+    "reason": "score es una probabilidad [0, 1].",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-detector",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "image": {
+        "width": 640,
+        "height": 480
+      },
+      "predictions": [
+        {
+          "category_name": "dog",
+          "score": 1.5,
+          "bbox": [
+            32.0,
+            40.5,
+            210.0,
+            300.0
+          ]
+        },
+        {
+          "category_name": "cat",
+          "score": 0.874,
+          "bbox": [
+            320.0,
+            120.0,
+            180.0,
+            200.0
+          ]
+        }
+      ],
+      "latency_ms": 42.5
+    }
+  },
+  {
+    "name": "inference_missing_model_version",
+    "contract": "inference",
+    "reason": "Toda predicción declara el model_version que la produjo.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-detector",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "image": {
+        "width": 640,
+        "height": 480
+      },
+      "predictions": [
+        {
+          "category_name": "dog",
+          "score": 0.912,
+          "bbox": [
+            32.0,
+            40.5,
+            210.0,
+            300.0
+          ]
+        },
+        {
+          "category_name": "cat",
+          "score": 0.874,
+          "bbox": [
+            320.0,
+            120.0,
+            180.0,
+            200.0
+          ]
+        }
+      ],
+      "latency_ms": 42.5
+    }
+  },
+  {
+    "name": "error_bad_code",
+    "contract": "error",
+    "reason": "code es snake_case estable, no texto libre.",
+    "document": {
+      "schema_version": "1.0",
+      "error": {
+        "code": "Training backend unavailable",
+        "message": "El servicio de entrenamiento no respondió.",
+        "retryable": true
+      }
+    }
+  },
+  {
+    "name": "error_missing_retryable",
+    "contract": "error",
+    "reason": "retryable es obligatorio para decidir si se ofrece reintentar.",
+    "document": {
+      "schema_version": "1.0",
+      "error": {
+        "code": "training_backend_unavailable",
+        "message": "El servicio de entrenamiento no respondió."
+      }
+    }
+  }
+]

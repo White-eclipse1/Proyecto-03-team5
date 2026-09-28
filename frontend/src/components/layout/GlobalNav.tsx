@@ -1,6 +1,10 @@
 import {
   Bot,
+  Boxes,
   ChartScatter,
+  ClipboardCheck,
+  Dumbbell,
+  FlaskConical,
   Gauge,
   History,
   LayoutDashboard,
@@ -9,6 +13,7 @@ import {
   Settings as SettingsIcon,
   SplitSquareHorizontal,
   Upload,
+  Zap,
 } from "lucide-react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { NavLink } from "react-router-dom";
@@ -33,6 +38,14 @@ const PIPELINE_NAV_ITEMS: NavItem[] = [
   { label: "PCA / t-SNE", to: "/pipeline/projections", icon: ChartScatter },
   { label: "Copilot", to: "/pipeline/copilot", icon: Bot },
   { label: "Settings", to: "/pipeline/settings", icon: SettingsIcon },
+];
+
+const ML_NAV_ITEMS: NavItem[] = [
+  { label: "Training", to: "/ml/training", icon: Dumbbell },
+  { label: "Experiments", to: "/ml/experiments", icon: FlaskConical },
+  { label: "Evaluation", to: "/ml/evaluation", icon: ClipboardCheck },
+  { label: "Models", to: "/ml/models", icon: Boxes },
+  { label: "Inference", to: "/ml/inference", icon: Zap },
 ];
 
 function NavLinkList({ items }: { items: NavItem[] }) {
@@ -63,8 +76,8 @@ function NavLinkList({ items }: { items: NavItem[] }) {
 
 /**
  * Navegación global de la app: única fuente de verdad para el sidebar/header
- * de las 9 pantallas del portal (anotación + pipeline de calidad de
- * datasets). Un solo portal, un solo menú — las 6 pantallas del pipeline no
+ * de las pantallas del portal (anotación + pipeline de calidad de
+ * datasets + modelos, APP-01). Un solo portal, un solo menú — las 6 pantallas del pipeline no
  * abren ni existen como una app/nav separada (antes vivían en su propio
  * `PipelineNav`; ver historial de `PipelineLayout.tsx`, eliminado).
  * Annotate (pantalla de anotación) NO usa este nav a propósito — es un modo
@@ -87,6 +100,8 @@ export function GlobalNav({ children }: { children?: ReactNode }) {
         <NavLinkList items={ANNOTATION_NAV_ITEMS} />
         <div className="my-2 h-px w-full shrink-0 bg-border lg:my-2" aria-hidden />
         <NavLinkList items={PIPELINE_NAV_ITEMS} />
+        <div className="my-2 h-px w-full shrink-0 bg-border lg:my-2" aria-hidden />
+        <NavLinkList items={ML_NAV_ITEMS} />
       </nav>
 
       {children && <div className="border-t border-border px-5 py-5">{children}</div>}

@@ -1,0 +1,129 @@
+"""APP-01: contratos de las pantallas de modelos (Training, Experiments, Evaluation,
+Models, Inference).
+
+Los ejemplos de `presentation/examples/ml/` son el corpus compartido con el frontend
+(`frontend/tests/ml-contracts.test.ts` valida exactamente los mismos archivos con Zod).
+Un cambio incompatible en un solo lado rompe los tests del otro.
+"""
+
+import json
+import unittest
+from pathlib import Path
+
+from pydantic import ValidationError
+
+from presentation.ml_contracts import (
+    CONTRACTS,
+    EvaluationsResponse,
+    InferenceResponse,
+    ModelsResponse,
+    RunsResponse,
+    TrainingJobsResponse,
+)
+
+EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
+VALID = {
+    "training_jobs": "training_jobs.json",
+    "runs": "runs.json",
+    "evaluations": "evaluations.json",
+    "models": "models.json",
+    "inference": "inference.json",
+    "error": "error.json",
+}
+
+
+def reject_non_json_number(value):
+    raise ValueError(f"Not a JSON number: {value}")
+
+
+def load(filename):
+    return json.loads(
+        (EXAMPLES / filename).read_text(encoding="utf-8"),
+        parse_constant=reject_non_json_number,
+    )
+
+
+class MlContractExamplesTests(unittest.TestCase):
+    def test_every_contract_has_a_valid_example(self):
+        self.assertEqual(set(CONTRACTS), set(VALID))
+
+    def test_examples_validate_and_round_trip_without_changing_values(self):
+        for contract, filename in VALID.items():
+            with self.subTest(contract=contract):
+                document = load(filename)
+                model = CONTRACTS[contract].model_validate(document)
+                self.assertEqual(json.loads(model.model_dump_json()), document)
+
+    def test_schema_version_is_required_and_frozen(self):
+        for contract, filename in VALID.items():
+            for value in (None, "2.0", 1):
+                with self.subTest(contract=contract, value=value):
+                    document = load(filename)
+                    document["schema_version"] = value
+                    with self.assertRaises(ValidationError):
+                        CONTRACTS[contract].model_validate(document)
+
+    def test_empty_lists_are_valid_empty_states(self):
+        for contract, key in (
+            ("training_jobs", "jobs"),
+            ("runs", "runs"),
+            ("evaluations", "evaluations"),
+            ("models", "models"),
+        ):
+            with self.subTest(contract=contract):
+                CONTRACTS[contract].model_validate({"schema_version": "1.0", key: []})
+
+
+class SharedInvalidCasesTests(unittest.TestCase):
+    """Cada caso de `invalid_cases.json` debe fallar aquí y en Zod."""
+
+    def test_invalid_cases_are_rejected(self):
+        cases = load("invalid_cases.json")
+        self.assertGreater(len(cases), 0)
+        names = [case["name"] for case in cases]
+        self.assertEqual(len(names), len(set(names)), "nombres de caso duplicados")
+        for case in cases:
+            with self.subTest(case=case["name"]), self.assertRaises(ValidationError):
+                CONTRACTS[case["contract"]].model_validate(case["document"])
+
+
+class TraceabilityTests(unittest.TestCase):
+    """Los IDs reales encadenan dataset → job → run → checkpoint → modelo → inferencia."""
+
+    def test_dataset_version_and_model_version_are_distinct_fields(self):
+        model = ModelsResponse.model_validate(load("models.json")).models[0]
+        self.assertNotEqual(model.dataset_version, model.model_version)
+        self.assertIn("dataset_version", type(model).model_fields)
+        self.assertIn("model_version", type(model).model_fields)
+
+    def test_examples_reference_each_other_consistently(self):
+        jobs = TrainingJobsResponse.model_validate(load("training_jobs.json")).jobs
+        runs = {run.run_id: run for run in RunsResponse.model_validate(load("runs.json")).runs}
+        models = {
+            (model.model_name, model.model_version): model
+            for model in ModelsResponse.model_validate(load("models.json")).models
+        }
+        evaluations = EvaluationsResponse.model_validate(load("evaluations.json")).evaluations
+        inference = InferenceResponse.model_validate(load("inference.json"))
+
+        for job in jobs:
+            if job.run_id is not None:
+                run = runs[job.run_id]
+                self.assertEqual(
+                    (job.dataset_version, job.manifest_hash, job.experiment_id),
+                    (run.dataset_version, run.manifest_hash, run.experiment_id),
+                )
+        for evaluation in evaluations:
+            self.assertEqual(runs[evaluation.run_id].manifest_hash, evaluation.manifest_hash)
+            if evaluation.model_version is not None:
+                model = models[(evaluation.model_name, evaluation.model_version)]
+                self.assertEqual(model.checkpoint, evaluation.checkpoint)
+        served = models[(inference.model_name, inference.model_version)]
+        self.assertEqual(
+            (served.run_id, served.dataset_version),
+            (inference.run_id, inference.dataset_version),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
