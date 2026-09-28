@@ -1,0 +1,125 @@
+# Variables que exige `storage.settings.Settings` (las usan `app` y `copilot`).
+x-pipeline-env: &pipeline-env
+  DATABASE_URL: "mysql+pymysql://root:${MARIADB_ROOT_PASSWORD:?Define MARIADB_ROOT_PASSWORD en .env}@mariadb:3306/image_repo"
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: 9000
+  MINIO_USE_SSL: "false"
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?Define MINIO_ROOT_USER en .env}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Define MINIO_ROOT_PASSWORD en .env}
+  MINIO_BUCKET: image-annotations
+  DATASET_DIR: /app/data/raw
+  REPORTS_DIR: /app/reports
+
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Define MARIADB_ROOT_PASSWORD en .env}
+      MARIADB_DATABASE: image_repo
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -p\"$${MARIADB_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Define MINIO_ROOT_USER en .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Define MINIO_ROOT_PASSWORD en .env}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  backend:
+    build: ./backend
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      DATABASE_URL: "mysql://root:${MARIADB_ROOT_PASSWORD:?Define MARIADB_ROOT_PASSWORD en .env}@mariadb:3306/image_repo"
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Define MARIADB_ROOT_PASSWORD en .env}
+      DB_NAME: image_repo
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?Define MINIO_ROOT_USER en .env}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Define MINIO_ROOT_PASSWORD en .env}
+      MINIO_BUCKET: image-annotations
+      MAX_UPLOAD_SIZE_BYTES: 5242880
+      PIPELINE_CONFIG_ROOT: /pipeline
+    volumes:
+      - ./app/policies:/pipeline/policies
+      - ./app/splits:/pipeline/splits
+    ports:
+      - "3100:3100"
+    restart: on-failure:5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      - backend
+      - copilot
+    ports:
+      - "8080:80"
+    volumes:
+      # P2-22/23/24: el gate (servicio `app`) escribe reportes acá; nginx
+      # los sirve como estático en /reports/*.json, sin backend HTTP nuevo.
+      - ./reports:/usr/share/nginx/html/reports:ro
+
+  app:
+    build: ./app
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment: *pipeline-env
+    volumes:
+      # Dataset real (anotaciones + imágenes), de solo lectura: el gate no
+      # escribe ahí, solo lee. El pipeline Python nunca gestionó data/raw/
+      # como parte de su propia imagen (ver app/Dockerfile).
+      - ./data/raw:/app/data/raw:ro
+      - ./reports:/app/reports
+      - ./app/policies:/app/policies:ro
+      - ./app/splits:/app/splits:ro
+    restart: on-failure:5
+
+  # P2-52: agente del Copilot (LLM + herramientas MCP de solo lectura). Misma
+  # imagen que `app`, otro comando. No se publica ningún puerto: solo nginx
+  # (servicio `frontend`) lo alcanza, en /copilot-api/. Sin ANTHROPIC_API_KEY
+  # arranca igual y el chat responde 503 explicando qué falta.
+  copilot:
+    build: ./app
+    command: ["python", "-m", "copilot.server"]
+    environment:
+      <<: *pipeline-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-claude-opus-5}
+      COPILOT_HOST: 0.0.0.0
+    volumes:
+      # Solo lectura: el Copilot consulta el dataset y los reportes, nunca escribe.
+      - ./data/raw:/app/data/raw:ro
+      - ./reports:/app/reports:ro
+    restart: on-failure:5
+
+volumes:
+  mariadb_data:
+  minio_data:

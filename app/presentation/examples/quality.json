@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "demo-v1.0.0",
+  "status": "warning",
+  "checks": [
+    {
+      "check_name": "min_images_per_class",
+      "passed": true,
+      "metric_value": 400.0,
+      "details": {
+        "classes_below_minimum": [],
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 300,
+          "operator": ">="
+        }
+      },
+      "action": "fail"
+    },
+    {
+      "check_name": "max_imbalance_ratio",
+      "passed": true,
+      "metric_value": 1.0,
+      "details": {
+        "largest_class_images": 400,
+        "smallest_class_images": 400,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 20,
+          "operator": "<=",
+          "requires_ratio_defined": true
+        },
+        "ratio_defined": true
+      },
+      "action": "warn"
+    },
+    {
+      "check_name": "max_small_object_ratio",
+      "passed": false,
+      "metric_value": 0.45,
+      "details": {
+        "small_objects": 810,
+        "total_objects": 1800,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0.4,
+          "operator": "<="
+        },
+        "small_box_detection": {
+          "width_px": 32,
+          "height_px": 32,
+          "operator": "<",
+          "combination": "and"
+        }
+      },
+      "action": "warn"
+    },
+    {
+      "check_name": "degenerate_boxes",
+      "passed": true,
+      "metric_value": 0.0,
+      "details": {
+        "total_annotations": 1800,
+        "invalid_annotations": 0,
+        "offending_samples": [],
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0,
+          "operator": "<="
+        }
+      },
+      "action": "fail"
+    },
+    {
+      "check_name": "duplicate_similarity_threshold",
+      "passed": false,
+      "metric_value": 1.0,
+      "action": "warn",
+      "details": {
+        "image_pairs": [
+          {
+            "image_id_a": 10,
+            "image_id_b": 11,
+            "hamming_distance": 2,
+            "similarity": 0.96875
+          }
+        ],
+        "hash_bits": 64,
+        "similarity_threshold": 0.94,
+        "total_images": 1200,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0,
+          "operator": "=="
+        },
+        "similarity_operator": ">=",
+        "similarity_formula": "1 - hamming_distance / hash_bits"
+      }
+    },
+    {
+      "check_name": "spatial_bias",
+      "passed": true,
+      "metric_value": 0.2,
+      "action": "warn",
+      "details": {
+        "total_boxes": 1800,
+        "mean_center_x": 0.5,
+        "mean_center_y": 0.5,
+        "std_center_x": 0.2,
+        "std_center_y": 0.22,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0.15,
+          "operator": ">="
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+name: PR hygiene
+
+# Revisa que la rama y el título del PR sigan la convención de CONTRIBUTING.md.
+# Se vuelve a correr cuando se edita el título (`edited`), así que corregirlo
+# basta para ponerlo en verde, sin tocar el código.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  naming:
+    name: Nombre de rama y título del PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Comprobar la convención
+        # Los valores llegan por variables de entorno, nunca interpolados dentro del
+        # script: un título de PR es texto que controla quien abre el PR.
+        env:
+          BRANCH: ${{ github.head_ref }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: bash .github/scripts/check-naming.sh "$BRANCH" "$TITLE"

@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "test-v1",
+  "dataset_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "total_images": 4,
+  "categories": [
+    {
+      "id": 3,
+      "name": "dog"
+    },
+    {
+      "id": 4,
+      "name": "cat"
+    }
+  ],
+  "features": {
+    "representation": "rgb_pixels",
+    "width": 16,
+    "height": 16,
+    "channels": 3,
+    "resize_filter": "LANCZOS",
+    "exif_orientation": "transpose",
+    "normalization": "divide_by_255"
+  },
+  "pca": {
+    "parameters": {
+      "n_components": 2,
+      "svd_solver": "full",
+      "whiten": false
+    },
+    "explained_variance_ratio": [
+      0.6,
+      0.3
+    ],
+    "points": [
+      {
+        "image_id": 1,
+        "file_name": "dog.jpg",
+        "category_ids": [
+          3
+        ],
+        "x": 0.1,
+        "y": 0.2
+      },
+      {
+        "image_id": 2,
+        "file_name": "cat.jpg",
+        "category_ids": [
+          4
+        ],
+        "x": 0.2,
+        "y": 0.4
+      },
+      {
+        "image_id": 3,
+        "file_name": "mixed.jpg",
+        "category_ids": [
+          3,
+          4
+        ],
+        "x": 0.3,
+        "y": 0.6
+      },
+      {
+        "image_id": 4,
+        "file_name": "unlabeled.jpg",
+        "category_ids": [],
+        "x": 0.4,
+        "y": 0.8
+      }
+    ]
+  },
+  "tsne": {
+    "parameters": {
+      "n_components": 2,
+      "random_state": 42,
+      "init": "pca",
+      "learning_rate": "auto",
+      "max_iter": 1000,
+      "perplexity": 2,
+      "method": "barnes_hut"
+    },
+    "points": [
+      {
+        "image_id": 1,
+        "file_name": "dog.jpg",
+        "category_ids": [
+          3
+        ],
+        "x": -0.1,
+        "y": -0.2
+      },
+      {
+        "image_id": 2,
+        "file_name": "cat.jpg",
+        "category_ids": [
+          4
+        ],
+        "x": -0.2,
+        "y": -0.4
+      },
+      {
+        "image_id": 3,
+        "file_name": "mixed.jpg",
+        "category_ids": [
+          3,
+          4
+        ],
+        "x": -0.3,
+        "y": -0.6
+      },
+      {
+        "image_id": 4,
+        "file_name": "unlabeled.jpg",
+        "category_ids": [],
+        "x": -0.4,
+        "y": -0.8
+      }
+    ]
+  }
+}

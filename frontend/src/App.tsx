@@ -1,0 +1,107 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AnnotateScreen } from "@/components/annotate/AnnotateScreen";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { UploadScreen } from "@/components/upload/UploadScreen";
+import { DashboardPage } from "@/pages/Dashboard";
+import { SearchPage } from "@/pages/SearchPage";
+import { AnalyzersPage } from "@/pipeline/pages/Analyzers";
+import { CopilotPage } from "@/pipeline/pages/Copilot";
+import { OverviewPage } from "@/pipeline/pages/Overview";
+import { ProjectionsPage } from "@/pipeline/pages/Projections";
+import { SettingsPage } from "@/pipeline/pages/Settings";
+import { SplitsPage } from "@/pipeline/pages/Splits";
+import { VersionsPage } from "@/pipeline/pages/Versions";
+
+export function App(): JSX.Element {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/dashboard"
+        element={
+          <AppLayout>
+            <DashboardPage />
+          </AppLayout>
+        }
+      />
+      {/* SearchPage se envuelve con AppLayout internamente (no aquí), porque
+          necesita pasarle su propio contenido de filtros como sidebarExtra
+          — ver SearchPage.tsx. */}
+      <Route path="/search" element={<SearchPage />} />
+      <Route
+        path="/upload"
+        element={
+          <AppLayout>
+            <UploadScreen />
+          </AppLayout>
+        }
+      />
+      {/* Annotate es un modo de enfoque de pantalla completa a propósito: sin
+          nav global, con su propio botón "Volver". Ver GlobalNav.tsx. */}
+      <Route path="/annotate/:imageId" element={<AnnotateScreen />} />
+
+      {/* P2-14: dashboard de calidad de dataset (Frente 7) — mismo portal,
+          mismo AppLayout/GlobalNav que el resto; no tiene nav ni shell
+          propio (ver GlobalNav.tsx). */}
+      <Route path="/pipeline" element={<Navigate to="/pipeline/overview" replace />} />
+      <Route
+        path="/pipeline/overview"
+        element={
+          <AppLayout>
+            <OverviewPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pipeline/analyzers"
+        element={
+          <AppLayout>
+            <AnalyzersPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pipeline/splits"
+        element={
+          <AppLayout>
+            <SplitsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pipeline/versions"
+        element={
+          <AppLayout>
+            <VersionsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pipeline/copilot"
+        element={
+          <AppLayout>
+            <CopilotPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pipeline/settings"
+        element={
+          <AppLayout>
+            <SettingsPage />
+          </AppLayout>
+        }
+      />
+
+      <Route
+        path="/pipeline/projections"
+        element={
+          <AppLayout>
+            <ProjectionsPage />
+          </AppLayout>
+        }
+      />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}

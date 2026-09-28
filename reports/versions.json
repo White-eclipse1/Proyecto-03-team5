@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "releases": [
+    {
+      "dataset_version": "v0.1.0",
+      "quality_file": "releases/v0.1.0/quality.json",
+      "splits_file": "releases/v0.1.0/splits.json"
+    },
+    {
+      "dataset_version": "v0.1.1",
+      "quality_file": "releases/v0.1.1/quality.json",
+      "splits_file": "releases/v0.1.1/splits.json"
+    }
+  ]
+}

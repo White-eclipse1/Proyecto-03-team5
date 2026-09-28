@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "local-dev",
+  "total_images": 600,
+  "splits": {
+    "train": {
+      "image_count": 420,
+      "ratio": 0.7
+    },
+    "validation": {
+      "image_count": 90,
+      "ratio": 0.15
+    },
+    "test": {
+      "image_count": 90,
+      "ratio": 0.15
+    }
+  },
+  "class_distribution": {
+    "train": {
+      "3": 210,
+      "4": 211
+    },
+    "validation": {
+      "3": 45,
+      "4": 45
+    },
+    "test": {
+      "3": 45,
+      "4": 45
+    }
+  },
+  "leakage": {
+    "status": "passed",
+    "checked_groups": 600,
+    "duplicate_groups": 0,
+    "cross_split_groups": 0,
+    "coverage": 600
+  }
+}

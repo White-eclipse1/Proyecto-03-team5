@@ -1,0 +1,50 @@
+{
+  "name": "image-annotation-repo",
+  "version": "0.1.0",
+  "description": "Backend del portal de anotación de imágenes (UI → Logic → Data, MariaDB + MinIO)",
+  "main": "dist/ui/server.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx watch src/ui/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/ui/server.js",
+    "start:prod": "cross-env NODE_ENV=production PORT=3100 node dist/ui/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/data/seed.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "minio": "^8.0.7",
+    "multer": "^2.3.0",
+    "mysql2": "^3.24.2",
+    "sharp": "^0.35.4",
+    "yaml": "^2.9.1",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.4.0",
+    "cross-env": "10.1.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

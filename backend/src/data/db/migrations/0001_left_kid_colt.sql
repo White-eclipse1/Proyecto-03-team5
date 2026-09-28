@@ -1,0 +1,1 @@
+ALTER TABLE `annotations` ADD `iscrowd` boolean DEFAULT false NOT NULL;

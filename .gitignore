@@ -1,0 +1,20 @@
+# Entorno y credenciales locales (las plantillas sí se versionan).
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Entorno Python opcional para DVC.
+.venv-dvc/
+
+# Credenciales específicas de DVC; nunca se comparten con Git.
+.dvc/config.local
+
+# Terraform local artifacts at any depth; provider lockfiles remain versioned.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Marcador interno de la compuerta DVC; se recrea en cada repro aprobado.
+reports/.quality_gate.passed

@@ -1,0 +1,7 @@
+# Configuración del split estratificado (Tier 4): proporciones y semilla.
+# Deben sumar 1.0; se usa siempre la misma semilla para que el split sea
+# reproducible entre corridas (ver app/splits/__init__.py).
+train: 0.70
+val: 0.15
+test: 0.15
+seed: 42

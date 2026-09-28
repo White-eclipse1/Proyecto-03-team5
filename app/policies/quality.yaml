@@ -1,0 +1,42 @@
+# Umbrales de la compuerta de calidad (Tier 3).
+# Editar aquí bloquea/desbloquea el release; el historial de cambios de este
+# archivo se versiona junto con el dataset (ver pantalla "Settings").
+
+min_images_per_class:
+  # Gate M3 del proyecto: al menos 300 imágenes por clase, en al menos 2 clases.
+  threshold: 300
+  action: fail
+
+max_imbalance_ratio:
+  # Clase más grande / clase más chica.
+  threshold: 20.0
+  action: warn
+
+max_small_object_ratio:
+  # Proporción máxima permitida; una caja pequeña tiene ambos lados bajo sus límites.
+  threshold: 0.40
+  width_px: 32
+  height_px: 32
+  action: warn
+
+degenerate_boxes:
+  # Cajas con ancho/alto <= 0, o que se salen de la imagen.
+  threshold: 0
+  action: fail
+
+cross_split_leakage:
+  # Pares casi-duplicados (pHash) repartidos entre splits distintos.
+  threshold: 0
+  action: fail
+
+duplicate_similarity_threshold:
+  # Similitud mínima pHash: 1 - distancia Hamming / bits del hash (inclusiva).
+  threshold: 0.94
+  action: warn
+
+min_spatial_dispersion:
+  # P2-29: desviación estándar mínima del centro normalizado de las cajas,
+  # por eje (0-1). Uniforme en [0,1] da ≈0.289; valores mucho más bajos
+  # indican que los anotadores centran sistemáticamente el objeto.
+  threshold: 0.15
+  action: warn

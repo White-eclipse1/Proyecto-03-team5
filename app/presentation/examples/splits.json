@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "demo-v1.0.0",
+  "total_images": 1200,
+  "splits": {
+    "train": {"image_count": 840, "ratio": 0.7},
+    "validation": {"image_count": 180, "ratio": 0.15},
+    "test": {"image_count": 180, "ratio": 0.15}
+  }
+}

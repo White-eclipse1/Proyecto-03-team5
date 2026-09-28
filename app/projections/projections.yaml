@@ -1,0 +1,21 @@
+dataset_version: local-dev
+features:
+  representation: rgb_pixels
+  width: 16
+  height: 16
+  channels: 3
+  resize_filter: LANCZOS
+  exif_orientation: transpose
+  normalization: divide_by_255
+pca:
+  n_components: 2
+  svd_solver: full
+  whiten: false
+tsne:
+  n_components: 2
+  random_state: 42
+  init: pca
+  learning_rate: auto
+  max_iter: 1000
+  perplexity: 30.0
+  method: barnes_hut

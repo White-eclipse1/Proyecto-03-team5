@@ -1,0 +1,74 @@
+name: Terraform validation and OIDC
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Terraform without AWS authentication
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.16.2
+          terraform_wrapper: false
+      - name: Check formatting
+        run: terraform -chdir=terraform fmt -check -recursive
+      - name: Initialize and validate all roots
+        shell: bash
+        run: |
+          for root in environments/dev environments/prod bootstrap/github-oidc bootstrap/remote-state; do
+            terraform -chdir="terraform/$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="terraform/$root" validate
+          done
+
+  oidc:
+    name: Verify AWS OIDC on main only
+    needs: validate
+    if: >-
+      github.repository == 'karenelizabg/proyecto-fase2-MLOPS' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check the externally provisioned role
+        id: role
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::warning title=OIDC verification pending::AWS_ROLE_ARN is not configured yet, so the OIDC check is skipped. Provision the provider/role separately and set the AWS_ROLE_ARN repository variable to enable it."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Assume role using GitHub OIDC
+        if: steps.role.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          role-duration-seconds: 900
+          role-session-name: github-oidc-${{ github.run_id }}
+          mask-aws-account-id: true
+      - name: Verify authentication without printing identity
+        if: steps.role.outputs.configured == 'true'
+        run: |
+          aws sts get-caller-identity --output json > /dev/null
+          echo "OIDC authentication verified."

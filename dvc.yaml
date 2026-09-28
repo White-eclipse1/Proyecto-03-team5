@@ -1,0 +1,91 @@
+stages:
+  quality_report:
+    wdir: app
+    cmd: uv run python dvc_quality_report_stage.py
+    deps:
+      - ../data/raw/annotations
+      - ../data/raw/images
+      - dvc_quality_report_stage.py
+      - ingestion
+      - analyzers
+      - policies
+      - presentation/contracts.py
+      - presentation/gate.py
+      - storage/settings.py
+      - splits/__init__.py
+      - splits/models.py
+      - splits/stratified.py
+    params:
+      - splits/splits.yaml:
+          - train
+          - val
+          - test
+          - seed
+    metrics:
+      - ../reports/quality.json:
+          cache: false
+
+  quality_gate:
+    wdir: app
+    cmd: uv run python dvc_gate_stage.py
+    deps:
+      - ../reports/quality.json
+      - dvc_gate_stage.py
+      - presentation/contracts.py
+    outs:
+      - ../reports/.quality_gate.passed:
+          cache: false
+
+  split:
+    wdir: app
+    cmd: uv run python dvc_split_stage.py
+    deps:
+      - ../data/raw/annotations
+      - ../data/raw/images
+      - ../reports/.quality_gate.passed
+      - dvc_split_stage.py
+      - dvc_gate_stage.py
+      - ingestion
+      - analyzers
+      - policies
+      - presentation/contracts.py
+      - presentation/gate.py
+      - presentation/splits.py
+      - storage/settings.py
+      - splits
+    outs:
+      - ../reports/splits.json:
+          cache: false
+
+  projections:
+    wdir: app
+    cmd: uv run python dvc_projections_stage.py
+    deps:
+      - ../data/raw/annotations
+      - ../data/raw/images
+      - dvc_projections_stage.py
+      - projections/__init__.py
+      - projections/compute.py
+      - projections/models.py
+      - ingestion/__init__.py
+      - ingestion/loader.py
+      - ingestion/models.py
+      - presentation/__init__.py
+      - presentation/contracts.py
+      - presentation/projections.py
+      - presentation/projections_contracts.py
+      - analyzers/base.py
+      - storage/settings.py
+      - policies/models.py
+      - policies/quality.yaml
+      - pyproject.toml
+      - uv.lock
+    params:
+      - projections/projections.yaml:
+          - dataset_version
+          - features
+          - pca
+          - tsne
+    outs:
+      - ../reports/projections.json:
+          cache: false

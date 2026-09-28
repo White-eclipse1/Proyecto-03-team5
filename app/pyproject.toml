@@ -1,0 +1,44 @@
+[project]
+name = "dataset-quality-pipeline"
+version = "0.1.0"
+description = "Pipeline de calidad de dataset (Fase 2): ingesta, analizadores, compuerta, splits y versionado."
+requires-python = "==3.12.*"
+dependencies = [
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "pyyaml>=6.0,<7",
+    "sqlalchemy>=2.0,<3",
+    "pymysql>=1.1,<2",
+    "boto3>=1.35,<2",
+    "minio>=7.2,<8",
+    "pillow>=10.4,<11",
+    "imagehash>=4.3,<5",
+    "mcp>=2.2.0",
+    "numpy>=2,<3",
+    "scikit-learn>=1.5,<2",
+    "anthropic>=1.7,<2",
+    "starlette>=1.6,<2",
+    "uvicorn>=0.53,<1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7,<1",
+    "pytest>=8.3,<9",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot", "tests"]
+
+[tool.ruff.lint]
+# E/F: errores y pyflakes. I: orden de imports. B: bugbear (bugs probables).
+# SIM: simplificaciones. C4: comprensiones y literales. RUF: reglas propias de Ruff
+# (p. ej. regex sin escapar en `pytest.raises(match=...)`, `noqa` que ya no aplican).
+select = ["E", "F", "I", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

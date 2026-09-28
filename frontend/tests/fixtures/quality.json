@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "v0.1.0",
+  "status": "failed",
+  "checks": [
+    {
+      "check_name": "min_images_per_class",
+      "passed": false,
+      "metric_value": 0.0,
+      "details": {
+        "classes_below_minimum": [
+          {
+            "category_id": 1,
+            "category_name": "person",
+            "image_count": 0,
+            "image_ids": []
+          },
+          {
+            "category_id": 2,
+            "category_name": "car",
+            "image_count": 0,
+            "image_ids": []
+          }
+        ],
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 300.0,
+          "operator": ">="
+        }
+      },
+      "action": "fail"
+    },
+    {
+      "check_name": "max_imbalance_ratio",
+      "passed": false,
+      "metric_value": 0.0,
+      "details": {
+        "images_per_category": [
+          {
+            "category_id": 1,
+            "category_name": "person",
+            "image_count": 0
+          },
+          {
+            "category_id": 2,
+            "category_name": "car",
+            "image_count": 0
+          },
+          {
+            "category_id": 3,
+            "category_name": "dog",
+            "image_count": 300
+          },
+          {
+            "category_id": 4,
+            "category_name": "cat",
+            "image_count": 301
+          }
+        ],
+        "majority_class": {
+          "category_id": 4,
+          "category_name": "cat",
+          "image_count": 301
+        },
+        "minority_class": {
+          "category_id": 1,
+          "category_name": "person",
+          "image_count": 0
+        },
+        "classes_below_minimum": [
+          {
+            "category_id": 1,
+            "category_name": "person",
+            "image_count": 0,
+            "image_ids": []
+          },
+          {
+            "category_id": 2,
+            "category_name": "car",
+            "image_count": 0,
+            "image_ids": []
+          }
+        ],
+        "empty_category_ids": [
+          1,
+          2
+        ],
+        "min_images_per_class": 300.0,
+        "max_imbalance_ratio": 20.0,
+        "ratio_defined": false,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 20.0,
+          "operator": "<=",
+          "requires_ratio_defined": true
+        }
+      },
+      "action": "warn"
+    },
+    {
+      "check_name": "max_small_object_ratio",
+      "passed": true,
+      "metric_value": 0.0,
+      "details": {
+        "small_objects": 0,
+        "total_objects": 668,
+        "most_affected_class": null,
+        "offending_samples": [],
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0.4,
+          "operator": "<="
+        },
+        "small_box_detection": {
+          "width_px": 32.0,
+          "height_px": 32.0,
+          "operator": "<",
+          "combination": "and"
+        }
+      },
+      "action": "warn"
+    },
+    {
+      "check_name": "degenerate_boxes",
+      "passed": true,
+      "metric_value": 0.0,
+      "details": {
+        "total_annotations": 668,
+        "invalid_annotations": 0,
+        "offending_samples": [],
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0.0,
+          "operator": "<="
+        }
+      },
+      "action": "fail"
+    },
+    {
+      "check_name": "duplicate_similarity_threshold",
+      "passed": true,
+      "metric_value": 0.0,
+      "details": {
+        "image_pairs": [],
+        "hash_bits": 64,
+        "similarity_threshold": 0.94,
+        "total_images": 600,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0,
+          "operator": "=="
+        },
+        "similarity_operator": ">=",
+        "similarity_formula": "1 - hamming_distance / hash_bits"
+      },
+      "action": "warn"
+    },
+    {
+      "check_name": "spatial_bias",
+      "passed": false,
+      "metric_value": 0.07864713145205206,
+      "details": {
+        "total_boxes": 668,
+        "mean_center_x": 0.5038419377697957,
+        "mean_center_y": 0.5086198771770268,
+        "std_center_x": 0.10694210359192716,
+        "std_center_y": 0.07864713145205206,
+        "criterion": {
+          "metric": "metric_value",
+          "threshold": 0.15,
+          "operator": ">="
+        }
+      },
+      "action": "warn"
+    }
+  ]
+}

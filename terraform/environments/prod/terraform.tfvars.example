@@ -1,0 +1,7 @@
+# Optional local configuration. No values are needed for init/validate.
+# Copy to terraform.tfvars only if preparing a future execution.
+region             = "us-east-1"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# Set ami_id to a real x86_64 AMI in the selected region.
+# No fictitious AMI or AWS credentials are supplied.

@@ -1,0 +1,229 @@
+name: CI
+
+# Corre en cada PR (contra cualquier rama base, para que también se validen los PR
+# "hermano" que apuntan a la rama de otro ticket) y en cada push a main.
+#
+# Ningún paso usa `continue-on-error` ni `|| true`: si una validación falla, el job
+# falla y el PR queda en rojo. `CI OK` resume todos los jobs y es el único check que
+# conviene marcar como obligatorio en la protección de la rama (ver CONTRIBUTING.md).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  python:
+    name: Python (Ruff y pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # Misma versión que app/Dockerfile.
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Instalar dependencias (falla si uv.lock está desactualizado)
+        # --no-build: solo wheels ya publicadas, sin ejecutar scripts de compilación de
+        # terceros (mismo criterio que app/Dockerfile).
+        run: uv sync --locked --no-build
+      - name: Ruff (lint)
+        run: uv run --locked --no-build ruff check .
+      - name: Ruff (formato)
+        run: uv run --locked --no-build ruff format --check .
+      - name: Tests
+        run: uv run --locked --no-build pytest -q
+      - name: Mutation test (quality gate)
+        run: uv run --locked --no-build python ../.github/scripts/run_gate_mutation.py
+
+  backend:
+    name: Backend (Biome, tsc, tests y build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Misma versión que backend/Dockerfile.
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Instalar dependencias
+        # --ignore-scripts: no ejecutar scripts de instalación de terceros; los binarios
+        # nativos (esbuild, Biome, sharp) llegan como paquetes opcionales, sin scripts.
+        run: npm ci --ignore-scripts
+      - name: Lint (Biome)
+        run: npm run lint
+      - name: Tipos (tsc)
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend (Biome, tsc, tests y build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Misma versión que frontend/Dockerfile.
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        # --ignore-scripts: no ejecutar scripts de instalación de terceros; los binarios
+        # nativos (esbuild, Biome, sharp) llegan como paquetes opcionales, sin scripts.
+        run: npm ci --ignore-scripts
+      - name: Lint (Biome)
+        run: npm run lint
+      - name: Tipos (tsc)
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  compose:
+    name: docker-compose.yml válido
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validar la configuración expandida
+        # Valores de mentira: `docker compose config` solo comprueba que el YAML y las
+        # variables obligatorias (`${VAR:?...}`) estén bien formados, no las usa.
+        env:
+          MARIADB_ROOT_PASSWORD: ci
+          MINIO_ROOT_USER: ci
+          MINIO_ROOT_PASSWORD: ci
+        run: docker compose config --quiet
+
+  quality-gate:
+    name: Quality gate (fixture)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Instalar dependencias
+        run: uv sync --locked --no-build
+      - name: Ejecutar compuerta sobre fixture COCO
+        run: uv run --locked --no-build pytest -q tests/test_quality_gate_ci.py
+
+  quality-gate-prod:
+    name: Quality gate (PROD dataset when OIDC is configured)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the externally provisioned role
+        id: role
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::warning title=PROD quality gate pending::AWS_ROLE_ARN is not configured; the PROD dataset gate is skipped until the externally provisioned OIDC role is available."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Assume the AWS role using GitHub OIDC
+        if: steps.role.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          role-duration-seconds: 900
+          role-session-name: github-quality-gate-${{ github.run_id }}
+          mask-aws-account-id: true
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        if: steps.role.outputs.configured == 'true'
+        with:
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Instalar DVC con soporte S3
+        if: steps.role.outputs.configured == 'true'
+        run: |
+          uv venv .venv-dvc-ci --python 3.12
+          uv pip install --no-build --python .venv-dvc-ci/bin/python 'dvc[s3]==3.67.1'
+      - name: Recuperar únicamente los datos versionados de PROD
+        if: steps.role.outputs.configured == 'true'
+        run: .venv-dvc-ci/bin/dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
+      - name: Instalar dependencias del pipeline
+        if: steps.role.outputs.configured == 'true'
+        working-directory: app
+        run: uv sync --locked --no-build
+      - name: Generar el reporte de calidad de PROD
+        if: steps.role.outputs.configured == 'true'
+        working-directory: app
+        run: uv run --locked --no-build python dvc_quality_report_stage.py
+      - name: Ejecutar la compuerta sobre PROD
+        if: steps.role.outputs.configured == 'true'
+        working-directory: app
+        run: uv run --locked --no-build python dvc_gate_stage.py
+
+  ci-ok:
+    name: CI OK
+    # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
+    # fallido dejaría a `CI OK` en "skipped", y GitHub lo trata como aprobado.
+    if: always()
+    needs: [python, backend, frontend, compose, quality-gate, quality-gate-prod]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Todos los jobs deben haber pasado
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Resultados: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::Un job de CI terminó en '$result'."
+              exit 1
+            fi
+          done

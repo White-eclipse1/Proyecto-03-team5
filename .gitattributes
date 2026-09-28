@@ -1,0 +1,9 @@
+# El repo guarda LF y los checkouts también, en cualquier sistema operativo. Sin esto,
+# `core.autocrlf=true` (el valor por defecto de Git para Windows) deja archivos con CRLF
+# en la carpeta de trabajo y Biome (`npm run lint`) falla por formato aunque el repo esté bien.
+* text=auto eol=lf
+
+# Los scripts que se ejecutan dentro de contenedores Linux necesitan LF sí o
+# sí: con CRLF (por ejemplo, `core.autocrlf=true` en Windows) el shebang se
+# rompe y el contenedor falla con "no such file or directory" al arrancar.
+*.sh text eol=lf

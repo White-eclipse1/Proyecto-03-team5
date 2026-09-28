@@ -1,0 +1,36 @@
+{
+  "quality": {
+    "min_images_per_class": {
+      "threshold": 300,
+      "action": "fail"
+    },
+    "max_imbalance_ratio": {
+      "threshold": 20,
+      "action": "warn"
+    },
+    "max_small_object_ratio": {
+      "threshold": 0.4,
+      "action": "warn",
+      "width_px": 32,
+      "height_px": 32
+    },
+    "degenerate_boxes": {
+      "threshold": 0,
+      "action": "fail"
+    },
+    "duplicate_similarity_threshold": {
+      "threshold": 0.94,
+      "action": "warn"
+    },
+    "min_spatial_dispersion": {
+      "threshold": 0.15,
+      "action": "warn"
+    }
+  },
+  "splits": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15,
+    "seed": 42
+  }
+}
