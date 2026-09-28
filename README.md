@@ -71,7 +71,7 @@ este proyecto usa IAM Identity Center / SSO con tu propia identidad.
 ### 2. Clonar el repositorio
 
 ```bash
-git clone https://github.com/karenelizabg/proyecto-fase2-MLOPS.git
+git clone https://github.com/White-eclipse1/Proyecto-03-team5.git
 cd proyecto-fase2-MLOPS
 git status
 ```
@@ -199,11 +199,11 @@ Estas comprobaciones son de lectura y no modifican datos:
 
 ```bash
 aws s3api head-bucket \
-  --bucket mlops-p2-dvc-cache \
+  --bucket mlops-p2-dvc-cache-280764207006 \
   --profile mlops-p2
 
 aws s3api list-objects-v2 \
-  --bucket mlops-p2-dvc-cache \
+  --bucket mlops-p2-dvc-cache-280764207006 \
   --max-keys 1 \
   --query KeyCount \
   --profile mlops-p2
@@ -240,7 +240,7 @@ definidos por el administrador.
 
 Los remotes no son intercambiables:
 
-- `prod` = AWS S3 compartido, bucket `mlops-p2-dvc-cache`.
+- `prod` = AWS S3 compartido, bucket `mlops-p2-dvc-cache-280764207006`.
 - `dev` = MinIO local, bucket `dvc-cache`.
 
 Si solo necesitas recuperar el dataset de producción, no levantes MinIO. El
@@ -600,14 +600,14 @@ el onboarding completo, empieza por [Onboarding de desarrollo](#onboarding-de-de
 No necesitas MinIO para leer el dataset compartido de producción.
 
 - `dev` usa `s3://dvc-cache` con endpoint `http://localhost:9000` (MinIO local).
-- `prod` usa `s3://mlops-p2-dvc-cache` en AWS S3.
-- `mlops-p2-dataset-releases` se reserva para releases finales del dataset; no es un remote DVC.
+- `prod` usa `mlops-p2-dvc-cache-280764207006` en AWS S3.
+- `mlops-p2-dataset-releases-280764207006` se reserva para releases finales del dataset; no es un remote DVC.
 
 ### Resumen rápido
 
 - `dev` → MinIO local, bucket `dvc-cache`.
-- `prod` → AWS S3, bucket `mlops-p2-dvc-cache`.
-- `mlops-p2-dataset-releases` → releases finales del dataset.
+- `prod` → AWS S3, bucket `mlops-p2-dvc-cache-280764207006`.
+- `mlops-p2-dataset-releases-280764207006` → releases finales del dataset.
 - Git versiona la configuración y los archivos `.dvc`; los binarios se guardan en los remotes.
 - Las credenciales de MinIO son locales de cada integrante; no son credenciales
   de AWS ni se usan para `prod`.
@@ -736,7 +736,7 @@ La salida debe incluir:
 
 ```text
 dev     s3://dvc-cache
-prod    s3://mlops-p2-dvc-cache
+prod    s3://mlops-p2-dvc-cache-280764207006
 ```
 
 ### Subir y bajar archivos con `dev`
@@ -772,8 +772,8 @@ sin endpoint personalizado, en `us-east-1`:
 
 | Bucket | Uso |
 |---|---|
-| `mlops-p2-dvc-cache` | Remote DVC `prod`. |
-| `mlops-p2-dataset-releases` | Releases finales del dataset. |
+| `mlops-p2-dvc-cache-280764207006` | Remote DVC `prod`. |
+| `mlops-p2-dataset-releases-280764207006` | Releases finales del dataset. |
 
 Para lectura del remote DVC, el permission set debe tener permisos
 conceptualmente equivalentes a `s3:ListBucket` y `s3:GetObject`. Si además
@@ -859,7 +859,7 @@ Antes de cerrar P2-04, verificar:
   escritura; no es una prueba de conectividad.
 - `git log --all -p -S 'AKIA'` no devuelve resultados.
 - `.env` y `.dvc/config.local` permanecen fuera de Git.
-- Los buckets `mlops-p2-dvc-cache` y `mlops-p2-dataset-releases` existen en AWS.
+- Los buckets `mlops-p2-dvc-cache-280764207006` y `mlops-p2-dataset-releases-280764207006` existen en AWS.
 
 ## P2-42 — Pipeline DVC completo (`dvc.yaml`)
 
