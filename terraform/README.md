@@ -103,7 +103,9 @@ autenticación. `sts:GetCallerIdentity` no necesita permisos adicionales.
 
 La trust policy permite `sts:AssumeRoleWithWebIdentity` exclusivamente con
 `aud = sts.amazonaws.com` y
-`sub = repo:White-eclipse1/Proyecto-03-team5:ref:refs/heads/main`.
+`sub = repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:ref:refs/heads/main`.
+El repositorio usa el formato *immutable subject* de GitHub (`owner@id/repo@id`);
+se consulta con `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`.
 No permite otros repositorios, ramas, tags, pull requests ni subjects de GitHub
 Environments. El job OIDC no declara `environment` para conservar ese subject.
 
