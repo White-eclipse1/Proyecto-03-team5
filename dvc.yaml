@@ -89,3 +89,21 @@ stages:
     outs:
       - ../reports/projections.json:
           cache: false
+
+  crops:
+    wdir: app
+    cmd: uv run python dvc_crops_stage.py
+    deps:
+      - ../data/raw/annotations
+      - ../data/raw/images
+      - ../reports/.quality_gate.passed
+      - dvc_crops_stage.py
+      - dvc_gate_stage.py
+      - crops
+      - ingestion/__init__.py
+      - ingestion/loader.py
+      - presentation/contracts.py
+    outs:
+      - ../data/crops
+      - ../reports/crops.json:
+          cache: false

@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 from crops.classes import CLASS_NAMES, CLASS_TO_INDEX, resolve_category_classes
 from crops.extract import extract_crops, write_crop_report
 from crops.models import CropReport
+from crops.preview import render_verification_sheet
 from ingestion.loader import merge_raw_batches
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -421,3 +422,22 @@ def test_dvc_pipeline_has_crops_stage_after_quality_gate():
     assert any(
         isinstance(output, dict) and "../reports/crops.json" in output for output in crops["outs"]
     )
+
+
+def test_verification_sheet_renders_accepted_crops(tmp_path):
+    _write_image(tmp_path / "images", "a.png", boxes=[((10, 5, 30, 20), (200, 0, 0))])
+    coco = _coco(
+        [{"id": 1, "file_name": "a.png", "width": 80, "height": 60}],
+        [_annotation(1, 1, DOG, [10, 5, 30, 20]), _annotation(2, 1, CAT, [40, 30, 20, 20])],
+    )
+    report = _extract(tmp_path, coco)
+
+    sheet = render_verification_sheet(
+        report,
+        images_dir=tmp_path / "images",
+        crops_dir=tmp_path / "crops",
+        out_path=tmp_path / "preview.png",
+    )
+
+    with Image.open(sheet) as rendered:
+        assert rendered.height >= 2 * 160
