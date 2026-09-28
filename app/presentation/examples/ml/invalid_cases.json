@@ -15,8 +15,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": null,
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -42,8 +53,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -69,8 +91,19 @@
           "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
           "checkpoint": null,
           "params": {
-            "epochs": 50,
-            "imgsz": 1280
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 512,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T18:00:00Z",
           "started_at": "2026-01-14T18:00:40Z",
@@ -96,8 +129,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": null,
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-15T10:30:00Z",
           "started_at": null,
@@ -123,9 +167,19 @@
           "run_id": null,
           "checkpoint": null,
           "params": {
-            "epochs": 50,
-            "imgsz": 640,
-            "augment": true
+            "optimizer": "adamw",
+            "batch_size": 16,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-15T09:00:00Z",
           "started_at": "2026-01-15T09:01:12Z",
@@ -151,8 +205,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -178,8 +243,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -204,8 +280,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -231,8 +318,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00Z",
           "started_at": "2026-01-14T12:00:30Z",
@@ -258,8 +356,19 @@
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
           "params": {
-            "epochs": 50,
-            "imgsz": 640
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
           },
           "created_at": "2026-01-14T12:00:00",
           "started_at": "2026-01-14T12:00:30Z",
@@ -986,6 +1095,701 @@
       "error": {
         "code": "training_backend_unavailable",
         "message": "El servicio de entrenamiento no respondió."
+      }
+    }
+  },
+  {
+    "name": "request_negative_batch_size",
+    "contract": "training_request",
+    "reason": "batch_size debe ser un entero >= 1.",
+    "field": "params.batch_size",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": -1,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_zero_learning_rate",
+    "contract": "training_request",
+    "reason": "learning_rate debe ser > 0.",
+    "field": "params.learning_rate",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_text_learning_rate",
+    "contract": "training_request",
+    "reason": "learning_rate debe ser numérico.",
+    "field": "params.learning_rate",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": "abc",
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_dropout_above_one",
+    "contract": "training_request",
+    "reason": "dropout debe estar en [0, 1).",
+    "field": "params.dropout",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 1.5,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_dropout_equal_one",
+    "contract": "training_request",
+    "reason": "dropout = 1 apagaría todas las neuronas.",
+    "field": "params.dropout",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 1,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_fractional_batch_size",
+    "contract": "training_request",
+    "reason": "batch_size debe ser entero.",
+    "field": "params.batch_size",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32.5,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_huge_batch_size",
+    "contract": "training_request",
+    "reason": "batch_size máximo 256.",
+    "field": "params.batch_size",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 1024,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_learning_rate_above_one",
+    "contract": "training_request",
+    "reason": "learning_rate máximo 1.",
+    "field": "params.learning_rate",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 2.0,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_negative_dropout",
+    "contract": "training_request",
+    "reason": "dropout no puede ser negativo.",
+    "field": "params.dropout",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": -0.1,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_unknown_optimizer",
+    "contract": "training_request",
+    "reason": "optimizer fuera del catálogo.",
+    "field": "params.optimizer",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "rmsprop",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_zero_epochs",
+    "contract": "training_request",
+    "reason": "max_epochs debe ser >= 1.",
+    "field": "params.max_epochs",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 0,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_image_size_not_multiple_of_32",
+    "contract": "training_request",
+    "reason": "image_size debe ser múltiplo de 32.",
+    "field": "params.image_size",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 225,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_image_size_too_small",
+    "contract": "training_request",
+    "reason": "image_size mínimo 32.",
+    "field": "params.image_size",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 16,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_hidden_layer_zero_units",
+    "contract": "training_request",
+    "reason": "Cada capa oculta necesita al menos 1 neurona.",
+    "field": "params.hidden_layers",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          0
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_too_many_hidden_layers",
+    "contract": "training_request",
+    "reason": "Máximo 5 capas ocultas.",
+    "field": "params.hidden_layers",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          64,
+          64,
+          64,
+          64,
+          64,
+          64
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_hidden_layers_not_list",
+    "contract": "training_request",
+    "reason": "hidden_layers es una lista de enteros.",
+    "field": "params.hidden_layers",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": "512,256",
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_negative_seed",
+    "contract": "training_request",
+    "reason": "seed debe ser >= 0.",
+    "field": "params.seed",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": -1,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_zero_patience",
+    "contract": "training_request",
+    "reason": "patience debe ser >= 1.",
+    "field": "params.patience",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 0,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_patience_above_max_epochs",
+    "contract": "training_request",
+    "reason": "patience no puede superar max_epochs.",
+    "field": "params.patience",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 60,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_negative_min_delta",
+    "contract": "training_request",
+    "reason": "min_delta no puede ser negativo.",
+    "field": "params.min_delta",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": -0.01
+      }
+    }
+  },
+  {
+    "name": "request_missing_dropout",
+    "contract": "training_request",
+    "reason": "Todos los parámetros son obligatorios.",
+    "field": "params.dropout",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_unknown_param",
+    "contract": "training_request",
+    "reason": "No se aceptan parámetros desconocidos.",
+    "field": "params.momentum",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001,
+        "momentum": 0.9
+      }
+    }
+  },
+  {
+    "name": "request_bad_dataset_version",
+    "contract": "training_request",
+    "reason": "dataset_version debe ser un identificador.",
+    "field": "dataset_version",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "../v0.1.1",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "training_job_params_not_validated",
+    "contract": "training_jobs",
+    "reason": "Los params de un job cumplen TrainingParams.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 1.5,
+            "seed": 42,
+            "patience": 5,
+            "min_delta": 0.001
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "provenance_empty_outputs",
+    "contract": "provenance",
+    "reason": "Debe registrar al menos un output DVC.",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "dvc_outputs": []
+    }
+  },
+  {
+    "name": "provenance_bad_md5",
+    "contract": "provenance",
+    "reason": "md5 DVC son 32 hex (+ .dir).",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "dvc_outputs": [
+        {
+          "path": "images",
+          "md5": "not-a-hash",
+          "nfiles": 600
+        },
+        {
+          "path": "annotations",
+          "md5": "c9f0f895fb98ab9159f51fd0297e236d.dir",
+          "nfiles": 10
+        }
+      ]
+    }
+  },
+  {
+    "name": "manifest_ratios_do_not_match_counts",
+    "contract": "manifest",
+    "reason": "ratio = image_count / total_images.",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "total_images": 600,
+      "splits": {
+        "train": {
+          "image_count": 420,
+          "ratio": 0.7
+        },
+        "validation": {
+          "image_count": 120,
+          "ratio": 0.3
+        },
+        "test": {
+          "image_count": 60,
+          "ratio": 0.1
+        }
+      }
+    }
+  },
+  {
+    "name": "manifest_counts_do_not_sum",
+    "contract": "manifest",
+    "reason": "Los conteos suman total_images.",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "total_images": 600,
+      "splits": {
+        "train": {
+          "image_count": 420,
+          "ratio": 0.7
+        },
+        "validation": {
+          "image_count": 120,
+          "ratio": 0.2
+        },
+        "test": {
+          "image_count": 70,
+          "ratio": 0.1
+        }
       }
     }
   }

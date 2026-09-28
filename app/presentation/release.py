@@ -17,6 +17,13 @@ al hacer `dvc add` — es el mismo valor sin importar el remote, por
 construcción. Verificar que ambos remotes lo tengan de verdad es
 `dvc status -r dev`/`dvc status -r prod` reportando "in sync" (ver
 README.md, sección P2-45) — no hace falta reimplementarlo aquí.
+
+APP-02: ese md5 sí se congela junto al release, en
+`releases/<version>/provenance.json` (`ReleaseProvenance`), leído de los
+`*.dvc` de `dataset_dir`. Así la pantalla Training muestra el hash DVC de
+procedencia de cada release sin tocar el catálogo v1.0. Cortar el release
+después de `dvc add` (o con `dvc status` limpio): el `.dvc` es lo que se
+registra, no un recálculo del contenido.
 """
 
 import argparse
@@ -25,9 +32,13 @@ import logging
 import re
 from pathlib import Path
 
+import yaml
+from pydantic import ValidationError
+
 from policies.models import QualityPolicy
 from presentation.contracts import DatasetRelease, VersionsReport
 from presentation.gate import evaluate_dataset
+from presentation.ml_contracts import DvcOutput, ReleaseProvenance
 from presentation.splits import build_splits_report
 from splits.models import SplitsConfig, load_splits_config
 
@@ -40,6 +51,22 @@ def _load_catalog(catalog_path: Path) -> VersionsReport:
     if not catalog_path.exists():
         return VersionsReport(schema_version="1.0", releases=[])
     return VersionsReport.model_validate_json(catalog_path.read_text(encoding="utf-8"))
+
+
+def _read_dvc_outputs(dataset_dir: Path) -> list[DvcOutput]:
+    """`outs` de cada `*.dvc` de `dataset_dir`, ordenados por ruta; vacío si no hay."""
+    outputs: list[DvcOutput] = []
+    for dvc_file in sorted(dataset_dir.glob("*.dvc")):
+        try:
+            document = yaml.safe_load(dvc_file.read_text(encoding="utf-8"))
+            outs = document["outs"]
+            outputs.extend(
+                DvcOutput(path=out["path"], md5=out["md5"], nfiles=out.get("nfiles"))
+                for out in outs
+            )
+        except (yaml.YAMLError, KeyError, TypeError, ValidationError) as error:
+            raise ValueError(f"{dvc_file.name} no es un archivo .dvc válido: {error}") from error
+    return sorted(outputs, key=lambda output: output.path)
 
 
 def cut_release(
@@ -63,6 +90,9 @@ def cut_release(
     if any(release.dataset_version == version for release in catalog.releases):
         raise ValueError(f"el release {version!r} ya existe en el catálogo")
 
+    # Antes del gate: un .dvc roto aborta el release sin escribir nada.
+    dvc_outputs = _read_dvc_outputs(dataset_dir)
+
     # One configuration snapshot per operation; custom callers can inject it.
     splits_config = splits_config if splits_config is not None else load_splits_config()
     quality_report, split_result = evaluate_dataset(
@@ -83,6 +113,15 @@ def cut_release(
     (release_dir / "splits.json").write_text(
         splits_report.model_dump_json(indent=2), encoding="utf-8"
     )
+    if dvc_outputs:
+        provenance = ReleaseProvenance(
+            schema_version="1.0", dataset_version=version, dvc_outputs=dvc_outputs
+        )
+        (release_dir / "provenance.json").write_text(
+            provenance.model_dump_json(indent=2), encoding="utf-8"
+        )
+    else:
+        logger.warning("Release %s sin archivos .dvc: no se registra procedencia", version)
 
     release = DatasetRelease(
         dataset_version=version,

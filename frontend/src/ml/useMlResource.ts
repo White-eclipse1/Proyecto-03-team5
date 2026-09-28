@@ -33,7 +33,7 @@ class ResourceError extends Error {
   }
 }
 
-async function errorFromResponse(res: Response): Promise<ContractError> {
+export async function errorFromResponse(res: Response): Promise<ContractError> {
   if (res.status === 404) return NOT_CONNECTED;
   const body: unknown = await res.json().catch(() => null);
   const parsed = errorResponseSchema.safeParse(body);

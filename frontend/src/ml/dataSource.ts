@@ -1,14 +1,19 @@
+import { API_BASE_URL } from "@/lib/api/client";
 import {
+  type ContractError,
   type EvaluationsResponse,
   evaluationsResponseSchema,
   type ModelsResponse,
   modelsResponseSchema,
   type RunsResponse,
   runsResponseSchema,
+  type TrainingJob,
+  type TrainingJobRequest,
   type TrainingJobsResponse,
+  trainingJobSchema,
   trainingJobsResponseSchema,
 } from "./schemas";
-import { useMlResource } from "./useMlResource";
+import { errorFromResponse, useMlResource } from "./useMlResource";
 
 /**
  * Rutas del backend para las pantallas de modelos, relativas a `API_BASE_URL`.
@@ -49,4 +54,57 @@ export function useRegisteredModels() {
 
 export function useReadyModels() {
   return useMlResource(ML_ENDPOINTS.models, modelsResponseSchema, noReadyModels);
+}
+
+export type CreateTrainingJobResult =
+  | { ok: true; job: TrainingJob }
+  | { ok: false; error: ContractError };
+
+/**
+ * `POST /api/ml/training/jobs` con un request ya validado. El backend vuelve a
+ * validarlo con el mismo contrato (`TrainingJobRequest` en ml_contracts.py).
+ */
+export async function createTrainingJob(
+  request: TrainingJobRequest
+): Promise<CreateTrainingJobResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${ML_ENDPOINTS.trainingJobs}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "network_error",
+        message: "No se pudo contactar al servidor.",
+        retryable: true,
+      },
+    };
+  }
+  if (res.status === 404) {
+    return {
+      ok: false,
+      error: {
+        code: "source_not_connected",
+        message: "El servicio de entrenamiento todavía no está conectado; no se creó ningún job.",
+        retryable: true,
+      },
+    };
+  }
+  if (!res.ok) return { ok: false, error: await errorFromResponse(res) };
+  const parsed = trainingJobSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: {
+        code: "contract_mismatch",
+        message: "El servidor respondió, pero el job no cumple el contrato esperado.",
+        retryable: false,
+      },
+    };
+  }
+  return { ok: true, job: parsed.data };
 }

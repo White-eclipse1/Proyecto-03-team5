@@ -10,12 +10,25 @@ IDs are the real identifiers of each system, never display labels:
 - experiment_id / run_id: MLflow tracking IDs (numeric / 32 lowercase hex).
 - checkpoint: MLflow artifact URI `runs:/<run_id>/<path>` of the same run.
 - model_version: MLflow Model Registry version (positive integer as string).
+
+APP-02 adds the training request (`TrainingParams`, shared by the request and the
+job), the Quality Gate rule (`training_blocked_reason`), and the per-release
+files `releases/<version>/provenance.json` and `releases/<version>/manifest.json`.
 """
 
 from collections import Counter
+from math import isclose
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
 ManifestHash = Annotated[
@@ -65,6 +78,44 @@ class ErrorResponse(ContractModel):
     error: ContractError
 
 
+class TrainingParams(ContractModel):
+    """Hyperparameters of a training job; every field is required, no defaults."""
+
+    optimizer: Literal["adam", "adamw", "sgd"]
+    batch_size: int = Field(ge=1, le=256)
+    max_epochs: int = Field(ge=1, le=500)
+    learning_rate: float = Field(gt=0, le=1)
+    image_size: int = Field(ge=32, le=1024, multiple_of=32)
+    hidden_layers: list[Annotated[int, Field(ge=1, le=4096)]] = Field(max_length=5)
+    dropout: float = Field(ge=0, lt=1)
+    seed: int = Field(ge=0, le=2**31 - 1)
+    patience: int = Field(ge=1)
+    min_delta: float = Field(ge=0, le=1)
+
+    @field_validator("patience")
+    @classmethod
+    def patience_within_max_epochs(cls, patience: int, info: ValidationInfo) -> int:
+        max_epochs = info.data.get("max_epochs")
+        if max_epochs is not None and patience > max_epochs:
+            raise ValueError("patience cannot exceed max_epochs")
+        return patience
+
+
+class TrainingJobRequest(ContractModel):
+    """Body of `POST /api/ml/training/jobs`, validated before any job exists."""
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    params: TrainingParams
+
+
+def training_blocked_reason(quality_status: str) -> str | None:
+    """Quality Gate rule: a `failed` release can never be trained; warn does not block."""
+    if quality_status == "failed":
+        return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
+    return None
+
+
 TrainingStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
@@ -76,7 +127,7 @@ class TrainingJob(ContractModel):
     experiment_id: ExperimentId
     run_id: RunId | None
     checkpoint: Checkpoint | None
-    params: dict[str, str | int | float | bool]
+    params: TrainingParams
     created_at: Timestamp
     started_at: Timestamp | None
     finished_at: Timestamp | None
@@ -270,6 +321,58 @@ class InferenceResponse(ContractModel):
         return self
 
 
+class DvcOutput(ContractModel):
+    """One `outs` entry of a `.dvc` file: the content hash DVC computed."""
+
+    path: Label
+    md5: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}(\.dir)?$")]
+    nfiles: Count | None
+
+
+class ReleaseProvenance(ContractModel):
+    """`releases/<version>/provenance.json`, written by `cut_release`."""
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    dvc_outputs: list[DvcOutput] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_paths(self) -> Self:
+        require_unique([output.path for output in self.dvc_outputs], "path must be unique")
+        return self
+
+
+class ManifestSplit(ContractModel):
+    image_count: Count
+    ratio: Ratio
+
+
+class ManifestSplits(ContractModel):
+    train: ManifestSplit
+    validation: ManifestSplit
+    test: ManifestSplit
+
+
+class TrainingManifest(ContractModel):
+    """`releases/<version>/manifest.json`: the exact split used to train (70/20/10)."""
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    manifest_hash: ManifestHash
+    total_images: int = Field(gt=0)
+    splits: ManifestSplits
+
+    @model_validator(mode="after")
+    def counts_and_ratios_agree(self) -> Self:
+        splits = (self.splits.train, self.splits.validation, self.splits.test)
+        if sum(split.image_count for split in splits) != self.total_images:
+            raise ValueError("split counts must sum to total_images")
+        for split in splits:
+            if not isclose(split.ratio, split.image_count / self.total_images, abs_tol=1e-6):
+                raise ValueError("ratio must equal image_count / total_images")
+        return self
+
+
 CONTRACTS: dict[str, type[ContractModel]] = {
     "training_jobs": TrainingJobsResponse,
     "runs": RunsResponse,
@@ -277,4 +380,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "models": ModelsResponse,
     "inference": InferenceResponse,
     "error": ErrorResponse,
+    "training_request": TrainingJobRequest,
+    "provenance": ReleaseProvenance,
+    "manifest": TrainingManifest,
 }

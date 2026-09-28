@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ML_CONTRACTS, modelsResponseSchema } from "../src/ml/schemas";
+import { ML_CONTRACTS, modelsResponseSchema, trainingBlockedReason } from "../src/ml/schemas";
 import { loadInvalidCases, loadMlExample, type MlContractName } from "./mlCorpus";
 
 // APP-01: mismo corpus que `app/tests/test_ml_contracts.py` (Pydantic).
@@ -10,6 +10,9 @@ const CONTRACT_NAMES: MlContractName[] = [
   "models",
   "inference",
   "error",
+  "training_request",
+  "provenance",
+  "manifest",
 ];
 
 describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
@@ -46,6 +49,29 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
       expect(ML_CONTRACTS[invalid.contract].safeParse(invalid.document).success).toBe(false);
     }
   );
+
+  it.each(
+    loadInvalidCases()
+      .filter((c) => c.field !== undefined)
+      .map((c) => [c.name, c] as const)
+  )("señala el mismo campo que Pydantic en %s", (_name, invalid) => {
+    const result = ML_CONTRACTS[invalid.contract].safeParse(invalid.document);
+    // Zod reporta claves desconocidas en el objeto padre; Pydantic, en la propia clave.
+    const paths = (result.error?.issues ?? []).flatMap((issue) =>
+      issue.code === "unrecognized_keys"
+        ? issue.keys.map((key) => [...issue.path, key].join("."))
+        : [issue.path.join(".")]
+    );
+    expect(
+      paths.some((path) => path === invalid.field || path.startsWith(`${invalid.field}.`))
+    ).toBe(true);
+  });
+
+  it("aplica la misma regla de Quality Gate que Python", () => {
+    expect(trainingBlockedReason("failed")).not.toBeNull();
+    expect(trainingBlockedReason("warning")).toBeNull();
+    expect(trainingBlockedReason("passed")).toBeNull();
+  });
 
   it("mantiene dataset_version y model_version como campos distintos", () => {
     const parsed = modelsResponseSchema.parse(loadMlExample("models"));

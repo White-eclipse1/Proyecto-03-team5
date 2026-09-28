@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "demo-v1.0.0",
+  "params": {
+    "optimizer": "adam",
+    "batch_size": 32,
+    "max_epochs": 50,
+    "learning_rate": 0.001,
+    "image_size": 224,
+    "hidden_layers": [
+      512,
+      256
+    ],
+    "dropout": 0.2,
+    "seed": 42,
+    "patience": 5,
+    "min_delta": 0.001
+  }
+}

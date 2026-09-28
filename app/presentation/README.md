@@ -341,3 +341,43 @@ El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 (Zod). Si un contrato cambia en un solo lado, fallan los tests del otro. Al
 cambiar un contrato hay que actualizar ambos lados y el corpus en el mismo PR.
 Los ejemplos son solo para tests y desarrollo, nunca fuente de producción.
+
+## APP-02 — Pantalla Training: request, Quality Gate y procedencia
+
+`POST /api/ml/training/jobs` recibe un `TrainingJobRequest`
+(`{schema_version, dataset_version, params}`). `TrainingJob.params` usa el mismo
+`TrainingParams`. Todos los parámetros son obligatorios y no tienen valor por
+defecto en el contrato:
+
+| Parámetro | Regla |
+|---|---|
+| `optimizer` | `adam`, `adamw` o `sgd` |
+| `batch_size` | entero, 1–256 |
+| `max_epochs` | entero, 1–500 |
+| `learning_rate` | `0 < lr ≤ 1` |
+| `image_size` | entero, 32–1024, múltiplo de 32 |
+| `hidden_layers` | lista de enteros 1–4096, máximo 5 capas (`[]` = sin capas) |
+| `dropout` | `0 ≤ dropout < 1` |
+| `seed` | entero, 0–2147483647 |
+| `patience` | entero ≥ 1 y ≤ `max_epochs` |
+| `min_delta` | 0–1 |
+
+Los casos de `invalid_cases.json` que tienen `field` exigen que Pydantic y Zod
+rechacen el documento **y además** señalen ese mismo campo. El frontend valida con
+ese contrato antes de enviar nada, y el backend debe volver a validar con
+`TrainingJobRequest` antes de crear el job.
+
+**Quality Gate.** `training_blocked_reason(status)` (Python) y
+`trainingBlockedReason(status)` (TS) aplican la misma regla: un release `failed`
+no se entrena, y `warning`/`passed` sí (P2-31: warn no bloquea). Si el gate no se
+puede leer, la pantalla tampoco deja enviar.
+
+**Procedencia DVC.** `cut_release` escribe `releases/<v>/provenance.json`
+(`ReleaseProvenance`) con el `md5` de cada `*.dvc` de `dataset_dir`. Los lee antes
+de correr el gate, así que un `.dvc` roto aborta el release sin escribir nada.
+Los releases cortados antes de APP-02 (`v0.1.0` y `v0.1.1`) no tienen procedencia,
+y la pantalla lo dice explícitamente en lugar de inventar un hash.
+
+**Manifiesto.** `releases/<v>/manifest.json` (`TrainingManifest`) describe el
+split 70/20/10 del entrenamiento con su `manifest_hash`. Todavía no lo genera
+ningún proceso; la pantalla lo muestra solo cuando existe.

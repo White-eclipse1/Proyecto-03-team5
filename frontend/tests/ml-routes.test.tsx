@@ -120,7 +120,9 @@ describe("APP-01 estados de carga y error", () => {
     expect(await screen.findByText("El servicio de entrenamiento no respondió.")).toBeVisible();
     expect(screen.getByText("training_backend_unavailable")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    // Training también lee /reports (APP-02); aquí solo importa el endpoint de jobs.
+    const jobCalls = fetcher.mock.calls.filter(([url]) => url === "/api/ml/training/jobs");
+    expect(jobCalls).toHaveLength(2);
   });
 
   it("no ofrece reintentar cuando el error no es retryable", async () => {

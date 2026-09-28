@@ -13,12 +13,17 @@ export type MlContractName =
   | "evaluations"
   | "models"
   | "inference"
-  | "error";
+  | "error"
+  | "training_request"
+  | "provenance"
+  | "manifest";
 
 export interface InvalidCase {
   name: string;
   contract: MlContractName;
   reason: string;
+  /** Campo que ambos lados deben señalar (`params.batch_size`), si aplica. */
+  field?: string;
   document: unknown;
 }
 

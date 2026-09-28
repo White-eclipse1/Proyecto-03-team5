@@ -18,7 +18,9 @@ from presentation.ml_contracts import (
     InferenceResponse,
     ModelsResponse,
     RunsResponse,
+    TrainingJobRequest,
     TrainingJobsResponse,
+    training_blocked_reason,
 )
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
@@ -29,6 +31,9 @@ VALID = {
     "models": "models.json",
     "inference": "inference.json",
     "error": "error.json",
+    "training_request": "training_request.json",
+    "provenance": "provenance.json",
+    "manifest": "manifest.json",
 }
 
 
@@ -85,6 +90,68 @@ class SharedInvalidCasesTests(unittest.TestCase):
         for case in cases:
             with self.subTest(case=case["name"]), self.assertRaises(ValidationError):
                 CONTRACTS[case["contract"]].model_validate(case["document"])
+
+    def test_invalid_cases_point_at_the_declared_field(self):
+        """Pydantic y Zod deben señalar el mismo campo, no solo rechazar."""
+        cases = [case for case in load("invalid_cases.json") if "field" in case]
+        self.assertGreater(len(cases), 0)
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                with self.assertRaises(ValidationError) as raised:
+                    CONTRACTS[case["contract"]].model_validate(case["document"])
+                paths = [
+                    ".".join(str(part) for part in error["loc"])
+                    for error in raised.exception.errors()
+                ]
+                self.assertTrue(
+                    any(
+                        path == case["field"] or path.startswith(f"{case['field']}.")
+                        for path in paths
+                    ),
+                    f"{case['field']} no está en {paths}",
+                )
+
+
+class TrainingRequestTests(unittest.TestCase):
+    """APP-02: los parámetros del job y la regla del Quality Gate."""
+
+    def test_request_carries_all_required_hyperparameters(self):
+        request = TrainingJobRequest.model_validate(load("training_request.json"))
+        self.assertEqual(
+            set(type(request.params).model_fields),
+            {
+                "optimizer",
+                "batch_size",
+                "max_epochs",
+                "learning_rate",
+                "image_size",
+                "hidden_layers",
+                "dropout",
+                "seed",
+                "patience",
+                "min_delta",
+            },
+        )
+
+    def test_accepts_boundary_values(self):
+        document = load("training_request.json")
+        document["params"].update(
+            batch_size=1,
+            max_epochs=1,
+            patience=1,
+            learning_rate=1.0,
+            dropout=0.0,
+            image_size=32,
+            hidden_layers=[],
+            seed=0,
+            min_delta=0.0,
+        )
+        TrainingJobRequest.model_validate(document)
+
+    def test_failed_quality_gate_blocks_training(self):
+        self.assertIsNotNone(training_blocked_reason("failed"))
+        self.assertIsNone(training_blocked_reason("warning"))
+        self.assertIsNone(training_blocked_reason("passed"))
 
 
 class TraceabilityTests(unittest.TestCase):
