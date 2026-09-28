@@ -152,7 +152,7 @@ Cuando la CLI lo solicite, responde:
 | Pregunta | Valor |
 |---|---|
 | SSO session name | `mlops-p2` |
-| SSO start URL | `https://d-90667fbedf.awsapps.com/start` |
+| SSO start URL | `https://d-906661837a.awsapps.com/start` |
 | SSO region | `us-east-1` |
 | Registration scopes | `sso:account:access` |
 
