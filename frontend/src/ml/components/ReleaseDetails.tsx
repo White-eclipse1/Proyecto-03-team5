@@ -1,14 +1,32 @@
 import { useEffect, useMemo } from "react";
 import { useReleaseReport } from "@/pipeline/dataSource";
 import { type DatasetRelease, type QualityReport, reportReferenceSchema } from "@/pipeline/schemas";
-import { releaseProvenanceSchema, trainingBlockedReason, trainingManifestSchema } from "../schemas";
-import { useOptionalReport } from "../useOptionalReport";
+import {
+  type ReleaseProvenance,
+  releaseProvenanceSchema,
+  type TrainingManifest,
+  trainingBlockedReason,
+  trainingManifestSchema,
+} from "../schemas";
+import { type OptionalReportState, useOptionalReport } from "../useOptionalReport";
 
+/** `ok` trae lo que hace reproducible al job: gate, procedencia DVC y manifiesto. */
 export type GateState =
   | { kind: "checking" }
   | { kind: "unknown"; message: string }
   | { kind: "blocked"; reason: string }
-  | { kind: "ok" };
+  | {
+      kind: "ok";
+      qualityStatus: string;
+      provenance: ReleaseProvenance;
+      manifest: TrainingManifest;
+    };
+
+/** Un archivo que falta o no valida cuenta igual: no hay con qué reproducir el job. */
+function loadedOrNull<T>(state: OptionalReportState<T>): T | null | undefined {
+  if (state.status === "loading") return undefined;
+  return state.status === "success" ? state.data : null;
+}
 
 /** Clases con imágenes en el release (las categorías vacías no son entrenables). */
 function trainableClasses(report: QualityReport): { name: string; images: number }[] {
@@ -68,16 +86,31 @@ export function ReleaseDetails({
 
   const qualityStatus = quality.status === "success" ? quality.data.status : null;
   const qualityError = quality.status === "error" ? quality.message : null;
+  const provenanceData = loadedOrNull(provenance);
+  const manifestData = loadedOrNull(manifest);
   useEffect(() => {
     if (qualityError !== null) {
       onGateChange({ kind: "unknown", message: qualityError });
-    } else if (qualityStatus === null) {
+    } else if (
+      qualityStatus === null ||
+      provenanceData === undefined ||
+      manifestData === undefined
+    ) {
       onGateChange({ kind: "checking" });
     } else {
-      const reason = trainingBlockedReason(qualityStatus);
-      onGateChange(reason === null ? { kind: "ok" } : { kind: "blocked", reason });
+      const reason = trainingBlockedReason(qualityStatus, provenanceData, manifestData);
+      if (reason !== null || provenanceData === null || manifestData === null) {
+        onGateChange({ kind: "blocked", reason: reason ?? "" });
+      } else {
+        onGateChange({
+          kind: "ok",
+          qualityStatus,
+          provenance: provenanceData,
+          manifest: manifestData,
+        });
+      }
     }
-  }, [qualityStatus, qualityError, onGateChange]);
+  }, [qualityStatus, qualityError, provenanceData, manifestData, onGateChange]);
 
   return (
     <section

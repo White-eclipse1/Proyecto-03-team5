@@ -1,7 +1,12 @@
 import { type FormEvent, useCallback, useState } from "react";
 import { useVersionsReport } from "@/pipeline/dataSource";
 import { createTrainingJob } from "../dataSource";
-import { TRAINING_PARAM_NAMES, type TrainingJob, type TrainingParamName } from "../schemas";
+import {
+  TRAINING_PARAM_NAMES,
+  type TrainingJob,
+  type TrainingParamName,
+  trainingRequestRejection,
+} from "../schemas";
 import {
   DEFAULT_TRAINING_PARAMS,
   type RawTrainingParams,
@@ -81,8 +86,10 @@ function ParamInput({
 
 /**
  * APP-02: configura un training job sobre un release publicado de P2. Nada se
- * envía si el Quality Gate del release falló o si algún parámetro no cumple
- * `trainingJobRequestSchema` (el mismo contrato que valida el backend).
+ * envía si el Quality Gate del release falló, si falta o no valida su
+ * `provenance.json` DVC o su `manifest.json` 70/20/10, o si algún parámetro no
+ * cumple `trainingJobRequestSchema` (el mismo contrato que valida el backend). El
+ * job queda ligado al `manifest_hash` del manifiesto del release.
  */
 export function TrainingForm({ onCreated }: Readonly<{ onCreated: () => void }>) {
   const versions = useVersionsReport();
@@ -104,13 +111,25 @@ export function TrainingForm({ onCreated }: Readonly<{ onCreated: () => void }>)
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (release && gate.kind !== "ok") return;
-    const validation = validateTrainingForm(datasetVersion, params);
+    const manifestHash = gate.kind === "ok" ? gate.manifest.manifest_hash : "";
+    const validation = validateTrainingForm(datasetVersion, manifestHash, params);
     if (!validation.ok) {
       setErrors(validation.errors);
       setSubmit({ status: "invalid" });
       return;
     }
     setErrors({});
+    if (gate.kind !== "ok") return;
+    const rejection = trainingRequestRejection(
+      validation.request,
+      gate.qualityStatus,
+      gate.provenance,
+      gate.manifest
+    );
+    if (rejection !== null) {
+      setSubmit({ status: "failed", message: rejection });
+      return;
+    }
     setSubmit({ status: "submitting" });
     const result = await createTrainingJob(validation.request);
     if (result.ok) {

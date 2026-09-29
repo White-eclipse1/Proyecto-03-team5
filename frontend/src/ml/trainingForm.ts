@@ -54,10 +54,15 @@ function toLayers(raw: string): number[] | string {
     : raw;
 }
 
-export function toTrainingRequest(datasetVersion: string, raw: RawTrainingParams): unknown {
+export function toTrainingRequest(
+  datasetVersion: string,
+  manifestHash: string,
+  raw: RawTrainingParams
+): unknown {
   return {
     schema_version: "1.0",
     dataset_version: datasetVersion,
+    manifest_hash: manifestHash,
     params: {
       optimizer: raw.optimizer,
       batch_size: toNumber(raw.batch_size),
@@ -77,7 +82,10 @@ function isParamName(value: unknown): value is TrainingParamName {
   return TRAINING_PARAM_NAMES.includes(value as TrainingParamName);
 }
 
-/** Primer mensaje de cada campo; `dataset_version` se muestra junto al selector de release. */
+/**
+ * Primer mensaje de cada campo; `dataset_version` y `manifest_hash` vienen del
+ * release, así que se muestran junto a su selector.
+ */
 export function issuesToErrors(issues: readonly z.core.$ZodIssue[]): TrainingFormErrors {
   const errors: TrainingFormErrors = {};
   for (const issue of issues) {
@@ -92,12 +100,18 @@ export type TrainingValidation =
   | { ok: true; request: TrainingJobRequest }
   | { ok: false; errors: TrainingFormErrors };
 
-/** Validación completa antes de cualquier POST: mismo contrato que Python. */
+/**
+ * Validación completa antes de cualquier POST: mismo contrato que Python.
+ * `manifestHash` sale del manifiesto del release (vacío si no hay release listo).
+ */
 export function validateTrainingForm(
   datasetVersion: string,
+  manifestHash: string,
   raw: RawTrainingParams
 ): TrainingValidation {
-  const parsed = trainingJobRequestSchema.safeParse(toTrainingRequest(datasetVersion, raw));
+  const parsed = trainingJobRequestSchema.safeParse(
+    toTrainingRequest(datasetVersion, manifestHash, raw)
+  );
   if (parsed.success) return { ok: true, request: parsed.data };
   return { ok: false, errors: issuesToErrors(parsed.error.issues) };
 }

@@ -18,11 +18,14 @@ from presentation.ml_contracts import (
     InferenceRequest,
     InferenceResponse,
     ModelsResponse,
+    ReleaseProvenance,
     RunsResponse,
     TrainingJobRequest,
     TrainingJobsResponse,
+    TrainingManifest,
     TrainingParams,
     training_blocked_reason,
+    training_request_rejection,
 )
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
@@ -151,10 +154,46 @@ class TrainingRequestTests(unittest.TestCase):
         )
         TrainingJobRequest.model_validate(document)
 
+    def release_files(self):
+        return (
+            ReleaseProvenance.model_validate(load("provenance.json")),
+            TrainingManifest.model_validate(load("manifest.json")),
+        )
+
     def test_failed_quality_gate_blocks_training(self):
-        self.assertIsNotNone(training_blocked_reason("failed"))
-        self.assertIsNone(training_blocked_reason("warning"))
-        self.assertIsNone(training_blocked_reason("passed"))
+        provenance, manifest = self.release_files()
+        self.assertIsNotNone(training_blocked_reason("failed", provenance, manifest))
+        self.assertIsNone(training_blocked_reason("warning", provenance, manifest))
+        self.assertIsNone(training_blocked_reason("passed", provenance, manifest))
+
+    def test_missing_provenance_or_manifest_blocks_training(self):
+        provenance, manifest = self.release_files()
+        self.assertIn("provenance.json", training_blocked_reason("passed", None, manifest))
+        self.assertIn("manifest.json", training_blocked_reason("passed", provenance, None))
+        other = manifest.model_copy(update={"dataset_version": "demo-v2.0.0"})
+        self.assertIsNotNone(training_blocked_reason("passed", provenance, other))
+
+    def test_request_is_bound_to_the_release_manifest_hash(self):
+        provenance, manifest = self.release_files()
+        request = TrainingJobRequest.model_validate(load("training_request.json"))
+        self.assertEqual(request.manifest_hash, manifest.manifest_hash)
+        self.assertIsNone(training_request_rejection(request, "warning", provenance, manifest))
+        for update, message in (
+            ({"manifest_hash": "md5:" + "0" * 32}, "manifest_hash"),
+            ({"dataset_version": "demo-v2.0.0"}, "release solicitado"),
+        ):
+            with self.subTest(update=update):
+                other = request.model_copy(update=update)
+                reason = training_request_rejection(other, "warning", provenance, manifest)
+                self.assertIn(message, reason)
+        self.assertIsNotNone(training_request_rejection(request, "passed", None, manifest))
+
+    def test_manifest_accepts_integer_rounding_of_70_20_10(self):
+        document = load("manifest.json")
+        document["total_images"] = 601
+        for name, count in (("train", 421), ("validation", 120), ("test", 60)):
+            document["splits"][name] = {"image_count": count, "ratio": count / 601}
+        TrainingManifest.model_validate(document)
 
 
 class ClassificationContractTests(unittest.TestCase):

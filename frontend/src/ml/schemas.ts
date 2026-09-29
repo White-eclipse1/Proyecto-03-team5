@@ -163,20 +163,17 @@ export const trainingParamsSchema = z
   });
 export type TrainingParams = z.infer<typeof trainingParamsSchema>;
 
-/** Body de `POST /api/ml/training/jobs`, validado antes de que exista cualquier job. */
+/**
+ * Body de `POST /api/ml/training/jobs`, validado antes de que exista cualquier job.
+ * `manifest_hash` fija el job al manifiesto 70/20/10 exacto del release.
+ */
 export const trainingJobRequestSchema = z.strictObject({
   schema_version: schemaVersionSchema,
   dataset_version: identifierSchema,
+  manifest_hash: manifestHashSchema,
   params: trainingParamsSchema,
 });
 export type TrainingJobRequest = z.infer<typeof trainingJobRequestSchema>;
-
-/** Regla del Quality Gate, igual que `training_blocked_reason` en Python. */
-export function trainingBlockedReason(qualityStatus: string): string | null {
-  return qualityStatus === "failed"
-    ? "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
-    : null;
-}
 
 export const trainingStatusSchema = z.enum([
   "queued",
@@ -484,6 +481,7 @@ export const releaseProvenanceSchema = z
 export type ReleaseProvenance = z.infer<typeof releaseProvenanceSchema>;
 
 const manifestSplitSchema = z.strictObject({ image_count: countSchema, ratio: ratioSchema });
+export const SPLIT_TARGETS = { train: 0.7, validation: 0.2, test: 0.1 } as const;
 
 export const trainingManifestSchema = z
   .strictObject({
@@ -510,8 +508,62 @@ export const trainingManifestSchema = z
     ) {
       context.addIssue({ code: "custom", message: "ratio = image_count / total_images" });
     }
+    // 70/20/10 salvo redondeo entero: menos de una imagen de distancia al objetivo.
+    for (const [name, target] of Object.entries(SPLIT_TARGETS)) {
+      const split = manifest.splits[name as keyof typeof SPLIT_TARGETS];
+      if (Math.abs(split.image_count - target * manifest.total_images) >= 1) {
+        context.addIssue({
+          code: "custom",
+          message: `${name} debe ser el ${Math.round(target * 100)}% de total_images`,
+        });
+      }
+    }
   });
 export type TrainingManifest = z.infer<typeof trainingManifestSchema>;
+
+/**
+ * Igual que `training_blocked_reason` en Python: `null` si el release se puede
+ * entrenar de forma reproducible. Un Quality Gate `failed` bloquea (warning no), y
+ * también falta o invalidez de la procedencia DVC o del manifiesto 70/20/10: pasa
+ * `null` en cualquiera de los dos si el archivo falta o no valida.
+ */
+export function trainingBlockedReason(
+  qualityStatus: string,
+  provenance: ReleaseProvenance | null,
+  manifest: TrainingManifest | null
+): string | null {
+  if (qualityStatus === "failed") {
+    return "El release no pasó el Quality Gate (failed); no se puede entrenar con él.";
+  }
+  if (provenance === null) {
+    return "El release no tiene un provenance.json de DVC válido; no se puede entrenar de forma reproducible.";
+  }
+  if (manifest === null) {
+    return "El release no tiene un manifest.json 70/20/10 válido; no se puede entrenar de forma reproducible.";
+  }
+  if (provenance.dataset_version !== manifest.dataset_version) {
+    return "La procedencia y el manifiesto corresponden a releases distintos.";
+  }
+  return null;
+}
+
+/** Igual que `training_request_rejection`: lo que revisa el POST antes de crear el job. */
+export function trainingRequestRejection(
+  request: TrainingJobRequest,
+  qualityStatus: string,
+  provenance: ReleaseProvenance | null,
+  manifest: TrainingManifest | null
+): string | null {
+  const reason = trainingBlockedReason(qualityStatus, provenance, manifest);
+  if (reason !== null || manifest === null) return reason;
+  if (manifest.dataset_version !== request.dataset_version) {
+    return "El manifiesto no corresponde al release solicitado.";
+  }
+  if (manifest.manifest_hash !== request.manifest_hash) {
+    return "El manifest_hash no coincide con el manifiesto del release.";
+  }
+  return null;
+}
 
 /** Mismo mapa que `CONTRACTS` en ml_contracts.py; los tests exigen que coincidan. */
 export const ML_CONTRACTS = {

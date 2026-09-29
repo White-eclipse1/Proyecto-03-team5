@@ -53,13 +53,14 @@ function json(body: unknown, status = 200) {
   );
 }
 
+/** Por defecto el release v0.1.1 está listo: procedencia DVC y manifiesto 70/20/10 válidos. */
 interface ServeOptions {
-  manifest?: boolean;
-  provenance?: boolean;
+  manifest?: unknown;
+  provenance?: unknown;
   post?: () => Promise<Response>;
 }
 
-function serve({ manifest = false, provenance = true, post }: ServeOptions = {}) {
+function serve({ manifest = MANIFEST, provenance = PROVENANCE, post }: ServeOptions = {}) {
   const posts: unknown[] = [];
   const fetcher = vi.fn((url: string, init?: RequestInit) => {
     if (url === "/api/ml/training/jobs" && init?.method === "POST") {
@@ -74,8 +75,10 @@ function serve({ manifest = false, provenance = true, post }: ServeOptions = {})
     if (release) {
       const [, version = "", file] = release;
       if (file === "quality") return json(QUALITY[version]);
-      if (file === "provenance" && provenance && version === "v0.1.1") return json(PROVENANCE);
-      if (file === "manifest" && manifest && version === "v0.1.1") return json(MANIFEST);
+      if (file === "provenance" && provenance !== null && version === "v0.1.1") {
+        return json(provenance);
+      }
+      if (file === "manifest" && manifest !== null && version === "v0.1.1") return json(manifest);
     }
     return json({}, 404);
   });
@@ -101,6 +104,15 @@ async function selectRelease(version: string) {
 
 function setParam(name: string, value: string) {
   fireEvent.change(screen.getByLabelText(name), { target: { value } });
+}
+
+function trainButton() {
+  return screen.getByRole("button", { name: "Crear training job" });
+}
+
+/** El botón se habilita cuando gate, procedencia y manifiesto ya se verificaron. */
+async function waitForReadyRelease() {
+  await waitFor(() => expect(trainButton()).toBeEnabled());
 }
 
 function submit() {
@@ -137,18 +149,26 @@ describe("APP-02 release del Proyecto 2", () => {
     expect(within(details).queryByText(/person/)).not.toBeInTheDocument();
   });
 
-  it("dice explícitamente cuando el release no tiene hash DVC registrado", async () => {
-    serve({ provenance: false });
+  it("sin provenance.json DVC no deja entrenar", async () => {
+    const { fetcher } = serve({ provenance: null });
     openTraining();
     await selectRelease("v0.1.1");
 
     expect(
       await screen.findByText("Hash DVC no registrado para este release.")
     ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "El release no tiene un provenance.json de DVC válido; no se puede entrenar de forma reproducible."
+      )
+    ).toBeVisible();
+    expect(trainButton()).toBeDisabled();
+    submit();
+    expect(postCalls(fetcher)).toHaveLength(0);
   });
 
-  it("muestra el manifiesto 70/20/10 solo cuando existe", async () => {
-    serve({ manifest: true });
+  it("muestra el manifiesto 70/20/10 cuando existe", async () => {
+    serve();
     openTraining();
     await selectRelease("v0.1.1");
 
@@ -160,14 +180,51 @@ describe("APP-02 release del Proyecto 2", () => {
     expect(within(details).getByText("md5:5d41402abc4b2a76b9719d911017c592")).toBeInTheDocument();
   });
 
-  it("indica que el manifiesto todavía no está disponible", async () => {
-    serve();
+  it("sin manifest.json no deja entrenar", async () => {
+    const { fetcher } = serve({ manifest: null });
     openTraining();
     await selectRelease("v0.1.1");
 
     expect(
       await screen.findByText("El manifiesto 70/20/10 de este release todavía no está disponible.")
     ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "El release no tiene un manifest.json 70/20/10 válido; no se puede entrenar de forma reproducible."
+      )
+    ).toBeVisible();
+    expect(trainButton()).toBeDisabled();
+    submit();
+    expect(postCalls(fetcher)).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "no es 70/20/10",
+      {
+        ...MANIFEST,
+        splits: {
+          train: { image_count: 360, ratio: 0.6 },
+          validation: { image_count: 180, ratio: 0.3 },
+          test: { image_count: 60, ratio: 0.1 },
+        },
+      },
+    ],
+    ["es de otro release", { ...MANIFEST, dataset_version: "v0.1.0" }],
+  ])("un manifest.json que %s no deja entrenar", async (_case, manifest) => {
+    const { fetcher } = serve({ manifest });
+    openTraining();
+    await selectRelease("v0.1.1");
+
+    expect(await screen.findByText(/No se pudo leer el manifiesto/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "El release no tiene un manifest.json 70/20/10 válido; no se puede entrenar de forma reproducible."
+      )
+    ).toBeVisible();
+    expect(trainButton()).toBeDisabled();
+    submit();
+    expect(postCalls(fetcher)).toHaveLength(0);
   });
 
   it("un Quality Gate fallido impide iniciar el entrenamiento", async () => {
@@ -224,7 +281,7 @@ describe("APP-02 parámetros del entrenamiento", () => {
     const { fetcher } = serve();
     openTraining();
     await selectRelease("v0.1.1");
-    await screen.findByText("warning");
+    await waitForReadyRelease();
 
     setParam(name, value);
     submit();
@@ -248,11 +305,11 @@ describe("APP-02 parámetros del entrenamiento", () => {
     expect(postCalls(fetcher)).toHaveLength(0);
   });
 
-  it("envía un TrainingJobRequest válido y muestra el job creado", async () => {
-    const { posts } = serve();
+  it("con procedencia DVC y manifiesto 70/20/10 válidos, envía un request ligado al manifest_hash", async () => {
+    const { posts } = serve({ provenance: PROVENANCE, manifest: MANIFEST });
     openTraining();
     await selectRelease("v0.1.1");
-    await screen.findByText("warning");
+    await waitForReadyRelease();
 
     setParam("optimizer", "sgd");
     setParam("batch_size", "64");
@@ -264,6 +321,7 @@ describe("APP-02 parámetros del entrenamiento", () => {
       {
         schema_version: "1.0",
         dataset_version: "v0.1.1",
+        manifest_hash: "md5:5d41402abc4b2a76b9719d911017c592",
         params: {
           optimizer: "sgd",
           batch_size: 64,
@@ -297,7 +355,7 @@ describe("APP-02 parámetros del entrenamiento", () => {
     });
     openTraining();
     await selectRelease("v0.1.1");
-    await screen.findByText("warning");
+    await waitForReadyRelease();
 
     submit();
 
@@ -310,7 +368,7 @@ describe("APP-02 parámetros del entrenamiento", () => {
     serve({ post: () => json({}, 404) });
     openTraining();
     await selectRelease("v0.1.1");
-    await screen.findByText("warning");
+    await waitForReadyRelease();
 
     submit();
 

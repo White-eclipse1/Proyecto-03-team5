@@ -143,18 +143,16 @@ class TrainingParams(ContractModel):
 
 
 class TrainingJobRequest(ContractModel):
-    """Body of `POST /api/ml/training/jobs`, validated before any job exists."""
+    """Body of `POST /api/ml/training/jobs`, validated before any job exists.
+
+    `manifest_hash` pins the job to the exact 70/20/10 manifest of the release;
+    `training_request_rejection` checks it against `releases/<v>/manifest.json`.
+    """
 
     schema_version: Literal["1.0"]
     dataset_version: Identifier
+    manifest_hash: ManifestHash
     params: TrainingParams
-
-
-def training_blocked_reason(quality_status: str) -> str | None:
-    """Quality Gate rule: a `failed` release can never be trained; warn does not block."""
-    if quality_status == "failed":
-        return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
-    return None
 
 
 TrainingStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
@@ -462,8 +460,15 @@ class ManifestSplits(ContractModel):
     test: ManifestSplit
 
 
+SPLIT_TARGETS = {"train": 0.7, "validation": 0.2, "test": 0.1}
+
+
 class TrainingManifest(ContractModel):
-    """`releases/<version>/manifest.json`: the exact split used to train (70/20/10)."""
+    """`releases/<version>/manifest.json`: the exact split used to train (70/20/10).
+
+    Each split must hold its target share up to integer rounding: its image_count
+    is less than one image away from `target * total_images`.
+    """
 
     schema_version: Literal["1.0"]
     dataset_version: Identifier
@@ -480,6 +485,59 @@ class TrainingManifest(ContractModel):
             if not isclose(split.ratio, split.image_count / self.total_images, abs_tol=1e-6):
                 raise ValueError("ratio must equal image_count / total_images")
         return self
+
+    @model_validator(mode="after")
+    def split_is_70_20_10(self) -> Self:
+        for name, target in SPLIT_TARGETS.items():
+            count = getattr(self.splits, name).image_count
+            if abs(count - target * self.total_images) >= 1:
+                raise ValueError(f"{name} must be {target:.0%} of total_images")
+        return self
+
+
+def training_blocked_reason(
+    quality_status: str,
+    provenance: ReleaseProvenance | None,
+    manifest: TrainingManifest | None,
+) -> str | None:
+    """Whether a release can be trained reproducibly; `None` means it can.
+
+    A `failed` Quality Gate blocks (warn does not), and so does a missing or
+    invalid DVC provenance or 70/20/10 manifest: pass `None` for either when the
+    file is missing or does not validate.
+    """
+    if quality_status == "failed":
+        return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
+    if provenance is None:
+        return (
+            "El release no tiene un provenance.json de DVC válido; "
+            "no se puede entrenar de forma reproducible."
+        )
+    if manifest is None:
+        return (
+            "El release no tiene un manifest.json 70/20/10 válido; "
+            "no se puede entrenar de forma reproducible."
+        )
+    if provenance.dataset_version != manifest.dataset_version:
+        return "La procedencia y el manifiesto corresponden a releases distintos."
+    return None
+
+
+def training_request_rejection(
+    request: TrainingJobRequest,
+    quality_status: str,
+    provenance: ReleaseProvenance | None,
+    manifest: TrainingManifest | None,
+) -> str | None:
+    """What `POST /api/ml/training/jobs` checks, after the contract, before creating a job."""
+    reason = training_blocked_reason(quality_status, provenance, manifest)
+    if reason is not None:
+        return reason
+    if manifest.dataset_version != request.dataset_version:
+        return "El manifiesto no corresponde al release solicitado."
+    if manifest.manifest_hash != request.manifest_hash:
+        return "El manifest_hash no coincide con el manifiesto del release."
+    return None
 
 
 CONTRACTS: dict[str, type[ContractModel]] = {

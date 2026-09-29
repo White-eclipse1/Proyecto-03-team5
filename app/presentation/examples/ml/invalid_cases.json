@@ -5020,6 +5020,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": -1,
@@ -5045,6 +5046,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5070,6 +5072,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5095,6 +5098,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5120,6 +5124,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5145,6 +5150,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32.5,
@@ -5170,6 +5176,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 1024,
@@ -5195,6 +5202,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5220,6 +5228,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5245,6 +5254,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "rmsprop",
         "batch_size": 32,
@@ -5270,6 +5280,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5295,6 +5306,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5320,6 +5332,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5345,6 +5358,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5370,6 +5384,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5399,6 +5414,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5421,6 +5437,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5446,6 +5463,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5471,6 +5489,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5496,6 +5515,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5521,6 +5541,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5545,6 +5566,7 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5571,6 +5593,58 @@
     "document": {
       "schema_version": "1.0",
       "dataset_version": "../v0.1.1",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_missing_manifest_hash",
+    "contract": "training_request",
+    "reason": "El job se liga al manifest_hash del release.",
+    "field": "manifest_hash",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": 32,
+        "max_epochs": 50,
+        "learning_rate": 0.001,
+        "image_size": 224,
+        "hidden_layers": [
+          512,
+          256
+        ],
+        "dropout": 0.2,
+        "seed": 42,
+        "patience": 5,
+        "min_delta": 0.001
+      }
+    }
+  },
+  {
+    "name": "request_bad_manifest_hash",
+    "contract": "training_request",
+    "reason": "manifest_hash debe ser md5:<32 hex> o sha256:<64 hex>.",
+    "field": "manifest_hash",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "5d41402abc4b2a76b9719d911017c592",
       "params": {
         "optimizer": "adam",
         "batch_size": 32,
@@ -5702,6 +5776,56 @@
         },
         "test": {
           "image_count": 70,
+          "ratio": 0.1
+        }
+      }
+    }
+  },
+  {
+    "name": "manifest_not_70_20_10",
+    "contract": "manifest",
+    "reason": "El manifiesto debe ser 70/20/10.",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "total_images": 600,
+      "splits": {
+        "train": {
+          "image_count": 360,
+          "ratio": 0.6
+        },
+        "validation": {
+          "image_count": 180,
+          "ratio": 0.3
+        },
+        "test": {
+          "image_count": 60,
+          "ratio": 0.1
+        }
+      }
+    }
+  },
+  {
+    "name": "manifest_split_off_by_more_than_rounding",
+    "contract": "manifest",
+    "reason": "Cada split queda a menos de una imagen de su objetivo.",
+    "document": {
+      "schema_version": "1.0",
+      "dataset_version": "demo-v1.0.0",
+      "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "total_images": 600,
+      "splits": {
+        "train": {
+          "image_count": 418,
+          "ratio": 0.6966666666666667
+        },
+        "validation": {
+          "image_count": 122,
+          "ratio": 0.20333333333333334
+        },
+        "test": {
+          "image_count": 60,
           "ratio": 0.1
         }
       }

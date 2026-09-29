@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0",
   "dataset_version": "demo-v1.0.0",
+  "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
   "params": {
     "optimizer": "adam",
     "batch_size": 32,

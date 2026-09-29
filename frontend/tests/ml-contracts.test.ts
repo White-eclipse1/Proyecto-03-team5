@@ -3,7 +3,11 @@ import {
   evaluationsResponseSchema,
   ML_CONTRACTS,
   modelsResponseSchema,
+  releaseProvenanceSchema,
   trainingBlockedReason,
+  trainingJobRequestSchema,
+  trainingManifestSchema,
+  trainingRequestRejection,
 } from "../src/ml/schemas";
 import { loadInvalidCases, loadMlExample, type MlContractName } from "./mlCorpus";
 
@@ -73,10 +77,41 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
     ).toBe(true);
   });
 
-  it("aplica la misma regla de Quality Gate que Python", () => {
-    expect(trainingBlockedReason("failed")).not.toBeNull();
-    expect(trainingBlockedReason("warning")).toBeNull();
-    expect(trainingBlockedReason("passed")).toBeNull();
+  it("aplica la misma regla de bloqueo que Python", () => {
+    const provenance = releaseProvenanceSchema.parse(loadMlExample("provenance"));
+    const manifest = trainingManifestSchema.parse(loadMlExample("manifest"));
+    expect(trainingBlockedReason("failed", provenance, manifest)).not.toBeNull();
+    expect(trainingBlockedReason("warning", provenance, manifest)).toBeNull();
+    expect(trainingBlockedReason("passed", provenance, manifest)).toBeNull();
+    expect(trainingBlockedReason("passed", null, manifest)).toContain("provenance.json");
+    expect(trainingBlockedReason("passed", provenance, null)).toContain("manifest.json");
+    expect(
+      trainingBlockedReason("passed", provenance, { ...manifest, dataset_version: "demo-v2.0.0" })
+    ).not.toBeNull();
+  });
+
+  it("liga el request al manifest_hash del release, como training_request_rejection", () => {
+    const provenance = releaseProvenanceSchema.parse(loadMlExample("provenance"));
+    const manifest = trainingManifestSchema.parse(loadMlExample("manifest"));
+    const request = trainingJobRequestSchema.parse(loadMlExample("training_request"));
+    expect(request.manifest_hash).toBe(manifest.manifest_hash);
+    expect(trainingRequestRejection(request, "warning", provenance, manifest)).toBeNull();
+    expect(
+      trainingRequestRejection(
+        { ...request, manifest_hash: `md5:${"0".repeat(32)}` },
+        "warning",
+        provenance,
+        manifest
+      )
+    ).toContain("manifest_hash");
+    expect(
+      trainingRequestRejection(
+        { ...request, dataset_version: "demo-v2.0.0" },
+        "warning",
+        provenance,
+        manifest
+      )
+    ).toContain("release solicitado");
   });
 
   it("mantiene dataset_version y model_version como campos distintos", () => {

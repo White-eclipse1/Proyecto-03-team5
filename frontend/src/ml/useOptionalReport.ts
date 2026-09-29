@@ -9,7 +9,7 @@ export type OptionalReportState<T> =
 
 /**
  * Como `useReportFetch` (pipeline/), pero un 404 es un estado propio
- * (`missing`): el archivo es opcional por diseño, p. ej. la procedencia de un
+ * (`missing`) para poder decir qué archivo falta, p. ej. la procedencia de un
  * release cortado antes de APP-02 o el manifiesto 70/20/10 que aún no existe.
  */
 export function useOptionalReport<T>(url: string | null, schema: ZodType<T>) {
