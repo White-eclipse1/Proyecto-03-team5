@@ -151,7 +151,7 @@ describe("APP-01 estados de carga y error", () => {
     expect(
       await screen.findByText("La respuesta no cumple el contrato esperado.")
     ).toBeVisible();
-    expect(screen.queryByText("pet-detector")).not.toBeInTheDocument();
+    expect(screen.queryByText("pet-classifier")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -191,20 +191,23 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     serveExamples();
     openAt("/ml/experiments");
 
-    const row = (await screen.findByText("yolo-imgsz640")).closest("tr")!;
+    const row = (await screen.findByText("mlp-512-256-adam")).closest("tr")!;
     expect(within(row).getByText("0a1b2c3d4e5f60718293a4b5c6d7e8f9")).toBeInTheDocument();
     expect(within(row).getByText("FINISHED")).toBeInTheDocument();
-    expect(within(row).getByText("val_map50: 0.781")).toBeInTheDocument();
+    expect(within(row).getByText("val_accuracy_top1: 0.875")).toBeInTheDocument();
   });
 
-  it("Evaluation separa model_version de dataset_version", async () => {
+  it("Evaluation muestra métricas de clasificación y separa model_version de dataset_version", async () => {
     serveExamples();
     openAt("/ml/evaluation");
 
     const row = (await screen.findByText("eval-0002")).closest("tr")!;
-    expect(within(row).getByText("pet-detector v3")).toBeInTheDocument();
+    expect(within(row).getByText("pet-classifier v3")).toBeInTheDocument();
     expect(within(row).getByText("demo-v1.0.0")).toBeInTheDocument();
-    expect(within(row).getByText("0.772")).toBeInTheDocument();
+    expect(within(row).getByText("0.800")).toBeInTheDocument();
+    expect(within(row).getByText("0.792")).toBeInTheDocument();
+    expect(within(row).getByText("10")).toBeInTheDocument();
+    expect(screen.queryByText("mAP50")).not.toBeInTheDocument();
     const unregistered = screen.getByText("eval-0001").closest("tr")!;
     expect(within(unregistered).getByText("Sin registrar")).toBeInTheDocument();
   });
@@ -214,7 +217,7 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     openAt("/ml/models");
 
     const row = (await screen.findByText("champion")).closest("tr")!;
-    expect(within(row).getByText("pet-detector")).toBeInTheDocument();
+    expect(within(row).getByText("pet-classifier")).toBeInTheDocument();
     expect(within(row).getByText("3")).toBeInTheDocument();
     expect(within(row).getByText("demo-v1.0.0")).toBeInTheDocument();
     expect(within(row).getByText("READY")).toBeInTheDocument();
@@ -228,19 +231,20 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     serve(() => json(models));
     openAt("/ml/inference");
 
-    expect(await screen.findByText("pet-detector v3")).toBeVisible();
-    expect(screen.queryByText("pet-detector v2")).not.toBeInTheDocument();
+    expect(await screen.findByText("pet-classifier v3")).toBeVisible();
+    expect(screen.queryByText("pet-classifier v2")).not.toBeInTheDocument();
   });
 
-  it("InferenceResult muestra predicciones trazables al modelo y dataset", () => {
+  it("InferenceResult muestra la clase del recorte con sus probabilidades, trazable al modelo", () => {
     const response = inferenceResponseSchema.parse(loadMlExample("inference"));
     render(<InferenceResult response={response} />);
 
-    expect(screen.getByText("pet-detector v3")).toBeInTheDocument();
+    expect(screen.getByText("pet-classifier v3")).toBeInTheDocument();
     expect(screen.getByText("demo-v1.0.0")).toBeInTheDocument();
     expect(screen.getByText("0a1b2c3d4e5f60718293a4b5c6d7e8f9")).toBeInTheDocument();
-    const row = screen.getByText("dog").closest("tr")!;
-    expect(within(row).getByText("91.2%")).toBeInTheDocument();
-    expect(within(row).getByText("[32, 40.5, 210, 300]")).toBeInTheDocument();
+    expect(screen.getByText("demo-v1.0.0 · img 42 · ann 1007")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows.map((row) => row.textContent)).toEqual(["dog91.2%", "cat8.8%"]);
+    expect(screen.queryByText(/bbox/i)).not.toBeInTheDocument();
   });
 });

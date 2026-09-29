@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ML_CONTRACTS, modelsResponseSchema, trainingBlockedReason } from "../src/ml/schemas";
+import {
+  evaluationsResponseSchema,
+  ML_CONTRACTS,
+  modelsResponseSchema,
+  trainingBlockedReason,
+} from "../src/ml/schemas";
 import { loadInvalidCases, loadMlExample, type MlContractName } from "./mlCorpus";
 
 // APP-01: mismo corpus que `app/tests/test_ml_contracts.py` (Pydantic).
@@ -8,6 +13,7 @@ const CONTRACT_NAMES: MlContractName[] = [
   "runs",
   "evaluations",
   "models",
+  "inference_request",
   "inference",
   "error",
   "training_request",
@@ -83,5 +89,17 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
       models: [{ ...model, model_version: model.dataset_version }],
     };
     expect(modelsResponseSchema.safeParse(swapped).success).toBe(false);
+  });
+
+  it("acepta métricas redondeadas a 3 decimales y rechaza desvíos mayores", () => {
+    const parsed = evaluationsResponseSchema.parse(loadMlExample("evaluations"));
+    const withAccuracy = (accuracy_top1: number) => ({
+      ...parsed,
+      evaluations: [
+        { ...parsed.evaluations[0]!, metrics: { ...parsed.evaluations[0]!.metrics, accuracy_top1 } },
+      ],
+    });
+    expect(evaluationsResponseSchema.safeParse(withAccuracy(0.8005)).success).toBe(true);
+    expect(evaluationsResponseSchema.safeParse(withAccuracy(0.802)).success).toBe(false);
   });
 });

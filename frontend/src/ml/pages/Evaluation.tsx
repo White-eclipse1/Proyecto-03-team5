@@ -9,7 +9,10 @@ export function EvaluationPage() {
   const evaluations = useEvaluations();
 
   return (
-    <MlPage title="Evaluation" subtitle="Métricas de cada checkpoint sobre validation o test.">
+    <MlPage
+      title="Evaluation"
+      subtitle="Métricas de clasificación de cada checkpoint sobre validation o test."
+    >
       <MlResourceBoundary state={evaluations} emptyMessage="Todavía no hay evaluaciones.">
         {(response) => (
           <DataTable
@@ -19,10 +22,9 @@ export function EvaluationPage() {
               "Modelo",
               "Dataset",
               "Split",
-              "mAP50",
-              "mAP50-95",
-              "Precision",
-              "Recall",
+              "Accuracy top-1",
+              "F1 macro",
+              "Recortes",
               "Run MLflow",
             ]}
           >
@@ -38,10 +40,9 @@ export function EvaluationPage() {
                 </Cell>
                 <Cell mono>{evaluation.dataset_version}</Cell>
                 <Cell>{evaluation.split}</Cell>
-                <Cell mono>{metric(evaluation.metrics.map50)}</Cell>
-                <Cell mono>{metric(evaluation.metrics.map50_95)}</Cell>
-                <Cell mono>{metric(evaluation.metrics.precision)}</Cell>
-                <Cell mono>{metric(evaluation.metrics.recall)}</Cell>
+                <Cell mono>{metric(evaluation.metrics.accuracy_top1)}</Cell>
+                <Cell mono>{metric(evaluation.metrics.f1_macro)}</Cell>
+                <Cell mono>{evaluation.predictions.length}</Cell>
                 <Cell mono>{evaluation.run_id}</Cell>
               </tr>
             ))}

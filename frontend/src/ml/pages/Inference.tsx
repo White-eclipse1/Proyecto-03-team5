@@ -5,15 +5,28 @@ import { useReadyModels } from "../dataSource";
 import type { InferenceResponse } from "../schemas";
 
 /**
- * Resultado de una inferencia (contrato `InferenceResponse`). La petición real
- * todavía no está conectada; este componente es el consumidor del contrato y
+ * Resultado de clasificar un recorte (contrato `InferenceResponse`). La petición
+ * real todavía no está conectada; este componente es el consumidor del contrato y
  * se renderiza cuando exista una respuesta validada.
  */
 export function InferenceResult({ response }: Readonly<{ response: InferenceResponse }>) {
+  const { crop } = response;
+  const ranked = Object.entries(response.probabilities).sort(([, a], [, b]) => b - a);
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">Resultado</h2>
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-ink-muted">Clase predicha</dt>
+          <dd className="font-semibold">{response.predicted_class}</dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Recorte</dt>
+          <dd className="font-mono">
+            {`${crop.dataset_version} · img ${crop.image_id} · ann ${crop.annotation_id}`}
+          </dd>
+        </div>
         <div>
           <dt className="text-ink-muted">Modelo</dt>
           <dd className="font-mono">{`${response.model_name} v${response.model_version}`}</dd>
@@ -31,12 +44,11 @@ export function InferenceResult({ response }: Readonly<{ response: InferenceResp
           <dd className="font-mono">{`${response.latency_ms} ms`}</dd>
         </div>
       </dl>
-      <DataTable caption="Predicciones" headers={["Categoría", "Score", "BBox [x, y, w, h]"]}>
-        {response.predictions.map((prediction) => (
-          <tr key={`${prediction.category_name}:${prediction.bbox.join(",")}`}>
-            <Cell>{prediction.category_name}</Cell>
-            <Cell mono>{`${(prediction.score * 100).toFixed(1)}%`}</Cell>
-            <Cell mono>{`[${prediction.bbox.join(", ")}]`}</Cell>
+      <DataTable caption="Probabilidades por clase" headers={["Clase", "Probabilidad"]}>
+        {ranked.map(([className, probability]) => (
+          <tr key={className}>
+            <Cell>{className}</Cell>
+            <Cell mono>{`${(probability * 100).toFixed(1)}%`}</Cell>
           </tr>
         ))}
       </DataTable>

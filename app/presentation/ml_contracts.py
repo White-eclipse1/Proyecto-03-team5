@@ -10,10 +10,18 @@ IDs are the real identifiers of each system, never display labels:
 - experiment_id / run_id: MLflow tracking IDs (numeric / 32 lowercase hex).
 - checkpoint: MLflow artifact URI `runs:/<run_id>/<path>` of the same run.
 - model_version: MLflow Model Registry version (positive integer as string).
+- image_id / annotation_id: COCO IDs of a crop. The model classifies crops, one
+  per COCO annotation (ML-01), so a crop is identified by its annotation.
 
-APP-02 adds the training request (`TrainingParams`, shared by the request and the
-job), the Quality Gate rule (`training_blocked_reason`), and the per-release
-files `releases/<version>/provenance.json` and `releases/<version>/manifest.json`.
+The model is a multiclass crop classifier: evaluation reports accuracy_top1,
+f1_macro, per-class metrics, the confusion matrix and the per-crop predictions,
+and every metric must agree with the matrix; inference returns one class with its
+probability distribution, never bounding boxes.
+
+APP-02 adds the training request (`TrainingJobRequest`, sharing `TrainingParams`
+with the job), the reproducibility and early-stopping params, the Quality Gate
+rule (`training_blocked_reason`), and the per-release files
+`releases/<version>/provenance.json` and `releases/<version>/manifest.json`.
 """
 
 from collections import Counter
@@ -45,6 +53,10 @@ Timestamp = Annotated[
 Label = Annotated[str, StringConstraints(min_length=1)]
 Count = Annotated[int, Field(ge=0)]
 Ratio = Annotated[float, Field(ge=0, le=1)]
+CocoId = Annotated[int, Field(ge=0)]
+
+METRIC_TOLERANCE = 1e-3
+"""Reported metrics and probabilities may be rounded to 3 decimals."""
 
 
 class ContractModel(BaseModel):
@@ -65,6 +77,32 @@ def require_unique(values: list, message: str) -> None:
         raise ValueError(message)
 
 
+def require_close(reported: float, expected: float, name: str) -> None:
+    if not isclose(reported, expected, abs_tol=METRIC_TOLERANCE):
+        raise ValueError(f"{name} must equal {expected:.4f} (recomputed)")
+
+
+def ratio(numerator: int, denominator: int) -> float:
+    return numerator / denominator if denominator else 0.0
+
+
+def f1_score(precision: float, recall: float) -> float:
+    return 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+
+
+def require_distribution(
+    probabilities: dict[str, float], predicted_class: str, class_names: list[str] | None
+) -> None:
+    """Softmax output: one probability per class, summing ~1, argmax = predicted_class."""
+    if class_names is not None and set(probabilities) != set(class_names):
+        raise ValueError("probabilities must have exactly one entry per class")
+    if len(probabilities) < 2:
+        raise ValueError("probabilities needs at least two classes")
+    require_close(sum(probabilities.values()), 1.0, "sum of probabilities")
+    if probabilities.get(predicted_class) != max(probabilities.values()):
+        raise ValueError("predicted_class must be the class with the highest probability")
+
+
 class ContractError(ContractModel):
     """Error state shared by failed jobs and HTTP error bodies."""
 
@@ -79,7 +117,10 @@ class ErrorResponse(ContractModel):
 
 
 class TrainingParams(ContractModel):
-    """Hyperparameters of a training job; every field is required, no defaults."""
+    """The 7 required hyperparameters (APP-01) plus seed and early stopping (APP-02).
+
+    Every field is required, no defaults.
+    """
 
     optimizer: Literal["adam", "adamw", "sgd"]
     batch_size: int = Field(ge=1, le=256)
@@ -196,19 +237,37 @@ class RunsResponse(ContractModel):
 
 
 class EvaluationMetrics(ContractModel):
-    map50: Ratio
-    map50_95: Ratio
+    accuracy_top1: Ratio
+    f1_macro: Ratio
+
+
+class ClassMetrics(ContractModel):
+    class_name: Label
     precision: Ratio
     recall: Ratio
-
-
-class ClassEvaluation(ContractModel):
-    category_name: Label
-    ap50: Ratio
+    f1: Ratio
     support: Count
 
 
+class CropPrediction(ContractModel):
+    """Prediction for one crop of the split, so the metrics can be recomputed."""
+
+    image_id: CocoId
+    annotation_id: CocoId
+    true_class: Label
+    predicted_class: Label
+    probabilities: dict[Label, Ratio]
+
+
 class Evaluation(ContractModel):
+    """Classification metrics of a checkpoint on one split.
+
+    `class_names` fixes the order of `per_class` and of both axes of
+    `confusion_matrix` (rows: true class, columns: predicted class). The matrix is
+    the source of truth: supports, per-class metrics, accuracy and f1_macro are
+    recomputed from it, and `predictions` must add up to it crop by crop.
+    """
+
     evaluation_id: Identifier
     run_id: RunId
     checkpoint: Checkpoint
@@ -217,8 +276,11 @@ class Evaluation(ContractModel):
     dataset_version: Identifier
     manifest_hash: ManifestHash
     split: Literal["validation", "test"]
+    class_names: list[Label] = Field(min_length=2)
     metrics: EvaluationMetrics
-    per_class: list[ClassEvaluation]
+    per_class: list[ClassMetrics]
+    confusion_matrix: list[list[Count]]
+    predictions: list[CropPrediction]
     created_at: Timestamp
 
     @model_validator(mode="after")
@@ -226,9 +288,56 @@ class Evaluation(ContractModel):
         if (self.model_name is None) != (self.model_version is None):
             raise ValueError("model_name and model_version are both set or both null")
         require_checkpoint_of_run(self.checkpoint, self.run_id)
+        require_unique(self.class_names, "class_names must be unique")
+        if [entry.class_name for entry in self.per_class] != self.class_names:
+            raise ValueError("per_class must follow class_names, one entry per class")
+        return self
+
+    @model_validator(mode="after")
+    def metrics_match_confusion_matrix(self) -> Self:
+        matrix = self.confusion_matrix
+        size = len(self.class_names)
+        if len(matrix) != size or any(len(row) != size for row in matrix):
+            raise ValueError("confusion_matrix must be square with one row per class")
+        total = sum(map(sum, matrix))
+        if total == 0:
+            raise ValueError("confusion_matrix cannot be empty")
+        f1_scores = []
+        for index, entry in enumerate(self.per_class):
+            hits = matrix[index][index]
+            actual = sum(matrix[index])
+            predicted = sum(row[index] for row in matrix)
+            precision, recall = ratio(hits, predicted), ratio(hits, actual)
+            f1_scores.append(f1_score(precision, recall))
+            if entry.support != actual:
+                raise ValueError("support must equal the row sum of its class")
+            require_close(entry.precision, precision, f"{entry.class_name} precision")
+            require_close(entry.recall, recall, f"{entry.class_name} recall")
+            require_close(entry.f1, f1_scores[-1], f"{entry.class_name} f1")
+        trace = sum(matrix[index][index] for index in range(size))
+        require_close(self.metrics.accuracy_top1, trace / total, "accuracy_top1")
+        require_close(self.metrics.f1_macro, sum(f1_scores) / size, "f1_macro")
+        return self
+
+    @model_validator(mode="after")
+    def predictions_match_confusion_matrix(self) -> Self:
         require_unique(
-            [entry.category_name for entry in self.per_class], "category_name must be unique"
+            [prediction.annotation_id for prediction in self.predictions],
+            "annotation_id must be unique",
         )
+        position = {name: index for index, name in enumerate(self.class_names)}
+        counts = Counter()
+        for prediction in self.predictions:
+            if prediction.true_class not in position or prediction.predicted_class not in position:
+                raise ValueError("true_class and predicted_class must be in class_names")
+            require_distribution(
+                prediction.probabilities, prediction.predicted_class, self.class_names
+            )
+            counts[position[prediction.true_class], position[prediction.predicted_class]] += 1
+        for row, cells in enumerate(self.confusion_matrix):
+            for column, count in enumerate(cells):
+                if counts[row, column] != count:
+                    raise ValueError("predictions must add up to confusion_matrix")
         return self
 
 
@@ -283,41 +392,41 @@ class ModelsResponse(ContractModel):
         return self
 
 
-class ImageSize(ContractModel):
-    width: int = Field(gt=0)
-    height: int = Field(gt=0)
+class CropSelection(ContractModel):
+    """A crop chosen in the UI: one COCO annotation of a dataset release."""
+
+    dataset_version: Identifier
+    image_id: CocoId
+    annotation_id: CocoId
 
 
-class Prediction(ContractModel):
-    category_name: Label
-    score: Ratio
-    bbox: Annotated[list[Annotated[float, Field(ge=0)]], Field(min_length=4, max_length=4)]
-    """COCO format: [x, y, width, height] in pixels."""
+class InferenceRequest(ContractModel):
+    """Body of `POST /api/ml/inference`: classify one existing crop."""
 
-    @model_validator(mode="after")
-    def positive_box_size(self) -> Self:
-        if self.bbox[2] <= 0 or self.bbox[3] <= 0:
-            raise ValueError("bbox width and height must be positive")
-        return self
+    schema_version: Literal["1.0"]
+    model_name: Identifier
+    model_version: ModelVersion
+    crop: CropSelection
 
 
 class InferenceResponse(ContractModel):
+    """One class for the crop plus the full distribution; `dataset_version` is the
+    release the model was trained on, `crop.dataset_version` the crop's release."""
+
     schema_version: Literal["1.0"]
     request_id: Identifier
     model_name: Identifier
     model_version: ModelVersion
     run_id: RunId
     dataset_version: Identifier
-    image: ImageSize
-    predictions: list[Prediction]
+    crop: CropSelection
+    predicted_class: Label
+    probabilities: dict[Label, Ratio]
     latency_ms: float = Field(ge=0)
 
     @model_validator(mode="after")
-    def boxes_inside_image(self) -> Self:
-        for prediction in self.predictions:
-            x, y, width, height = prediction.bbox
-            if x + width > self.image.width or y + height > self.image.height:
-                raise ValueError("bbox must fit inside the image")
+    def probabilities_are_a_distribution(self) -> Self:
+        require_distribution(self.probabilities, self.predicted_class, None)
         return self
 
 
@@ -378,6 +487,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "runs": RunsResponse,
     "evaluations": EvaluationsResponse,
     "models": ModelsResponse,
+    "inference_request": InferenceRequest,
     "inference": InferenceResponse,
     "error": ErrorResponse,
     "training_request": TrainingJobRequest,
