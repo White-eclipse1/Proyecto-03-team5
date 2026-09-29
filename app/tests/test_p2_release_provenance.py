@@ -96,9 +96,7 @@ def test_service_loads_releases_from_catalog(tmp_path):
 
     assert result["release_version"] == "v1.0.0"
     assert result["dvc_hash"] == "457cc9fcf36cd8699b21f292ebbe49cc"
-    assert result["images_dvc_hash"] == (
-        "8a9a091030b6d1b1bf67f30771f78d5f.dir"
-    )
+    assert result["images_dvc_hash"] == ("8a9a091030b6d1b1bf67f30771f78d5f.dir")
 
 
 def test_real_p2_catalog_preserves_verified_provenance():
@@ -108,21 +106,14 @@ def test_real_p2_catalog_preserves_verified_provenance():
 
     assert result["release_version"] == "v0.1.1"
     assert result["quality_status"] == "warning"
-    assert result["dvc_hash"] == (
-        "951150dd4fb053f4665089fcb37a1c87.dir"
-    )
-    assert result["images_dvc_hash"] == (
-        "951150dd4fb053f4665089fcb37a1c87.dir"
-    )
-    assert result["annotations_dvc_hash"] == (
-        "c7cb86ae7ece94ef7b853620e464a4d7.dir"
-    )
+    assert result["dvc_hash"] == ("951150dd4fb053f4665089fcb37a1c87.dir")
+    assert result["images_dvc_hash"] == ("951150dd4fb053f4665089fcb37a1c87.dir")
+    assert result["annotations_dvc_hash"] == ("c7cb86ae7ece94ef7b853620e464a4d7.dir")
     assert result["images_dvc_file"] == "data/raw/images.dvc"
     assert result["annotations_dvc_file"] == "data/raw/annotations.dvc"
-    assert result["quality_report"] == (
-        "reports/releases/v0.1.1/quality.json"
-    )
+    assert result["quality_report"] == ("reports/releases/v0.1.1/quality.json")
     assert result["image_count"] == 600
+
 
 def test_switching_release_changes_provenance():
     releases = {
