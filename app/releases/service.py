@@ -3,6 +3,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 class P2ReleaseError(Exception):
     """Base error for P2 release selection."""
@@ -17,7 +19,7 @@ class P2ReleaseNotApprovedError(P2ReleaseError):
 
 
 class P2ReleaseUnverifiableError(P2ReleaseError):
-    """Raised when a release does not have complete provenance."""
+    """Raised when a release does not have complete or matching provenance."""
 
 
 class P2ReleaseService:
@@ -94,6 +96,123 @@ class P2ReleaseService:
             )
 
         quality_status = release.get("quality_status")
+
+        if quality_status == "failed":
+            raise P2ReleaseNotApprovedError(
+                f"P2 release is not approved: {release_version}"
+            )
+
+        return dict(release)
+
+    @staticmethod
+    def _read_dvc_hash(path: Path) -> str:
+        if not path.is_file():
+            raise P2ReleaseUnverifiableError(
+                f"DVC metadata file not found: {path}"
+            )
+
+        try:
+            payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            raise P2ReleaseUnverifiableError(
+                f"Invalid DVC metadata file: {path}"
+            ) from exc
+
+        outs = payload.get("outs") if isinstance(payload, dict) else None
+
+        if not isinstance(outs, list) or not outs:
+            raise P2ReleaseUnverifiableError(
+                f"DVC metadata has no outputs: {path}"
+            )
+
+        output = outs[0]
+
+        if not isinstance(output, dict):
+            raise P2ReleaseUnverifiableError(
+                f"Invalid DVC output metadata: {path}"
+            )
+
+        dvc_hash = output.get("md5")
+
+        if not isinstance(dvc_hash, str) or not dvc_hash:
+            raise P2ReleaseUnverifiableError(
+                f"DVC metadata has no md5 hash: {path}"
+            )
+
+        return dvc_hash
+
+    def verify_release(
+        self,
+        release_version: str,
+        repo_root: str | Path,
+    ) -> dict[str, Any]:
+        release = self.select_release(release_version)
+        root = Path(repo_root)
+
+        verification_fields = (
+            "images_dvc_file",
+            "images_dvc_hash",
+            "annotations_dvc_file",
+            "annotations_dvc_hash",
+            "quality_report",
+        )
+
+        missing = [
+            field
+            for field in verification_fields
+            if not release.get(field)
+        ]
+
+        if missing:
+            raise P2ReleaseUnverifiableError(
+                f"P2 release cannot be verified: "
+                f"{release_version}; missing={','.join(missing)}"
+            )
+
+        images_hash = self._read_dvc_hash(
+            root / release["images_dvc_file"]
+        )
+        annotations_hash = self._read_dvc_hash(
+            root / release["annotations_dvc_file"]
+        )
+
+        if images_hash != release["images_dvc_hash"]:
+            raise P2ReleaseUnverifiableError(
+                f"Images DVC hash mismatch for {release_version}"
+            )
+
+        if annotations_hash != release["annotations_dvc_hash"]:
+            raise P2ReleaseUnverifiableError(
+                f"Annotations DVC hash mismatch for {release_version}"
+            )
+
+        quality_path = root / release["quality_report"]
+
+        if not quality_path.is_file():
+            raise P2ReleaseUnverifiableError(
+                f"Quality report not found: {quality_path}"
+            )
+
+        try:
+            quality = json.loads(
+                quality_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            raise P2ReleaseUnverifiableError(
+                f"Invalid quality report: {quality_path}"
+            ) from exc
+
+        if quality.get("dataset_version") != release_version:
+            raise P2ReleaseUnverifiableError(
+                f"Quality report version mismatch for {release_version}"
+            )
+
+        quality_status = quality.get("status")
+
+        if quality_status != release.get("quality_status"):
+            raise P2ReleaseUnverifiableError(
+                f"Quality status mismatch for {release_version}"
+            )
 
         if quality_status == "failed":
             raise P2ReleaseNotApprovedError(
