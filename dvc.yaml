@@ -96,9 +96,15 @@ stages:
     deps:
       - ../data/raw/annotations
       - ../data/raw/images
+      - ../data/raw/images.dvc
+      - ../data/raw/annotations.dvc
       - ../reports/.quality_gate.passed
+      - ../reports/releases
+      - ../reports/versions.json
       - dvc_crops_stage.py
       - dvc_gate_stage.py
+      - releases/service.py
+      - releases/p2_releases.json
       - crops
       - ingestion/__init__.py
       - ingestion/loader.py
