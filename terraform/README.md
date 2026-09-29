@@ -98,16 +98,25 @@ fuera del código. Los estados, planes y variables locales están ignorados.
 El root independiente `bootstrap/github-oidc` define un IAM OIDC provider para
 `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`, y
 el rol `mlops-p2-github-oidc`. No depende de los módulos de P2-06 ni los despliega.
-No se adjuntan políticas de acceso a recursos al rol: este ticket comprueba solo
-autenticación. `sts:GetCallerIdentity` no necesita permisos adicionales.
+Terraform no adjunta políticas de acceso a recursos al rol.
+`sts:GetCallerIdentity` no necesita permisos adicionales; el acceso a S3 que usa el
+CI se describe abajo.
 
 La trust policy permite `sts:AssumeRoleWithWebIdentity` exclusivamente con
-`aud = sts.amazonaws.com` y
-`sub = repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:ref:refs/heads/main`.
+`aud = sts.amazonaws.com` y uno de estos `sub`:
+
+- `repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:ref:refs/heads/main`
+  (push y `workflow_dispatch` en `main`).
+- `repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:pull_request`
+  (PRs), para que el job `quality-gate-prod` de `ci.yml` valide el dataset real
+  antes de mergear. GitHub no emite tokens OIDC para PRs que vienen de forks, así
+  que solo aplica a ramas de este repositorio.
+
 El repositorio usa el formato *immutable subject* de GitHub (`owner@id/repo@id`);
 se consulta con `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`.
-No permite otros repositorios, ramas, tags, pull requests ni subjects de GitHub
-Environments. El job OIDC no declara `environment` para conservar ese subject.
+No permite otros repositorios, otras ramas por push, tags ni subjects de GitHub
+Environments. El único permiso del rol es la política inline `DvcCacheReadOnly`
+(lectura del bucket del DVC cache), creada en consola y todavía fuera de Terraform. El job OIDC no declara `environment` para conservar ese subject.
 
 ### Validación estática y prueba real
 
