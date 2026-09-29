@@ -214,3 +214,66 @@ def test_release_custom_similarity_changes_duplicate_components(tmp_path):
             splits_config=config,
         )
     assert not (tmp_path / "reports" / "versions.json").exists()
+
+
+# APP-02: procedencia DVC del release, para que Training muestre el hash real.
+IMAGES_DVC = """outs:
+- md5: 951150dd4fb053f4665089fcb37a1c87.dir
+  size: 13556278
+  nfiles: 600
+  hash: md5
+  path: images
+"""
+ANNOTATIONS_DVC = """outs:
+- md5: c7cb86ae7ece94ef7b853620e464a4d7.dir
+  size: 256669
+  nfiles: 10
+  hash: md5
+  path: annotations
+"""
+
+
+def test_cut_release_records_dvc_provenance(tmp_path):
+    from presentation.ml_contracts import ReleaseProvenance
+
+    dataset_dir = write_coco_dataset(tmp_path / "dataset", cats=6, dogs=6)
+    (dataset_dir / "images.dvc").write_text(IMAGES_DVC, encoding="utf-8")
+    (dataset_dir / "annotations.dvc").write_text(ANNOTATIONS_DVC, encoding="utf-8")
+    reports_dir = tmp_path / "reports"
+    policy = load_quality_policy(_policy_path(tmp_path))
+
+    cut_release("v0.2.0", dataset_dir=dataset_dir, reports_dir=reports_dir, policy=policy)
+
+    path = reports_dir / "releases" / "v0.2.0" / "provenance.json"
+    provenance = ReleaseProvenance.model_validate_json(path.read_text(encoding="utf-8"))
+    assert provenance.dataset_version == "v0.2.0"
+    assert [(o.path, o.md5, o.nfiles) for o in provenance.dvc_outputs] == [
+        ("annotations", "c7cb86ae7ece94ef7b853620e464a4d7.dir", 10),
+        ("images", "951150dd4fb053f4665089fcb37a1c87.dir", 600),
+    ]
+    # El catálogo v1.0 congelado no cambia de forma.
+    catalog = json.loads((reports_dir / "versions.json").read_text(encoding="utf-8"))
+    assert set(catalog["releases"][0]) == {"dataset_version", "quality_file", "splits_file"}
+
+
+def test_cut_release_without_dvc_files_writes_no_provenance(tmp_path):
+    dataset_dir = write_coco_dataset(tmp_path / "dataset", cats=6, dogs=6)
+    reports_dir = tmp_path / "reports"
+    policy = load_quality_policy(_policy_path(tmp_path))
+
+    cut_release("v0.2.0", dataset_dir=dataset_dir, reports_dir=reports_dir, policy=policy)
+
+    assert not (reports_dir / "releases" / "v0.2.0" / "provenance.json").exists()
+
+
+def test_cut_release_rejects_malformed_dvc_file_before_writing(tmp_path):
+    dataset_dir = write_coco_dataset(tmp_path / "dataset", cats=6, dogs=6)
+    (dataset_dir / "images.dvc").write_text("outs:\n- path: images\n", encoding="utf-8")
+    reports_dir = tmp_path / "reports"
+    policy = load_quality_policy(_policy_path(tmp_path))
+
+    with pytest.raises(ValueError, match=r"images\.dvc"):
+        cut_release("v0.2.0", dataset_dir=dataset_dir, reports_dir=reports_dir, policy=policy)
+
+    assert not (reports_dir / "versions.json").exists()
+    assert not (reports_dir / "releases" / "v0.2.0").exists()

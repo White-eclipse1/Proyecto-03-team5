@@ -303,3 +303,124 @@ DVC separa `quality_report` de `quality_gate` e incorpora código y parámetros 
 splits (train/val/test/seed). El stage `split` depende del marcador que solo se
 escribe cuando la compuerta pasa; una evaluación failed hace fallar DVC y no
 ejecuta el downstream. No se persisten assignments en este stage.
+
+## APP-01 — Contratos de las pantallas de modelos (`ml_contracts.py`)
+
+Las pantallas Training, Experiments, Evaluation, Models e Inference del portal
+(`/ml/*`) consumen estos contratos v1.0 más un `ErrorResponse` común. El espejo
+en Zod está en `frontend/src/ml/schemas.ts`.
+
+El modelo es un **clasificador multiclase de recortes**: cada anotación COCO
+válida del release es un recorte (ML-01), identificado por `image_id` +
+`annotation_id`. Por eso no hay mAP ni bounding boxes en estos contratos.
+
+| Contrato | Endpoint previsto | Contenido |
+|---|---|---|
+| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled` y sus `TrainingParams` |
+| `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) |
+| `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas de clasificación por checkpoint en `validation`/`test` |
+| `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
+| `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
+| `InferenceResponse` | `POST /api/ml/inference` | Clase predicha y probabilidad por clase, trazables al modelo |
+| `ErrorResponse` | Cualquier respuesta no 2xx | `{code, message, retryable}` |
+
+**`TrainingParams`**: los 7 hiperparámetros obligatorios, sin defaults:
+`optimizer` (`adam`/`adamw`/`sgd`), `batch_size` (1–256), `max_epochs` (1–500),
+`learning_rate` (0, 1], `image_size` (32–1024, múltiplo de 32), `hidden_layers`
+(lista de hasta 5 enteros 1–4096) y `dropout` [0, 1).
+
+**Evaluación.** `class_names` fija el orden de `per_class` y de los dos ejes de
+`confusion_matrix` (filas: clase real; columnas: clase predicha). Cada evaluación
+trae `accuracy_top1`, `f1_macro`, `precision`/`recall`/`f1`/`support` por clase,
+la matriz y `predictions` por recorte (`true_class`, `predicted_class` y
+`probabilities`). La matriz es la fuente de verdad: el contrato recalcula desde
+ella el support, las métricas por clase, la accuracy y el f1 macro (tolerancia
+1e-3, para admitir redondeo a 3 decimales) y exige que las predicciones por
+recorte sumen exactamente la matriz.
+
+**Inferencia.** Se envía un recorte ya existente, no una imagen con cajas nuevas.
+La respuesta trae una `predicted_class` y `probabilities` con al menos dos clases,
+que suman ~1 (misma tolerancia), y `predicted_class` es la de mayor probabilidad.
+
+Ningún servicio implementa todavía estos endpoints: los conectan APP-02…APP-07.
+Mientras tanto, las pantallas muestran "fuente no conectada" (404) y nunca datos
+de ejemplo.
+
+IDs obligatorios y con formato fijo:
+
+- `dataset_version`: release del dataset (mismo formato que en P2).
+- `manifest_hash`: `md5:<32 hex>` (hash DVC) o `sha256:<64 hex>`.
+- `experiment_id` / `run_id`: IDs de MLflow (numérico / 32 hex en minúsculas).
+- `checkpoint`: `runs:/<run_id>/<ruta>`, siempre del mismo `run_id` que lo declara.
+- `model_version`: versión del Model Registry (entero positivo como string). Es un
+  campo distinto de `dataset_version` y no acepta su formato.
+- `image_id` / `annotation_id`: IDs COCO del recorte (enteros >= 0).
+
+El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
+`checkpoint`, uno `failed` exige `error` y uno `queued` todavía no tiene `run_id`.
+
+**Corpus compartido.** `examples/ml/` tiene un ejemplo válido por contrato e
+`invalid_cases.json`, con casos que ambos lados deben rechazar. Los validan
+`tests/test_ml_contracts.py` (Pydantic) y `frontend/tests/ml-contracts.test.ts`
+(Zod). Si un contrato cambia en un solo lado, fallan los tests del otro. Al
+cambiar un contrato hay que actualizar ambos lados y el corpus en el mismo PR.
+Los ejemplos son solo para tests y desarrollo, nunca fuente de producción.
+
+## APP-02 — Pantalla Training: request, Quality Gate y procedencia
+
+`POST /api/ml/training/jobs` recibe un `TrainingJobRequest`
+(`{schema_version, dataset_version, manifest_hash, params}`). `TrainingJob.params` usa el mismo
+`TrainingParams`. Todos los parámetros son obligatorios y no tienen valor por
+defecto en el contrato:
+
+| Parámetro | Regla |
+|---|---|
+| `optimizer` | `adam`, `adamw` o `sgd` |
+| `batch_size` | entero, 1–256 |
+| `max_epochs` | entero, 1–500 |
+| `learning_rate` | `0 < lr ≤ 1` |
+| `image_size` | entero, 32–1024, múltiplo de 32 |
+| `hidden_layers` | lista de enteros 1–4096, máximo 5 capas (`[]` = sin capas) |
+| `dropout` | `0 ≤ dropout < 1` |
+| `seed` | entero, 0–2147483647 |
+| `patience` | entero ≥ 1 y ≤ `max_epochs` |
+| `min_delta` | 0–1 |
+
+Los casos de `invalid_cases.json` que tienen `field` exigen que Pydantic y Zod
+rechacen el documento **y además** señalen ese mismo campo. El frontend valida con
+ese contrato antes de enviar nada, y el backend debe volver a validar con
+`TrainingJobRequest` antes de crear el job.
+
+**Cuándo se puede entrenar.** Para que el entrenamiento sea reproducible,
+`training_blocked_reason(status, provenance, manifest)` (Python) y
+`trainingBlockedReason(...)` (TS) bloquean un release si:
+
+- su Quality Gate es `failed` (`warning`/`passed` no bloquean; P2-31),
+- falta o no valida su `provenance.json` DVC,
+- falta o no valida su `manifest.json` 70/20/10, o
+- procedencia y manifiesto son de releases distintos.
+
+Un archivo que falta o no valida se pasa como `None`/`null`. La pantalla
+deshabilita "Crear training job" y no hace el POST mientras haya un motivo de
+bloqueo, o mientras el gate no se pueda leer.
+
+**Job ligado al manifiesto.** `TrainingJobRequest` exige `manifest_hash`, que la
+pantalla toma del `manifest.json` del release. `training_request_rejection(request,
+status, provenance, manifest)` (y `trainingRequestRejection` en TS) es lo que
+`POST /api/ml/training/jobs` debe revisar después del contrato: la regla anterior,
+más que el manifiesto sea del release pedido y que su `manifest_hash` coincida con
+el del request.
+
+**Procedencia DVC.** `cut_release` escribe `releases/<v>/provenance.json`
+(`ReleaseProvenance`) con el `md5` de cada `*.dvc` de `dataset_dir`. Los lee antes
+de correr el gate, así que un `.dvc` roto aborta el release sin escribir nada.
+Los releases cortados antes de APP-02 (`v0.1.0` y `v0.1.1`) no tienen procedencia,
+así que no se pueden entrenar.
+
+**Manifiesto.** `releases/<v>/manifest.json` (`TrainingManifest`) describe el
+split del entrenamiento con su `manifest_hash`. El contrato exige que sea
+realmente 70/20/10: cada split queda a menos de una imagen de `objetivo ×
+total_images` (solo se admite el redondeo entero), sus conteos suman
+`total_images` y cada `ratio` es `image_count / total_images`. Todavía no lo
+genera ningún proceso, así que por ahora ningún release publicado se puede
+entrenar.
