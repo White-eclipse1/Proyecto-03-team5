@@ -209,3 +209,109 @@ def test_real_p2_release_verifies_against_repository():
     assert result["release_version"] == "v0.1.1"
     assert result["quality_status"] == "warning"
     assert result["image_count"] == 600
+
+
+def test_unregistered_release_is_rejected(tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+
+    registry = reports_dir / "versions.json"
+    registry.write_text(
+        """
+{
+  "releases": [
+    {
+      "dataset_version": "v-official",
+      "quality_file": "releases/v-official/quality.json",
+      "splits_file": "releases/v-official/splits.json"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    catalog = tmp_path / "p2_releases.json"
+    catalog.write_text(
+        """
+{
+  "release_registry": "reports/versions.json",
+  "releases": [
+    {
+      "release_version": "v-invented",
+      "dvc_hash": "abc123",
+      "quality_status": "warning",
+      "quality_report": "reports/releases/v-invented/quality.json",
+      "coco_path": "data/raw/annotations",
+      "images_path": "data/raw/images"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(P2ReleaseUnverifiableError):
+        P2ReleaseService.from_catalog(catalog)
+
+
+def test_invalid_quality_status_is_rejected():
+    releases = {
+        "v-pending": {
+            "release_version": "v-pending",
+            "dvc_hash": "abc123",
+            "quality_status": "pending",
+            "quality_report": "reports/v-pending/quality.json",
+            "coco_path": "data/raw/annotations",
+            "images_path": "data/raw/images",
+        }
+    }
+
+    service = P2ReleaseService(releases)
+
+    with pytest.raises(P2ReleaseNotApprovedError):
+        service.select_release("v-pending")
+
+
+def test_quality_report_must_match_official_registry(tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+
+    registry = reports_dir / "versions.json"
+    registry.write_text(
+        """
+{
+  "releases": [
+    {
+      "dataset_version": "v1.0.0",
+      "quality_file": "releases/v1.0.0/quality.json",
+      "splits_file": "releases/v1.0.0/splits.json"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    catalog = tmp_path / "p2_releases.json"
+    catalog.write_text(
+        """
+{
+  "release_registry": "reports/versions.json",
+  "releases": [
+    {
+      "release_version": "v1.0.0",
+      "dvc_hash": "abc123",
+      "quality_status": "warning",
+      "quality_report": "reports/releases/v1.0.0/OTHER.json",
+      "coco_path": "data/raw/annotations",
+      "images_path": "data/raw/images"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(P2ReleaseUnverifiableError):
+        P2ReleaseService.from_catalog(catalog)
