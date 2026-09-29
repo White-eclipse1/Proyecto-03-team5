@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from releases.service import (
     P2ReleaseNotApprovedError,
     P2ReleaseNotFoundError,
@@ -104,22 +104,25 @@ def test_service_loads_releases_from_catalog(tmp_path):
 def test_real_p2_catalog_preserves_verified_provenance():
     service = P2ReleaseService.from_catalog("releases/p2_releases.json")
 
-    result = service.select_release("v1.0.0")
+    result = service.select_release("v0.1.1")
 
-    assert result["release_version"] == "v1.0.0"
-    assert result["p2_commit"] == (
-        "7ce2c84689214088507dc50a2a6852a9672c6730"
+    assert result["release_version"] == "v0.1.1"
+    assert result["quality_status"] == "warning"
+    assert result["dvc_hash"] == (
+        "951150dd4fb053f4665089fcb37a1c87.dir"
     )
-    assert result["dvc_hash"] == "457cc9fcf36cd8699b21f292ebbe49cc"
     assert result["images_dvc_hash"] == (
-        "8a9a091030b6d1b1bf67f30771f78d5f.dir"
+        "951150dd4fb053f4665089fcb37a1c87.dir"
     )
-    assert result["quality_report_dvc_hash"] == (
-        "24d0df32896503d7622f1f268f3ac97a"
+    assert result["annotations_dvc_hash"] == (
+        "c7cb86ae7ece94ef7b853620e464a4d7.dir"
     )
-    assert result["coco_path"] == "data/validated/coco.json"
-    assert result["images_path"] == "data/images"
-
+    assert result["images_dvc_file"] == "data/raw/images.dvc"
+    assert result["annotations_dvc_file"] == "data/raw/annotations.dvc"
+    assert result["quality_report"] == (
+        "reports/releases/v0.1.1/quality.json"
+    )
+    assert result["image_count"] == 600
 
 def test_switching_release_changes_provenance():
     releases = {
