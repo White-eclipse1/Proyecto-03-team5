@@ -17,6 +17,46 @@ verdad y está congelada. Los `category_id` no se fijan en código: se
 resuelven por nombre contra las categorías del release. Un release que no
 declare `dog` y `cat`, o que repita una de ellas con dos ids, se rechaza.
 
+## Release de origen y procedencia
+
+Los crops salen del release aprobado fijado en `crops/crops.yaml`
+(parámetro DVC `dataset_version: v0.1.1`), nunca del dataset de trabajo
+`local-dev`. Antes de escribir un solo crop, `dvc_crops_stage.py`
+(`crops/release.py`):
+
+1. Busca el release en `reports/versions.json` y carga su reporte de calidad
+   congelado (`reports/releases/v0.1.1/quality.json`). Falla si el release no
+   existe, si el reporte describe otra versión o si su status es `failed`.
+2. Comprueba que las anotaciones en disco son las que congeló ese reporte:
+   mismos `image_id` por clase (check `max_imbalance_ratio`) y mismo total de
+   anotaciones (check `degenerate_boxes`).
+3. Recalcula el md5 de directorio de `data/raw/images` y
+   `data/raw/annotations` (mismo algoritmo que DVC 3) y exige que coincida con
+   `data/raw/images.dvc` / `data/raw/annotations.dvc`. Si no coincide, corre
+   `dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc`.
+
+La versión, la ruta del reporte congelado, su status y las dos huellas DVC
+(`md5`, `size`, `nfiles`) quedan en `reports/crops.json` → `source`, así se
+puede demostrar de qué datos salió cada crop.
+
+## Mínimo de imágenes originales por clase
+
+`summary.images_per_class` cuenta `image_id` distintos con al menos un crop
+aceptado por clase (una imagen con dos perros cuenta una vez), a diferencia
+de `accepted_per_class`, que cuenta crops. El stage exige
+`min_images_per_class: 300` (en `crops/crops.yaml`) para `dog` y `cat` y
+falla sin escribir el reporte si alguna queda por debajo.
+
+Resultado sobre v0.1.1:
+
+| Clase | Crops | Imágenes originales |
+|-------|-------|---------------------|
+| `dog` | 325   | 300                 |
+| `cat` | 343   | 301                 |
+
+668 anotaciones, 668 aceptadas, 0 rechazadas. `dog` queda exactamente en el
+mínimo: cualquier rechazo nuevo sobre una imagen de perro hace fallar el stage.
+
 ## Qué se excluye
 
 Cada anotación se valida por separado (a diferencia de
@@ -52,7 +92,9 @@ ya no correspondería a la bbox anotada.
     `[left, top, right, bottom]`, `source_file_name`, `crop_path` y
     `sha256`.
   - `rejections`: exclusiones con sus motivos.
-  - `summary`: aceptados por clase y conteo por motivo de rechazo (una
+  - `source`: release de origen y huellas DVC del dataset fuente.
+  - `summary`: crops aceptados por clase, imágenes originales distintas
+    por clase (`images_per_class`) y conteo por motivo de rechazo (una
     anotación con dos motivos cuenta en ambos).
 
 `crop_box` usa `floor` en el origen y `ceil` en el extremo, así el crop
@@ -60,11 +102,15 @@ cubre la bbox completa aunque tenga decimales.
 
 ## Cómo correrlo
 
-El stage `crops` de `dvc.yaml` depende del marcador del quality gate, así
-que no corre sobre un dataset con la compuerta en `failed`:
+El stage `crops` de `dvc.yaml` depende de `reports/versions.json`, del
+reporte congelado del release y de los parámetros de `crops/crops.yaml`; su
+entrada en `dvc.lock` fija el md5 de los datos, del código y de las salidas.
+Con el dataset descargado:
 
 ```bash
+dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
 dvc repro crops
+dvc status crops   # "Data and pipelines are up to date."
 ```
 
 Verificación manual (DoD): genera una hoja con cada imagen original, su

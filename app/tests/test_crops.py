@@ -550,10 +550,10 @@ def test_dvc_pipeline_crops_stage_consumes_the_approved_release():
     assert "../reports/.quality_gate.passed" not in crops["deps"]
     assert "../reports/versions.json" in crops["deps"]
     assert f"../reports/releases/{version}/quality.json" in crops["deps"]
-    assert "../data/raw/images.dvc" in crops["deps"]
-    assert "../data/raw/annotations.dvc" in crops["deps"]
+    assert "../data/raw/images" in crops["deps"]
+    assert "../data/raw/annotations" in crops["deps"]
     assert {"crops/crops.yaml": ["dataset_version", "min_images_per_class"]} in crops["params"]
-    assert "crops" in crops["deps"]
+    assert {"crops/extract.py", "crops/models.py", "crops/release.py"} <= set(crops["deps"])
     assert "../data/crops" in crops["outs"]
     assert any(
         isinstance(output, dict) and "../reports/crops.json" in output for output in crops["outs"]

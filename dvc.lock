@@ -294,3 +294,74 @@ stages:
       hash: md5
       md5: 1091469105770e8c3fcb41f10dc4a844
       size: 645
+  crops:
+    cmd: uv run python dvc_crops_stage.py
+    deps:
+    - path: ../data/raw/annotations
+      hash: md5
+      md5: c7cb86ae7ece94ef7b853620e464a4d7.dir
+      size: 256669
+      nfiles: 10
+    - path: ../data/raw/images
+      hash: md5
+      md5: 951150dd4fb053f4665089fcb37a1c87.dir
+      size: 13556278
+      nfiles: 600
+    - path: ../reports/releases/v0.1.1/quality.json
+      hash: md5
+      md5: 124d28ed7ed8fa0bd69b441015c67b61
+      size: 25698
+    - path: ../reports/versions.json
+      hash: md5
+      md5: 8e6d1165d4af7c9ee54e7bedd7072457
+      size: 355
+    - path: crops/__init__.py
+      hash: md5
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0
+    - path: crops/classes.py
+      hash: md5
+      md5: 8d6bba97000c2359705ce7278bfc48cd
+      size: 1582
+    - path: crops/extract.py
+      hash: md5
+      md5: e694ee5cd102fe149ca7c96287fa62b5
+      size: 8277
+    - path: crops/models.py
+      hash: md5
+      md5: 68b73024ff5ad393ac9a18e2b731d5f0
+      size: 4703
+    - path: crops/release.py
+      hash: md5
+      md5: 325c6a81b47244c96d6b56888204ba02
+      size: 6116
+    - path: dvc_crops_stage.py
+      hash: md5
+      md5: 317110f82b2ff5f840bd8f9cc8160dbc
+      size: 2237
+    - path: ingestion/__init__.py
+      hash: md5
+      md5: 348c29beb25cb2c7bdd00120146d1ec6
+      size: 220
+    - path: ingestion/loader.py
+      hash: md5
+      md5: 1ff1ad8812d01c3111b461028ae73316
+      size: 2921
+    - path: presentation/contracts.py
+      hash: md5
+      md5: 24a51d6f65165cc4377911bf659dbaf2
+      size: 3791
+    params:
+      crops/crops.yaml:
+        dataset_version: v0.1.1
+        min_images_per_class: 300
+    outs:
+    - path: ../data/crops
+      hash: md5
+      md5: 6310fdae69af43e73d2774cb26204fe8.dir
+      size: 79962078
+      nfiles: 668
+    - path: ../reports/crops.json
+      hash: md5
+      md5: 318d80dd442b023ad765af490bbcaaf5
+      size: 370636

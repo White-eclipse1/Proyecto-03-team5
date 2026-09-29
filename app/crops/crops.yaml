@@ -1,0 +1,5 @@
+# ML-01 — parámetros DVC del stage `crops`.
+# Release aprobado de P2 del que salen los crops (debe existir en reports/versions.json).
+dataset_version: v0.1.1
+# Mínimo de imágenes originales distintas con crop aceptado, por clase (dog y cat).
+min_images_per_class: 300

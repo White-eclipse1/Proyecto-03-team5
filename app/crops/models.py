@@ -2,9 +2,11 @@
 
 `crops` es el manifiesto de muestras aceptadas; `rejections` registra cada
 anotación excluida con sus motivos. Una misma anotación no puede aparecer
-en ambas listas.
+en ambas listas. `source` fija de dónde salieron los crops: el release
+aprobado de P2 y la huella DVC de sus imágenes y anotaciones.
 """
 
+from collections import defaultdict
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -64,17 +66,37 @@ class CropRejection(CropModel):
     reasons: Annotated[list[RejectionReason], Field(min_length=1)]
 
 
+class DvcFingerprint(CropModel):
+    """Salida de un `.dvc` (ruta relativa al repo) tal como la registró `dvc add`."""
+
+    path: Annotated[str, Field(min_length=1)]
+    md5: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}(\.dir)?$")]
+    size: Count
+    nfiles: Count
+
+
+class CropSource(CropModel):
+    dataset_version: Identifier
+    quality_file: Annotated[str, Field(min_length=1)]
+    quality_status: Literal["passed", "warning"]
+    images: DvcFingerprint
+    annotations: DvcFingerprint
+
+
 class CropSummary(CropModel):
     total_annotations: Count
     accepted: Count
     rejected: Count
     accepted_per_class: dict[ClassName, Count]
+    # Imágenes originales distintas con al menos un crop aceptado de la clase.
+    images_per_class: dict[ClassName, Count]
     rejected_per_reason: dict[RejectionReason, Count]
 
 
 class CropReport(CropModel):
     schema_version: Literal["1.0"]
     dataset_version: Identifier
+    source: CropSource
     classes: list[ClassName]
     summary: CropSummary
     crops: list[CropRecord]
@@ -84,6 +106,8 @@ class CropReport(CropModel):
     def consistent(self) -> Self:
         if tuple(self.classes) != CLASS_NAMES:
             raise ValueError(f"classes debe ser {list(CLASS_NAMES)}")
+        if self.source.dataset_version != self.dataset_version:
+            raise ValueError("source.dataset_version debe coincidir con dataset_version")
         crop_ids = [crop.crop_id for crop in self.crops]
         if len(crop_ids) != len(set(crop_ids)):
             raise ValueError("crop_id repetido en el manifiesto")
@@ -97,4 +121,9 @@ class CropReport(CropModel):
             or self.summary.total_annotations != len(self.crops) + len(self.rejections)
         ):
             raise ValueError("summary no coincide con crops/rejections")
+        images: dict[str, set[int]] = defaultdict(set)
+        for crop in self.crops:
+            images[crop.class_name].add(crop.image_id)
+        if self.summary.images_per_class != {name: len(images[name]) for name in CLASS_NAMES}:
+            raise ValueError("summary.images_per_class no coincide con los crops")
         return self

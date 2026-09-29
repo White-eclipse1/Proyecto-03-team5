@@ -23,7 +23,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from crops.classes import CLASS_NAMES, resolve_category_classes
-from crops.models import CropRecord, CropRejection, CropReport, CropSummary
+from crops.models import CropRecord, CropRejection, CropReport, CropSource, CropSummary
 
 logger = logging.getLogger("crop-extraction")
 
@@ -100,11 +100,12 @@ def extract_crops(
     *,
     images_dir: Path,
     output_dir: Path,
-    dataset_version: str,
+    source: CropSource,
 ) -> CropReport:
     """Escribe `output_dir/<clase>/<crop_id>.png` por cada bbox válida y devuelve el reporte.
 
-    `coco` es el dict crudo de `ingestion.loader.merge_raw_batches`. Se exige
+    `coco` es el dict crudo de `ingestion.loader.merge_raw_batches` y
+    `source` identifica el release del que sale (se copia al reporte). Se exige
     un `output_dir` vacío para que el manifiesto nunca conviva con crops
     viejos de otra corrida.
     """
@@ -192,19 +193,24 @@ def extract_crops(
         )
 
     accepted_per_class = Counter(crop.class_name for crop in crops)
+    images_per_class = Counter(
+        class_name for class_name, _ in {(crop.class_name, crop.image_id) for crop in crops}
+    )
     rejected_per_reason = Counter(
         reason for rejection in rejections for reason in rejection.reasons
     )
     logger.info("Crops aceptados=%d rechazados=%d", len(crops), len(rejections))
     return CropReport(
         schema_version="1.0",
-        dataset_version=dataset_version,
+        dataset_version=source.dataset_version,
+        source=source,
         classes=list(CLASS_NAMES),
         summary=CropSummary(
             total_annotations=len(annotations),
             accepted=len(crops),
             rejected=len(rejections),
             accepted_per_class={name: accepted_per_class[name] for name in CLASS_NAMES},
+            images_per_class={name: images_per_class[name] for name in CLASS_NAMES},
             rejected_per_reason=dict(sorted(rejected_per_reason.items())),
         ),
         crops=crops,
