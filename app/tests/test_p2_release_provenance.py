@@ -154,3 +154,67 @@ def test_switching_release_changes_provenance():
     assert first["release_version"] != second["release_version"]
     assert first["dvc_hash"] != second["dvc_hash"]
     assert first["images_dvc_hash"] != second["images_dvc_hash"]
+
+
+def test_verify_release_rejects_mismatched_dvc_hash(tmp_path):
+    images_dvc = tmp_path / "images.dvc"
+    annotations_dvc = tmp_path / "annotations.dvc"
+    quality_report = tmp_path / "quality.json"
+
+    images_dvc.write_text(
+        """
+outs:
+- md5: actual-images-hash.dir
+  path: images
+""",
+        encoding="utf-8",
+    )
+
+    annotations_dvc.write_text(
+        """
+outs:
+- md5: actual-annotations-hash.dir
+  path: annotations
+""",
+        encoding="utf-8",
+    )
+
+    quality_report.write_text(
+        """
+{
+  "dataset_version": "v-test",
+  "status": "warning"
+}
+""",
+        encoding="utf-8",
+    )
+
+    releases = {
+        "v-test": {
+            "release_version": "v-test",
+            "quality_status": "warning",
+            "quality_report": "quality.json",
+            "images_dvc_file": "images.dvc",
+            "images_dvc_hash": "WRONG-HASH.dir",
+            "annotations_dvc_file": "annotations.dvc",
+            "annotations_dvc_hash": "actual-annotations-hash.dir",
+            "dvc_hash": "WRONG-HASH.dir",
+            "coco_path": "annotations",
+            "images_path": "images",
+        }
+    }
+
+    service = P2ReleaseService(releases)
+
+    with pytest.raises(P2ReleaseUnverifiableError):
+        service.verify_release("v-test", tmp_path)
+
+
+def test_real_p2_release_verifies_against_repository():
+    service = P2ReleaseService.from_catalog("releases/p2_releases.json")
+
+    result = service.verify_release("v0.1.1", "..")
+
+    assert result["release_version"] == "v0.1.1"
+    assert result["quality_status"] == "warning"
+    assert result["image_count"] == 600
