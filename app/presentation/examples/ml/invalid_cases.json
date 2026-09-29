@@ -1,0 +1,4955 @@
+[
+  {
+    "name": "training_succeeded_without_checkpoint",
+    "contract": "training_jobs",
+    "reason": "Un job succeeded debe tener checkpoint.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": null,
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_checkpoint_from_other_run",
+    "contract": "training_jobs",
+    "reason": "El checkpoint debe pertenecer al mismo run_id.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_failed_without_error",
+    "contract": "training_jobs",
+    "reason": "Un job failed debe traer error.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0002",
+          "status": "failed",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
+          "checkpoint": null,
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 512,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T18:00:00Z",
+          "started_at": "2026-01-14T18:00:40Z",
+          "finished_at": "2026-01-14T18:07:02Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_queued_with_run_id",
+    "contract": "training_jobs",
+    "reason": "Un job queued todavía no tiene run_id.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0004",
+          "status": "queued",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": null,
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-15T10:30:00Z",
+          "started_at": null,
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_running_without_run_id",
+    "contract": "training_jobs",
+    "reason": "Un job running ya tiene run_id MLflow.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0003",
+          "status": "running",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": null,
+          "checkpoint": null,
+          "params": {
+            "optimizer": "adamw",
+            "batch_size": 16,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-15T09:00:00Z",
+          "started_at": "2026-01-15T09:01:12Z",
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_terminal_without_finished_at",
+    "contract": "training_jobs",
+    "reason": "Un job terminado debe tener finished_at.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": null,
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_unknown_status",
+    "contract": "training_jobs",
+    "reason": "Estado fuera del catálogo.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "done",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_missing_manifest_hash",
+    "contract": "training_jobs",
+    "reason": "manifest_hash es obligatorio.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_bad_manifest_hash",
+    "contract": "training_jobs",
+    "reason": "manifest_hash debe ser md5:<32 hex> o sha256:<64 hex>.",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00Z",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "training_timestamp_without_timezone",
+    "contract": "training_jobs",
+    "reason": "Los timestamps son ISO 8601 en UTC (sufijo Z).",
+    "document": {
+      "schema_version": "1.0",
+      "jobs": [
+        {
+          "job_id": "job-0001",
+          "status": "succeeded",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "experiment_id": "1",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": 32,
+            "max_epochs": 50,
+            "learning_rate": 0.001,
+            "image_size": 224,
+            "hidden_layers": [
+              512,
+              256
+            ],
+            "dropout": 0.2
+          },
+          "created_at": "2026-01-14T12:00:00",
+          "started_at": "2026-01-14T12:00:30Z",
+          "finished_at": "2026-01-14T13:45:10Z",
+          "error": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_uppercase_run_id",
+    "contract": "runs",
+    "reason": "run_id MLflow son 32 hex en minúsculas.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0A1B2C3D4E5F60718293A4B5C6D7E8F9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_short_run_id",
+    "contract": "runs",
+    "reason": "run_id MLflow son 32 hex.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_finished_without_end_time",
+    "contract": "runs",
+    "reason": "Un run terminado debe tener end_time.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_running_with_end_time",
+    "contract": "runs",
+    "reason": "Un run activo no tiene end_time.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adamw-bs16",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": "2026-01-15T10:00:00Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adamw",
+            "batch_size": "16",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.482
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_non_numeric_experiment_id",
+    "contract": "runs",
+    "reason": "experiment_id MLflow es numérico.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "exp-1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_unknown_field",
+    "contract": "runs",
+    "reason": "Los contratos no aceptan campos extra.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          },
+          "artifact_uri": "s3://bucket/x"
+        }
+      ]
+    }
+  },
+  {
+    "name": "run_duplicate_run_id",
+    "contract": "runs",
+    "reason": "run_id es único en la lista.",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adamw-bs16",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adamw",
+            "batch_size": "16",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.482
+          }
+        },
+        {
+          "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam-img512",
+          "status": "FAILED",
+          "start_time": "2026-01-14T18:00:40Z",
+          "end_time": "2026-01-14T18:07:02Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "512",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {}
+        },
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        },
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adamw-bs16",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "params": {
+            "optimizer": "adamw",
+            "batch_size": "16",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2"
+          },
+          "metrics": {
+            "train_loss": 0.482
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_model_name_without_version",
+    "contract": "evaluations",
+    "reason": "model_name y model_version van juntos.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_metric_out_of_range",
+    "contract": "evaluations",
+    "reason": "Las métricas de evaluación son proporciones [0, 1].",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 1.2,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_unknown_split",
+    "contract": "evaluations",
+    "reason": "Solo se evalúa en validation o test.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "train",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_schema_version_2",
+    "contract": "evaluations",
+    "reason": "schema_version está congelado en 1.0.",
+    "document": {
+      "schema_version": "2.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        },
+        {
+          "evaluation_id": "eval-0001",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": null,
+          "model_version": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "validation",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.875,
+            "f1_macro": 0.873
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8,
+              "recall": 1.0,
+              "f1": 0.8889,
+              "support": 4
+            },
+            {
+              "class_name": "cat",
+              "precision": 1.0,
+              "recall": 0.75,
+              "f1": 0.8571,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              4,
+              0
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.934,
+                "cat": 0.066
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.887,
+                "cat": 0.113
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.812,
+                "cat": 0.188
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.968,
+                "cat": 0.032
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.557,
+                "cat": 0.443
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.109,
+                "cat": 0.891
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.224,
+                "cat": 0.776
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.157,
+                "cat": 0.843
+              }
+            }
+          ],
+          "created_at": "2026-01-14T13:50:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_detection_metrics",
+    "contract": "evaluations",
+    "reason": "Es clasificación: no hay mAP50 ni mAP50-95.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917,
+            "map50": 0.772,
+            "map50_95": 0.511
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_missing_f1_macro",
+    "contract": "evaluations",
+    "reason": "f1_macro es obligatorio.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_accuracy_disagrees_with_matrix",
+    "contract": "evaluations",
+    "reason": "accuracy_top1 = traza / total de la matriz de confusión.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.9,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_f1_macro_disagrees_with_matrix",
+    "contract": "evaluations",
+    "reason": "f1_macro = promedio simple del f1 por clase.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.8
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_class_precision_disagrees",
+    "contract": "evaluations",
+    "reason": "precision de la clase = aciertos / columna de la matriz.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.9,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_class_recall_disagrees",
+    "contract": "evaluations",
+    "reason": "recall de la clase = aciertos / fila de la matriz.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.5,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_support_disagrees",
+    "contract": "evaluations",
+    "reason": "support = suma de la fila de la clase.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 7
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_per_class_out_of_order",
+    "contract": "evaluations",
+    "reason": "per_class sigue el orden de class_names.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            },
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_missing_class_in_per_class",
+    "contract": "evaluations",
+    "reason": "Hay una entrada de per_class por clase.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_single_class",
+    "contract": "evaluations",
+    "reason": "Es multiclase: al menos dos clases.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_duplicate_class_name",
+    "contract": "evaluations",
+    "reason": "class_names no se repite.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "dog"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_confusion_matrix_not_square",
+    "contract": "evaluations",
+    "reason": "La matriz de confusión es n x n.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1,
+              0
+            ],
+            [
+              1,
+              3,
+              0
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_confusion_matrix_negative",
+    "contract": "evaluations",
+    "reason": "La matriz de confusión son conteos >= 0.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              -1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_predictions_do_not_add_up",
+    "contract": "evaluations",
+    "reason": "Las predicciones por recorte suman exactamente la matriz.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_prediction_changed_class",
+    "contract": "evaluations",
+    "reason": "Cambiar la clase predicha de un recorte descuadra la matriz.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.088,
+                "cat": 0.912
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_duplicate_crop",
+    "contract": "evaluations",
+    "reason": "Cada recorte (annotation_id) aparece una vez.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_prediction_unknown_class",
+    "contract": "evaluations",
+    "reason": "true_class y predicted_class están en class_names.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "bird",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.088
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_probabilities_do_not_sum_one",
+    "contract": "evaluations",
+    "reason": "Las probabilidades de un recorte suman ~1.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.912,
+                "cat": 0.3
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_predicted_class_not_argmax",
+    "contract": "evaluations",
+    "reason": "predicted_class es la clase de mayor probabilidad.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.4,
+                "cat": 0.6
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "evaluation_probabilities_missing_class",
+    "contract": "evaluations",
+    "reason": "Hay una probabilidad por cada clase de class_names.",
+    "document": {
+      "schema_version": "1.0",
+      "evaluations": [
+        {
+          "evaluation_id": "eval-0002",
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "split": "test",
+          "class_names": [
+            "dog",
+            "cat"
+          ],
+          "metrics": {
+            "accuracy_top1": 0.8,
+            "f1_macro": 0.7917
+          },
+          "per_class": [
+            {
+              "class_name": "dog",
+              "precision": 0.8333,
+              "recall": 0.8333,
+              "f1": 0.8333,
+              "support": 6
+            },
+            {
+              "class_name": "cat",
+              "precision": 0.75,
+              "recall": 0.75,
+              "f1": 0.75,
+              "support": 4
+            }
+          ],
+          "confusion_matrix": [
+            [
+              5,
+              1
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "predictions": [
+            {
+              "image_id": 40,
+              "annotation_id": 1001,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 1.0
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1002,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.874,
+                "cat": 0.126
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1003,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.953,
+                "cat": 0.047
+              }
+            },
+            {
+              "image_id": 43,
+              "annotation_id": 1004,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.781,
+                "cat": 0.219
+              }
+            },
+            {
+              "image_id": 44,
+              "annotation_id": 1005,
+              "true_class": "dog",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.664,
+                "cat": 0.336
+              }
+            },
+            {
+              "image_id": 45,
+              "annotation_id": 1006,
+              "true_class": "dog",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.417,
+                "cat": 0.583
+              }
+            },
+            {
+              "image_id": 46,
+              "annotation_id": 1007,
+              "true_class": "cat",
+              "predicted_class": "dog",
+              "probabilities": {
+                "dog": 0.612,
+                "cat": 0.388
+              }
+            },
+            {
+              "image_id": 40,
+              "annotation_id": 1008,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.095,
+                "cat": 0.905
+              }
+            },
+            {
+              "image_id": 41,
+              "annotation_id": 1009,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.153,
+                "cat": 0.847
+              }
+            },
+            {
+              "image_id": 42,
+              "annotation_id": 1010,
+              "true_class": "cat",
+              "predicted_class": "cat",
+              "probabilities": {
+                "dog": 0.271,
+                "cat": 0.729
+              }
+            }
+          ],
+          "created_at": "2026-01-14T14:10:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_version_with_dataset_version_format",
+    "contract": "models",
+    "reason": "model_version es la versión del registry (entero), no un dataset_version.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-classifier",
+          "model_version": "demo-v1.0.0",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_missing_dataset_version",
+    "contract": "models",
+    "reason": "dataset_version y model_version son campos distintos y ambos obligatorios.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_missing_model_version",
+    "contract": "models",
+    "reason": "model_version es obligatorio aunque exista dataset_version.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-classifier",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_duplicate_alias",
+    "contract": "models",
+    "reason": "Un alias apunta a una sola versión por modelo.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "pet-classifier",
+          "model_version": "2",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "model_duplicate_version",
+    "contract": "models",
+    "reason": "(model_name, model_version) es único.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "pet-classifier",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_detection_shape",
+    "contract": "inference",
+    "reason": "Es clasificación: no se devuelven bounding boxes.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5,
+      "predictions": [
+        {
+          "category_name": "dog",
+          "score": 0.912,
+          "bbox": [
+            32.0,
+            40.5,
+            210.0,
+            300.0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_probabilities_do_not_sum_one",
+    "contract": "inference",
+    "reason": "Las probabilidades suman ~1.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.3
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_predicted_class_not_argmax",
+    "contract": "inference",
+    "reason": "predicted_class es la clase de mayor probabilidad.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_probability_above_one",
+    "contract": "inference",
+    "reason": "Cada probabilidad está en [0, 1].",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.5,
+        "cat": -0.5
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_single_class",
+    "contract": "inference",
+    "reason": "Es multiclase: al menos dos clases.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_missing_crop",
+    "contract": "inference",
+    "reason": "La respuesta identifica el recorte clasificado.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_missing_model_version",
+    "contract": "inference",
+    "reason": "Toda predicción declara el model_version que la produjo.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "dataset_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_request_missing_crop",
+    "contract": "inference_request",
+    "reason": "Se infiere sobre un recorte seleccionado.",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "3"
+    }
+  },
+  {
+    "name": "inference_request_crop_without_annotation",
+    "contract": "inference_request",
+    "reason": "El recorte se identifica por su annotation_id COCO.",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42
+      }
+    }
+  },
+  {
+    "name": "inference_request_crop_without_dataset_version",
+    "contract": "inference_request",
+    "reason": "El recorte pertenece a un release concreto.",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "crop": {
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "inference_request_negative_annotation_id",
+    "contract": "inference_request",
+    "reason": "Los IDs COCO no son negativos.",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": -1
+      }
+    }
+  },
+  {
+    "name": "inference_request_bad_model_version",
+    "contract": "inference_request",
+    "reason": "model_version es la versión del registry (entero).",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "demo-v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "inference_request_with_bbox",
+    "contract": "inference_request",
+    "reason": "El recorte viene de una anotación existente; no se envían bboxes nuevas.",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007,
+        "bbox": [
+          32.0,
+          40.5,
+          210.0,
+          300.0
+        ]
+      }
+    }
+  },
+  {
+    "name": "error_bad_code",
+    "contract": "error",
+    "reason": "code es snake_case estable, no texto libre.",
+    "document": {
+      "schema_version": "1.0",
+      "error": {
+        "code": "Training backend unavailable",
+        "message": "El servicio de entrenamiento no respondió.",
+        "retryable": true
+      }
+    }
+  },
+  {
+    "name": "error_missing_retryable",
+    "contract": "error",
+    "reason": "retryable es obligatorio para decidir si se ofrece reintentar.",
+    "document": {
+      "schema_version": "1.0",
+      "error": {
+        "code": "training_backend_unavailable",
+        "message": "El servicio de entrenamiento no respondió."
+      }
+    }
+  }
+]

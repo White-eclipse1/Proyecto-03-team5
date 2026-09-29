@@ -2,6 +2,11 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AnnotateScreen } from "@/components/annotate/AnnotateScreen";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UploadScreen } from "@/components/upload/UploadScreen";
+import { EvaluationPage } from "@/ml/pages/Evaluation";
+import { ExperimentsPage } from "@/ml/pages/Experiments";
+import { InferencePage } from "@/ml/pages/Inference";
+import { ModelsPage } from "@/ml/pages/Models";
+import { TrainingPage } from "@/ml/pages/Training";
 import { DashboardPage } from "@/pages/Dashboard";
 import { SearchPage } from "@/pages/SearchPage";
 import { AnalyzersPage } from "@/pipeline/pages/Analyzers";
@@ -98,6 +103,49 @@ export function App(): JSX.Element {
         element={
           <AppLayout>
             <ProjectionsPage />
+          </AppLayout>
+        }
+      />
+
+      {/* APP-01: pantallas de modelos — mismo portal y mismo AppLayout/GlobalNav. */}
+      <Route path="/ml" element={<Navigate to="/ml/training" replace />} />
+      <Route
+        path="/ml/training"
+        element={
+          <AppLayout>
+            <TrainingPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/ml/experiments"
+        element={
+          <AppLayout>
+            <ExperimentsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/ml/evaluation"
+        element={
+          <AppLayout>
+            <EvaluationPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/ml/models"
+        element={
+          <AppLayout>
+            <ModelsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/ml/inference"
+        element={
+          <AppLayout>
+            <InferencePage />
           </AppLayout>
         }
       />
