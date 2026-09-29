@@ -15,10 +15,12 @@ from pydantic import ValidationError
 from presentation.ml_contracts import (
     CONTRACTS,
     EvaluationsResponse,
+    InferenceRequest,
     InferenceResponse,
     ModelsResponse,
     RunsResponse,
     TrainingJobsResponse,
+    TrainingParams,
 )
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
@@ -27,6 +29,7 @@ VALID = {
     "runs": "runs.json",
     "evaluations": "evaluations.json",
     "models": "models.json",
+    "inference_request": "inference_request.json",
     "inference": "inference.json",
     "error": "error.json",
 }
@@ -85,6 +88,68 @@ class SharedInvalidCasesTests(unittest.TestCase):
         for case in cases:
             with self.subTest(case=case["name"]), self.assertRaises(ValidationError):
                 CONTRACTS[case["contract"]].model_validate(case["document"])
+
+
+class ClassificationContractTests(unittest.TestCase):
+    """El modelo clasifica recortes: métricas multiclase y una clase por inferencia."""
+
+    def test_training_params_are_the_seven_required(self):
+        self.assertEqual(
+            set(TrainingParams.model_fields),
+            {
+                "optimizer",
+                "batch_size",
+                "max_epochs",
+                "learning_rate",
+                "image_size",
+                "hidden_layers",
+                "dropout",
+            },
+        )
+        job = TrainingJobsResponse.model_validate(load("training_jobs.json")).jobs[0]
+        self.assertIsInstance(job.params, TrainingParams)
+
+    def test_evaluation_metrics_recompute_from_confusion_matrix(self):
+        evaluation = EvaluationsResponse.model_validate(load("evaluations.json")).evaluations[0]
+        matrix = evaluation.confusion_matrix
+        total = sum(map(sum, matrix))
+        self.assertEqual(total, len(evaluation.predictions))
+        trace = sum(matrix[i][i] for i in range(len(matrix)))
+        self.assertAlmostEqual(evaluation.metrics.accuracy_top1, trace / total, places=3)
+        self.assertAlmostEqual(
+            evaluation.metrics.f1_macro,
+            sum(entry.f1 for entry in evaluation.per_class) / len(evaluation.per_class),
+            places=3,
+        )
+        self.assertEqual(
+            [entry.support for entry in evaluation.per_class], [sum(row) for row in matrix]
+        )
+
+    def test_metrics_accept_rounding_but_not_drift(self):
+        for accuracy, valid in ((0.8005, True), (0.802, False)):
+            with self.subTest(accuracy=accuracy):
+                document = load("evaluations.json")
+                document["evaluations"][0]["metrics"]["accuracy_top1"] = accuracy
+                if valid:
+                    EvaluationsResponse.model_validate(document)
+                else:
+                    with self.assertRaises(ValidationError):
+                        EvaluationsResponse.model_validate(document)
+
+    def test_inference_returns_one_class_for_the_requested_crop(self):
+        request = InferenceRequest.model_validate(load("inference_request.json"))
+        response = InferenceResponse.model_validate(load("inference.json"))
+        self.assertEqual(response.crop, request.crop)
+        self.assertEqual(
+            (response.model_name, response.model_version),
+            (request.model_name, request.model_version),
+        )
+        self.assertAlmostEqual(sum(response.probabilities.values()), 1.0, places=3)
+        self.assertEqual(
+            response.predicted_class,
+            max(response.probabilities, key=response.probabilities.__getitem__),
+        )
+        self.assertNotIn("predictions", InferenceResponse.model_fields)
 
 
 class TraceabilityTests(unittest.TestCase):

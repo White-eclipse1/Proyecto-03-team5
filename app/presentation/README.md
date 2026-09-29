@@ -307,17 +307,40 @@ ejecuta el downstream. No se persisten assignments en este stage.
 ## APP-01 — Contratos de las pantallas de modelos (`ml_contracts.py`)
 
 Las pantallas Training, Experiments, Evaluation, Models e Inference del portal
-(`/ml/*`) consumen cinco contratos v1.0 más un `ErrorResponse` común. El espejo
+(`/ml/*`) consumen estos contratos v1.0 más un `ErrorResponse` común. El espejo
 en Zod está en `frontend/src/ml/schemas.ts`.
+
+El modelo es un **clasificador multiclase de recortes**: cada anotación COCO
+válida del release es un recorte (ML-01), identificado por `image_id` +
+`annotation_id`. Por eso no hay mAP ni bounding boxes en estos contratos.
 
 | Contrato | Endpoint previsto | Contenido |
 |---|---|---|
-| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled` |
+| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled` y sus `TrainingParams` |
 | `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) |
-| `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas por checkpoint en `validation`/`test` |
+| `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas de clasificación por checkpoint en `validation`/`test` |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
-| `InferenceResponse` | `POST /api/ml/inference` | Predicciones COCO trazables al modelo |
+| `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
+| `InferenceResponse` | `POST /api/ml/inference` | Clase predicha y probabilidad por clase, trazables al modelo |
 | `ErrorResponse` | Cualquier respuesta no 2xx | `{code, message, retryable}` |
+
+**`TrainingParams`**: los 7 hiperparámetros obligatorios, sin defaults:
+`optimizer` (`adam`/`adamw`/`sgd`), `batch_size` (1–256), `max_epochs` (1–500),
+`learning_rate` (0, 1], `image_size` (32–1024, múltiplo de 32), `hidden_layers`
+(lista de hasta 5 enteros 1–4096) y `dropout` [0, 1).
+
+**Evaluación.** `class_names` fija el orden de `per_class` y de los dos ejes de
+`confusion_matrix` (filas: clase real; columnas: clase predicha). Cada evaluación
+trae `accuracy_top1`, `f1_macro`, `precision`/`recall`/`f1`/`support` por clase,
+la matriz y `predictions` por recorte (`true_class`, `predicted_class` y
+`probabilities`). La matriz es la fuente de verdad: el contrato recalcula desde
+ella el support, las métricas por clase, la accuracy y el f1 macro (tolerancia
+1e-3, para admitir redondeo a 3 decimales) y exige que las predicciones por
+recorte sumen exactamente la matriz.
+
+**Inferencia.** Se envía un recorte ya existente, no una imagen con cajas nuevas.
+La respuesta trae una `predicted_class` y `probabilities` con al menos dos clases,
+que suman ~1 (misma tolerancia), y `predicted_class` es la de mayor probabilidad.
 
 Ningún servicio implementa todavía estos endpoints: los conectan APP-02…APP-07.
 Mientras tanto, las pantallas muestran "fuente no conectada" (404) y nunca datos
@@ -331,6 +354,7 @@ IDs obligatorios y con formato fijo:
 - `checkpoint`: `runs:/<run_id>/<ruta>`, siempre del mismo `run_id` que lo declara.
 - `model_version`: versión del Model Registry (entero positivo como string). Es un
   campo distinto de `dataset_version` y no acepta su formato.
+- `image_id` / `annotation_id`: IDs COCO del recorte (enteros >= 0).
 
 El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 `checkpoint`, uno `failed` exige `error` y uno `queued` todavía no tiene `run_id`.

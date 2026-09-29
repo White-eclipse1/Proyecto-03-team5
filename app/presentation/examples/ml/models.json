@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "models": [
     {
-      "model_name": "pet-detector",
+      "model_name": "pet-classifier",
       "model_version": "3",
       "status": "READY",
       "aliases": ["champion"],
@@ -13,7 +13,7 @@
       "created_at": "2026-01-14T14:00:00Z"
     },
     {
-      "model_name": "pet-detector",
+      "model_name": "pet-classifier",
       "model_version": "2",
       "status": "READY",
       "aliases": [],
