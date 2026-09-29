@@ -17,7 +17,10 @@
         "learning_rate": "0.001",
         "image_size": "224",
         "hidden_layers": "512,256",
-        "dropout": "0.2"
+        "dropout": "0.2",
+        "seed": "42",
+        "patience": "5",
+        "min_delta": "0.001"
       },
       "metrics": {
         "train_loss": 0.482
@@ -39,7 +42,10 @@
         "learning_rate": "0.001",
         "image_size": "512",
         "hidden_layers": "512,256",
-        "dropout": "0.2"
+        "dropout": "0.2",
+        "seed": "42",
+        "patience": "5",
+        "min_delta": "0.001"
       },
       "metrics": {}
     },
@@ -59,7 +65,10 @@
         "learning_rate": "0.001",
         "image_size": "224",
         "hidden_layers": "512,256",
-        "dropout": "0.2"
+        "dropout": "0.2",
+        "seed": "42",
+        "patience": "5",
+        "min_delta": "0.001"
       },
       "metrics": {
         "train_loss": 0.231,

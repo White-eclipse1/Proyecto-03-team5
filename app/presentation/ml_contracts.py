@@ -17,13 +17,26 @@ The model is a multiclass crop classifier: evaluation reports accuracy_top1,
 f1_macro, per-class metrics, the confusion matrix and the per-crop predictions,
 and every metric must agree with the matrix; inference returns one class with its
 probability distribution, never bounding boxes.
+
+APP-02 adds the training request (`TrainingJobRequest`, sharing `TrainingParams`
+with the job), the reproducibility and early-stopping params, the Quality Gate
+rule (`training_blocked_reason`), and the per-release files
+`releases/<version>/provenance.json` and `releases/<version>/manifest.json`.
 """
 
 from collections import Counter
 from math import isclose
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
 ManifestHash = Annotated[
@@ -104,7 +117,10 @@ class ErrorResponse(ContractModel):
 
 
 class TrainingParams(ContractModel):
-    """The 7 required hyperparameters of a training job; all required, no defaults."""
+    """The 7 required hyperparameters (APP-01) plus seed and early stopping (APP-02).
+
+    Every field is required, no defaults.
+    """
 
     optimizer: Literal["adam", "adamw", "sgd"]
     batch_size: int = Field(ge=1, le=256)
@@ -113,6 +129,30 @@ class TrainingParams(ContractModel):
     image_size: int = Field(ge=32, le=1024, multiple_of=32)
     hidden_layers: list[Annotated[int, Field(ge=1, le=4096)]] = Field(max_length=5)
     dropout: float = Field(ge=0, lt=1)
+    seed: int = Field(ge=0, le=2**31 - 1)
+    patience: int = Field(ge=1)
+    min_delta: float = Field(ge=0, le=1)
+
+    @field_validator("patience")
+    @classmethod
+    def patience_within_max_epochs(cls, patience: int, info: ValidationInfo) -> int:
+        max_epochs = info.data.get("max_epochs")
+        if max_epochs is not None and patience > max_epochs:
+            raise ValueError("patience cannot exceed max_epochs")
+        return patience
+
+
+class TrainingJobRequest(ContractModel):
+    """Body of `POST /api/ml/training/jobs`, validated before any job exists.
+
+    `manifest_hash` pins the job to the exact 70/20/10 manifest of the release;
+    `training_request_rejection` checks it against `releases/<v>/manifest.json`.
+    """
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    manifest_hash: ManifestHash
+    params: TrainingParams
 
 
 TrainingStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
@@ -388,6 +428,118 @@ class InferenceResponse(ContractModel):
         return self
 
 
+class DvcOutput(ContractModel):
+    """One `outs` entry of a `.dvc` file: the content hash DVC computed."""
+
+    path: Label
+    md5: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}(\.dir)?$")]
+    nfiles: Count | None
+
+
+class ReleaseProvenance(ContractModel):
+    """`releases/<version>/provenance.json`, written by `cut_release`."""
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    dvc_outputs: list[DvcOutput] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_paths(self) -> Self:
+        require_unique([output.path for output in self.dvc_outputs], "path must be unique")
+        return self
+
+
+class ManifestSplit(ContractModel):
+    image_count: Count
+    ratio: Ratio
+
+
+class ManifestSplits(ContractModel):
+    train: ManifestSplit
+    validation: ManifestSplit
+    test: ManifestSplit
+
+
+SPLIT_TARGETS = {"train": 0.7, "validation": 0.2, "test": 0.1}
+
+
+class TrainingManifest(ContractModel):
+    """`releases/<version>/manifest.json`: the exact split used to train (70/20/10).
+
+    Each split must hold its target share up to integer rounding: its image_count
+    is less than one image away from `target * total_images`.
+    """
+
+    schema_version: Literal["1.0"]
+    dataset_version: Identifier
+    manifest_hash: ManifestHash
+    total_images: int = Field(gt=0)
+    splits: ManifestSplits
+
+    @model_validator(mode="after")
+    def counts_and_ratios_agree(self) -> Self:
+        splits = (self.splits.train, self.splits.validation, self.splits.test)
+        if sum(split.image_count for split in splits) != self.total_images:
+            raise ValueError("split counts must sum to total_images")
+        for split in splits:
+            if not isclose(split.ratio, split.image_count / self.total_images, abs_tol=1e-6):
+                raise ValueError("ratio must equal image_count / total_images")
+        return self
+
+    @model_validator(mode="after")
+    def split_is_70_20_10(self) -> Self:
+        for name, target in SPLIT_TARGETS.items():
+            count = getattr(self.splits, name).image_count
+            if abs(count - target * self.total_images) >= 1:
+                raise ValueError(f"{name} must be {target:.0%} of total_images")
+        return self
+
+
+def training_blocked_reason(
+    quality_status: str,
+    provenance: ReleaseProvenance | None,
+    manifest: TrainingManifest | None,
+) -> str | None:
+    """Whether a release can be trained reproducibly; `None` means it can.
+
+    A `failed` Quality Gate blocks (warn does not), and so does a missing or
+    invalid DVC provenance or 70/20/10 manifest: pass `None` for either when the
+    file is missing or does not validate.
+    """
+    if quality_status == "failed":
+        return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
+    if provenance is None:
+        return (
+            "El release no tiene un provenance.json de DVC válido; "
+            "no se puede entrenar de forma reproducible."
+        )
+    if manifest is None:
+        return (
+            "El release no tiene un manifest.json 70/20/10 válido; "
+            "no se puede entrenar de forma reproducible."
+        )
+    if provenance.dataset_version != manifest.dataset_version:
+        return "La procedencia y el manifiesto corresponden a releases distintos."
+    return None
+
+
+def training_request_rejection(
+    request: TrainingJobRequest,
+    quality_status: str,
+    provenance: ReleaseProvenance | None,
+    manifest: TrainingManifest | None,
+) -> str | None:
+    """What `POST /api/ml/training/jobs` checks, after the contract, before creating a job."""
+    reason = training_blocked_reason(quality_status, provenance, manifest)
+    if reason is not None:
+        return reason
+    if manifest.dataset_version != request.dataset_version:
+        return "El manifiesto no corresponde al release solicitado."
+    if manifest.manifest_hash != request.manifest_hash:
+        return "El manifest_hash no coincide con el manifiesto del release."
+    return None
+
+
 CONTRACTS: dict[str, type[ContractModel]] = {
     "training_jobs": TrainingJobsResponse,
     "runs": RunsResponse,
@@ -396,4 +548,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "inference_request": InferenceRequest,
     "inference": InferenceResponse,
     "error": ErrorResponse,
+    "training_request": TrainingJobRequest,
+    "provenance": ReleaseProvenance,
+    "manifest": TrainingManifest,
 }

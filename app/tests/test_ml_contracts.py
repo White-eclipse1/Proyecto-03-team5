@@ -18,9 +18,14 @@ from presentation.ml_contracts import (
     InferenceRequest,
     InferenceResponse,
     ModelsResponse,
+    ReleaseProvenance,
     RunsResponse,
+    TrainingJobRequest,
     TrainingJobsResponse,
+    TrainingManifest,
     TrainingParams,
+    training_blocked_reason,
+    training_request_rejection,
 )
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
@@ -32,6 +37,9 @@ VALID = {
     "inference_request": "inference_request.json",
     "inference": "inference.json",
     "error": "error.json",
+    "training_request": "training_request.json",
+    "provenance": "provenance.json",
+    "manifest": "manifest.json",
 }
 
 
@@ -89,13 +97,110 @@ class SharedInvalidCasesTests(unittest.TestCase):
             with self.subTest(case=case["name"]), self.assertRaises(ValidationError):
                 CONTRACTS[case["contract"]].model_validate(case["document"])
 
+    def test_invalid_cases_point_at_the_declared_field(self):
+        """Pydantic y Zod deben señalar el mismo campo, no solo rechazar."""
+        cases = [case for case in load("invalid_cases.json") if "field" in case]
+        self.assertGreater(len(cases), 0)
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                with self.assertRaises(ValidationError) as raised:
+                    CONTRACTS[case["contract"]].model_validate(case["document"])
+                paths = [
+                    ".".join(str(part) for part in error["loc"])
+                    for error in raised.exception.errors()
+                ]
+                self.assertTrue(
+                    any(
+                        path == case["field"] or path.startswith(f"{case['field']}.")
+                        for path in paths
+                    ),
+                    f"{case['field']} no está en {paths}",
+                )
+
+
+class TrainingRequestTests(unittest.TestCase):
+    """APP-02: los parámetros del job y la regla del Quality Gate."""
+
+    def test_request_carries_all_required_hyperparameters(self):
+        request = TrainingJobRequest.model_validate(load("training_request.json"))
+        self.assertEqual(
+            set(type(request.params).model_fields),
+            {
+                "optimizer",
+                "batch_size",
+                "max_epochs",
+                "learning_rate",
+                "image_size",
+                "hidden_layers",
+                "dropout",
+                "seed",
+                "patience",
+                "min_delta",
+            },
+        )
+
+    def test_accepts_boundary_values(self):
+        document = load("training_request.json")
+        document["params"].update(
+            batch_size=1,
+            max_epochs=1,
+            patience=1,
+            learning_rate=1.0,
+            dropout=0.0,
+            image_size=32,
+            hidden_layers=[],
+            seed=0,
+            min_delta=0.0,
+        )
+        TrainingJobRequest.model_validate(document)
+
+    def release_files(self):
+        return (
+            ReleaseProvenance.model_validate(load("provenance.json")),
+            TrainingManifest.model_validate(load("manifest.json")),
+        )
+
+    def test_failed_quality_gate_blocks_training(self):
+        provenance, manifest = self.release_files()
+        self.assertIsNotNone(training_blocked_reason("failed", provenance, manifest))
+        self.assertIsNone(training_blocked_reason("warning", provenance, manifest))
+        self.assertIsNone(training_blocked_reason("passed", provenance, manifest))
+
+    def test_missing_provenance_or_manifest_blocks_training(self):
+        provenance, manifest = self.release_files()
+        self.assertIn("provenance.json", training_blocked_reason("passed", None, manifest))
+        self.assertIn("manifest.json", training_blocked_reason("passed", provenance, None))
+        other = manifest.model_copy(update={"dataset_version": "demo-v2.0.0"})
+        self.assertIsNotNone(training_blocked_reason("passed", provenance, other))
+
+    def test_request_is_bound_to_the_release_manifest_hash(self):
+        provenance, manifest = self.release_files()
+        request = TrainingJobRequest.model_validate(load("training_request.json"))
+        self.assertEqual(request.manifest_hash, manifest.manifest_hash)
+        self.assertIsNone(training_request_rejection(request, "warning", provenance, manifest))
+        for update, message in (
+            ({"manifest_hash": "md5:" + "0" * 32}, "manifest_hash"),
+            ({"dataset_version": "demo-v2.0.0"}, "release solicitado"),
+        ):
+            with self.subTest(update=update):
+                other = request.model_copy(update=update)
+                reason = training_request_rejection(other, "warning", provenance, manifest)
+                self.assertIn(message, reason)
+        self.assertIsNotNone(training_request_rejection(request, "passed", None, manifest))
+
+    def test_manifest_accepts_integer_rounding_of_70_20_10(self):
+        document = load("manifest.json")
+        document["total_images"] = 601
+        for name, count in (("train", 421), ("validation", 120), ("test", 60)):
+            document["splits"][name] = {"image_count": count, "ratio": count / 601}
+        TrainingManifest.model_validate(document)
+
 
 class ClassificationContractTests(unittest.TestCase):
     """El modelo clasifica recortes: métricas multiclase y una clase por inferencia."""
 
-    def test_training_params_are_the_seven_required(self):
-        self.assertEqual(
-            set(TrainingParams.model_fields),
+    def test_training_params_include_the_seven_required(self):
+        self.assertLessEqual(
             {
                 "optimizer",
                 "batch_size",
@@ -105,6 +210,7 @@ class ClassificationContractTests(unittest.TestCase):
                 "hidden_layers",
                 "dropout",
             },
+            set(TrainingParams.model_fields),
         )
         job = TrainingJobsResponse.model_validate(load("training_jobs.json")).jobs[0]
         self.assertIsInstance(job.params, TrainingParams)

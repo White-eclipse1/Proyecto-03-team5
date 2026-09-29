@@ -17,6 +17,12 @@ import { z } from "zod";
  * accuracy_top1, f1_macro, métricas por clase, matriz de confusión y predicciones
  * por recorte, y todo debe cuadrar con la matriz; la inferencia devuelve una
  * clase con su distribución de probabilidades, nunca bounding boxes.
+ *
+ * APP-02 agrega el request de entrenamiento (`trainingJobRequestSchema`, que
+ * comparte `trainingParamsSchema` con el job), seed y early stopping, la regla del
+ * Quality Gate (`trainingBlockedReason`) y los archivos por release
+ * `provenance.json` y `manifest.json`. Los mensajes de error de los parámetros son
+ * los que ve el usuario en el formulario.
  */
 
 const identifierSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -87,17 +93,87 @@ export const errorResponseSchema = z.strictObject({
   error: contractErrorSchema,
 });
 
-/** Los 7 hiperparámetros obligatorios de un job; sin defaults. */
-export const trainingParamsSchema = z.strictObject({
-  optimizer: z.enum(["adam", "adamw", "sgd"]),
-  batch_size: z.number().int().min(1).max(256),
-  max_epochs: z.number().int().min(1).max(500),
-  learning_rate: z.number().gt(0).max(1),
-  image_size: z.number().int().min(32).max(1024).multipleOf(32),
-  hidden_layers: z.array(z.number().int().min(1).max(4096)).max(5),
-  dropout: z.number().min(0).lt(1),
-});
+/** Número con mensaje propio: cubre vacío (undefined), texto (NaN) y tipo incorrecto. */
+function numberField(name: string, integer: boolean) {
+  const base = z.number({
+    error: integer ? `${name} debe ser un número entero.` : `${name} debe ser un número.`,
+  });
+  return integer ? base.int(`${name} debe ser un número entero.`) : base;
+}
+
+export const TRAINING_PARAM_NAMES = [
+  "optimizer",
+  "batch_size",
+  "max_epochs",
+  "learning_rate",
+  "image_size",
+  "hidden_layers",
+  "dropout",
+  "seed",
+  "patience",
+  "min_delta",
+] as const;
+export type TrainingParamName = (typeof TRAINING_PARAM_NAMES)[number];
+
+export const trainingParamsSchema = z
+  .strictObject({
+    optimizer: z.enum(["adam", "adamw", "sgd"], {
+      error: "optimizer debe ser adam, adamw o sgd.",
+    }),
+    batch_size: numberField("batch_size", true)
+      .min(1, "batch_size debe ser al menos 1.")
+      .max(256, "batch_size no puede ser mayor que 256."),
+    max_epochs: numberField("max_epochs", true)
+      .min(1, "max_epochs debe ser al menos 1.")
+      .max(500, "max_epochs no puede ser mayor que 500."),
+    learning_rate: numberField("learning_rate", false)
+      .gt(0, "learning_rate debe ser mayor que 0.")
+      .max(1, "learning_rate no puede ser mayor que 1."),
+    image_size: numberField("image_size", true)
+      .min(32, "image_size debe ser al menos 32.")
+      .max(1024, "image_size no puede ser mayor que 1024.")
+      .multipleOf(32, "image_size debe ser múltiplo de 32."),
+    hidden_layers: z
+      .array(
+        numberField("hidden_layers", true)
+          .min(1, "Cada capa de hidden_layers necesita al menos 1 neurona.")
+          .max(4096, "Cada capa de hidden_layers admite como máximo 4096 neuronas."),
+        { error: "hidden_layers debe ser una lista de enteros separados por comas." }
+      )
+      .max(5, "hidden_layers admite como máximo 5 capas."),
+    dropout: numberField("dropout", false)
+      .min(0, "dropout no puede ser negativo.")
+      .lt(1, "dropout debe ser menor que 1."),
+    seed: numberField("seed", true)
+      .min(0, "seed no puede ser negativo.")
+      .max(2 ** 31 - 1, "seed no puede ser mayor que 2147483647."),
+    patience: numberField("patience", true).min(1, "patience debe ser al menos 1."),
+    min_delta: numberField("min_delta", false)
+      .min(0, "min_delta no puede ser negativo.")
+      .max(1, "min_delta no puede ser mayor que 1."),
+  })
+  .superRefine((params, context) => {
+    if (params.patience > params.max_epochs) {
+      context.addIssue({
+        code: "custom",
+        message: "patience no puede ser mayor que max_epochs.",
+        path: ["patience"],
+      });
+    }
+  });
 export type TrainingParams = z.infer<typeof trainingParamsSchema>;
+
+/**
+ * Body de `POST /api/ml/training/jobs`, validado antes de que exista cualquier job.
+ * `manifest_hash` fija el job al manifiesto 70/20/10 exacto del release.
+ */
+export const trainingJobRequestSchema = z.strictObject({
+  schema_version: schemaVersionSchema,
+  dataset_version: identifierSchema,
+  manifest_hash: manifestHashSchema,
+  params: trainingParamsSchema,
+});
+export type TrainingJobRequest = z.infer<typeof trainingJobRequestSchema>;
 
 export const trainingStatusSchema = z.enum([
   "queued",
@@ -384,6 +460,111 @@ export const inferenceResponseSchema = z
   });
 export type InferenceResponse = z.infer<typeof inferenceResponseSchema>;
 
+export const releaseProvenanceSchema = z
+  .strictObject({
+    schema_version: schemaVersionSchema,
+    dataset_version: identifierSchema,
+    dvc_outputs: z
+      .array(
+        z.strictObject({
+          path: labelSchema,
+          md5: z.string().regex(/^[0-9a-f]{32}(.dir)?$/),
+          nfiles: countSchema.nullable(),
+        })
+      )
+      .min(1),
+  })
+  .refine(
+    (provenance) => !hasDuplicates(provenance.dvc_outputs.map((output) => output.path)),
+    "path debe ser único"
+  );
+export type ReleaseProvenance = z.infer<typeof releaseProvenanceSchema>;
+
+const manifestSplitSchema = z.strictObject({ image_count: countSchema, ratio: ratioSchema });
+export const SPLIT_TARGETS = { train: 0.7, validation: 0.2, test: 0.1 } as const;
+
+export const trainingManifestSchema = z
+  .strictObject({
+    schema_version: schemaVersionSchema,
+    dataset_version: identifierSchema,
+    manifest_hash: manifestHashSchema,
+    total_images: z.number().int().positive(),
+    splits: z.strictObject({
+      train: manifestSplitSchema,
+      validation: manifestSplitSchema,
+      test: manifestSplitSchema,
+    }),
+  })
+  .superRefine((manifest, context) => {
+    const splits = Object.values(manifest.splits);
+    if (splits.reduce((total, split) => total + split.image_count, 0) !== manifest.total_images) {
+      context.addIssue({ code: "custom", message: "Los conteos deben sumar total_images" });
+    }
+    // Python: math.isclose(abs_tol=1e-6).
+    if (
+      splits.some(
+        (split) => Math.abs(split.ratio - split.image_count / manifest.total_images) > 1e-6
+      )
+    ) {
+      context.addIssue({ code: "custom", message: "ratio = image_count / total_images" });
+    }
+    // 70/20/10 salvo redondeo entero: menos de una imagen de distancia al objetivo.
+    for (const [name, target] of Object.entries(SPLIT_TARGETS)) {
+      const split = manifest.splits[name as keyof typeof SPLIT_TARGETS];
+      if (Math.abs(split.image_count - target * manifest.total_images) >= 1) {
+        context.addIssue({
+          code: "custom",
+          message: `${name} debe ser el ${Math.round(target * 100)}% de total_images`,
+        });
+      }
+    }
+  });
+export type TrainingManifest = z.infer<typeof trainingManifestSchema>;
+
+/**
+ * Igual que `training_blocked_reason` en Python: `null` si el release se puede
+ * entrenar de forma reproducible. Un Quality Gate `failed` bloquea (warning no), y
+ * también falta o invalidez de la procedencia DVC o del manifiesto 70/20/10: pasa
+ * `null` en cualquiera de los dos si el archivo falta o no valida.
+ */
+export function trainingBlockedReason(
+  qualityStatus: string,
+  provenance: ReleaseProvenance | null,
+  manifest: TrainingManifest | null
+): string | null {
+  if (qualityStatus === "failed") {
+    return "El release no pasó el Quality Gate (failed); no se puede entrenar con él.";
+  }
+  if (provenance === null) {
+    return "El release no tiene un provenance.json de DVC válido; no se puede entrenar de forma reproducible.";
+  }
+  if (manifest === null) {
+    return "El release no tiene un manifest.json 70/20/10 válido; no se puede entrenar de forma reproducible.";
+  }
+  if (provenance.dataset_version !== manifest.dataset_version) {
+    return "La procedencia y el manifiesto corresponden a releases distintos.";
+  }
+  return null;
+}
+
+/** Igual que `training_request_rejection`: lo que revisa el POST antes de crear el job. */
+export function trainingRequestRejection(
+  request: TrainingJobRequest,
+  qualityStatus: string,
+  provenance: ReleaseProvenance | null,
+  manifest: TrainingManifest | null
+): string | null {
+  const reason = trainingBlockedReason(qualityStatus, provenance, manifest);
+  if (reason !== null || manifest === null) return reason;
+  if (manifest.dataset_version !== request.dataset_version) {
+    return "El manifiesto no corresponde al release solicitado.";
+  }
+  if (manifest.manifest_hash !== request.manifest_hash) {
+    return "El manifest_hash no coincide con el manifiesto del release.";
+  }
+  return null;
+}
+
 /** Mismo mapa que `CONTRACTS` en ml_contracts.py; los tests exigen que coincidan. */
 export const ML_CONTRACTS = {
   training_jobs: trainingJobsResponseSchema,
@@ -393,4 +574,7 @@ export const ML_CONTRACTS = {
   inference_request: inferenceRequestSchema,
   inference: inferenceResponseSchema,
   error: errorResponseSchema,
+  training_request: trainingJobRequestSchema,
+  provenance: releaseProvenanceSchema,
+  manifest: trainingManifestSchema,
 } as const;

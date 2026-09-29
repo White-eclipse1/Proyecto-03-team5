@@ -365,3 +365,62 @@ El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 (Zod). Si un contrato cambia en un solo lado, fallan los tests del otro. Al
 cambiar un contrato hay que actualizar ambos lados y el corpus en el mismo PR.
 Los ejemplos son solo para tests y desarrollo, nunca fuente de producción.
+
+## APP-02 — Pantalla Training: request, Quality Gate y procedencia
+
+`POST /api/ml/training/jobs` recibe un `TrainingJobRequest`
+(`{schema_version, dataset_version, manifest_hash, params}`). `TrainingJob.params` usa el mismo
+`TrainingParams`. Todos los parámetros son obligatorios y no tienen valor por
+defecto en el contrato:
+
+| Parámetro | Regla |
+|---|---|
+| `optimizer` | `adam`, `adamw` o `sgd` |
+| `batch_size` | entero, 1–256 |
+| `max_epochs` | entero, 1–500 |
+| `learning_rate` | `0 < lr ≤ 1` |
+| `image_size` | entero, 32–1024, múltiplo de 32 |
+| `hidden_layers` | lista de enteros 1–4096, máximo 5 capas (`[]` = sin capas) |
+| `dropout` | `0 ≤ dropout < 1` |
+| `seed` | entero, 0–2147483647 |
+| `patience` | entero ≥ 1 y ≤ `max_epochs` |
+| `min_delta` | 0–1 |
+
+Los casos de `invalid_cases.json` que tienen `field` exigen que Pydantic y Zod
+rechacen el documento **y además** señalen ese mismo campo. El frontend valida con
+ese contrato antes de enviar nada, y el backend debe volver a validar con
+`TrainingJobRequest` antes de crear el job.
+
+**Cuándo se puede entrenar.** Para que el entrenamiento sea reproducible,
+`training_blocked_reason(status, provenance, manifest)` (Python) y
+`trainingBlockedReason(...)` (TS) bloquean un release si:
+
+- su Quality Gate es `failed` (`warning`/`passed` no bloquean; P2-31),
+- falta o no valida su `provenance.json` DVC,
+- falta o no valida su `manifest.json` 70/20/10, o
+- procedencia y manifiesto son de releases distintos.
+
+Un archivo que falta o no valida se pasa como `None`/`null`. La pantalla
+deshabilita "Crear training job" y no hace el POST mientras haya un motivo de
+bloqueo, o mientras el gate no se pueda leer.
+
+**Job ligado al manifiesto.** `TrainingJobRequest` exige `manifest_hash`, que la
+pantalla toma del `manifest.json` del release. `training_request_rejection(request,
+status, provenance, manifest)` (y `trainingRequestRejection` en TS) es lo que
+`POST /api/ml/training/jobs` debe revisar después del contrato: la regla anterior,
+más que el manifiesto sea del release pedido y que su `manifest_hash` coincida con
+el del request.
+
+**Procedencia DVC.** `cut_release` escribe `releases/<v>/provenance.json`
+(`ReleaseProvenance`) con el `md5` de cada `*.dvc` de `dataset_dir`. Los lee antes
+de correr el gate, así que un `.dvc` roto aborta el release sin escribir nada.
+Los releases cortados antes de APP-02 (`v0.1.0` y `v0.1.1`) no tienen procedencia,
+así que no se pueden entrenar.
+
+**Manifiesto.** `releases/<v>/manifest.json` (`TrainingManifest`) describe el
+split del entrenamiento con su `manifest_hash`. El contrato exige que sea
+realmente 70/20/10: cada split queda a menos de una imagen de `objetivo ×
+total_images` (solo se admite el redondeo entero), sus conteos suman
+`total_images` y cada `ratio` es `image_count / total_images`. Todavía no lo
+genera ningún proceso, así que por ahora ningún release publicado se puede
+entrenar.
