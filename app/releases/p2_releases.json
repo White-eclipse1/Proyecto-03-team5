@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "source_repository": "https://github.com/edithflor/MP2Equipo4",
+  "releases": [
+    {
+      "release_version": "v1.0.0",
+      "p2_commit": "7ce2c84689214088507dc50a2a6852a9672c6730",
+      "semantic_metadata_commit": "b310540d9b49e96ac8292025afba79f0496282c7",
+      "dvc_hash": "457cc9fcf36cd8699b21f292ebbe49cc",
+      "images_dvc_hash": "8a9a091030b6d1b1bf67f30771f78d5f.dir",
+      "quality_report_dvc_hash": "24d0df32896503d7622f1f268f3ac97a",
+      "quality_status": "warning",
+      "quality_report": "data/reports/quality.json",
+      "quality_evidence": "metadata/snapshots/v1.0.0/summary.json",
+      "quality_policy": "quality.yaml",
+      "coco_path": "data/validated/coco.json",
+      "images_path": "data/images",
+      "image_count": 637
+    }
+  ]
+}
