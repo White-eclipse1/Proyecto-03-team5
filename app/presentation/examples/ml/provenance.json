@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "demo-v1.0.0",
+  "dvc_outputs": [
+    {
+      "path": "images",
+      "md5": "8f14e45fceea167a5a36dedd4bea2543.dir",
+      "nfiles": 600
+    },
+    {
+      "path": "annotations",
+      "md5": "c9f0f895fb98ab9159f51fd0297e236d.dir",
+      "nfiles": 10
+    }
+  ]
+}
