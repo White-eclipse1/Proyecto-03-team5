@@ -96,21 +96,21 @@ stages:
     deps:
       - ../data/raw/annotations
       - ../data/raw/images
+      - ../reports/.quality_gate.passed
+      - ../reports/releases
       - ../reports/versions.json
-      - ../reports/releases/v0.1.1/quality.json
       - dvc_crops_stage.py
-      - crops/__init__.py
-      - crops/classes.py
-      - crops/extract.py
-      - crops/models.py
-      - crops/release.py
+      - dvc_gate_stage.py
+      - releases/service.py
+      - releases/p2_releases.json
+      - crops
       - ingestion/__init__.py
       - ingestion/loader.py
       - presentation/contracts.py
     params:
-      - crops/crops.yaml:
-          - dataset_version
-          - min_images_per_class
+      - releases/selection.yaml:
+          - release_version
+          - catalog
     outs:
       - ../data/crops
       - ../reports/crops.json:

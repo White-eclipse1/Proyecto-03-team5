@@ -1,22 +1,11 @@
 {
   "schema_version": "1.0",
   "dataset_version": "v0.1.1",
-  "source": {
-    "dataset_version": "v0.1.1",
-    "quality_file": "releases/v0.1.1/quality.json",
-    "quality_status": "warning",
-    "images": {
-      "path": "data/raw/images",
-      "md5": "951150dd4fb053f4665089fcb37a1c87.dir",
-      "size": 13556278,
-      "nfiles": 600
-    },
-    "annotations": {
-      "path": "data/raw/annotations",
-      "md5": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
-      "size": 256669,
-      "nfiles": 10
-    }
+  "provenance": {
+    "release_version": "v0.1.1",
+    "images_dvc_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+    "annotations_dvc_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+    "quality_report": "reports/releases/v0.1.1/quality.json"
   },
   "classes": [
     "dog",
@@ -30,7 +19,7 @@
       "dog": 325,
       "cat": 343
     },
-    "images_per_class": {
+    "accepted_images_per_class": {
       "dog": 300,
       "cat": 301
     },

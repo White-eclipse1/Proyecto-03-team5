@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "release_registry": "reports/versions.json",
+  "releases": [
+    {
+      "release_version": "v0.1.1",
+      "quality_status": "warning",
+      "quality_report": "reports/releases/v0.1.1/quality.json",
+      "splits_report": "reports/releases/v0.1.1/splits.json",
+      "images_dvc_file": "data/raw/images.dvc",
+      "images_dvc_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "annotations_dvc_file": "data/raw/annotations.dvc",
+      "annotations_dvc_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "dvc_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "coco_path": "data/raw/annotations",
+      "images_path": "data/raw/images",
+      "image_count": 600
+    }
+  ]
+}

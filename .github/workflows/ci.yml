@@ -207,6 +207,20 @@ jobs:
         working-directory: app
         run: uv run --locked --no-build python dvc_gate_stage.py
 
+      - name: Reproducir crops de ML-01 sobre PROD
+        if: steps.role.outputs.configured == 'true'
+        run: .venv-dvc-ci/bin/dvc repro crops
+
+      - name: Guardar evidencia reproducible de crops
+        if: steps.role.outputs.configured == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ml-01-crops-evidence
+          path: |
+            dvc.lock
+            reports/crops.json
+          if-no-files-found: error
+
   ci-ok:
     name: CI OK
     # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
