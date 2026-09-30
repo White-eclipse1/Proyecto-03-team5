@@ -96,8 +96,6 @@ stages:
     deps:
       - ../data/raw/annotations
       - ../data/raw/images
-      - ../data/raw/images.dvc
-      - ../data/raw/annotations.dvc
       - ../reports/.quality_gate.passed
       - ../reports/releases
       - ../reports/versions.json
@@ -109,6 +107,10 @@ stages:
       - ingestion/__init__.py
       - ingestion/loader.py
       - presentation/contracts.py
+    params:
+      - releases/selection.yaml:
+          - release_version
+          - catalog
     outs:
       - ../data/crops
       - ../reports/crops.json:

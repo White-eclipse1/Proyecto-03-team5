@@ -23,6 +23,15 @@ CATEGORIES = [
 ]
 
 
+def _provenance(version):
+    return {
+        "release_version": version,
+        "images_dvc_hash": "test-images-hash.dir",
+        "annotations_dvc_hash": "test-annotations-hash.dir",
+        "quality_report": f"reports/releases/{version}/quality.json",
+    }
+
+
 def _write_image(images_dir, file_name, *, size=(80, 60), boxes=()):
     """Fondo gris con cada `(bbox, color)` pintado, para verificar píxel a píxel."""
     image = Image.new("RGB", size, color=(128, 128, 128))
@@ -55,6 +64,7 @@ def _extract(tmp_path, coco):
         images_dir=tmp_path / "images",
         output_dir=tmp_path / "crops",
         dataset_version="v0.1.1",
+        provenance=_provenance("v0.1.1"),
     )
 
 
@@ -179,10 +189,18 @@ def test_crop_ids_are_deterministic_and_unique(tmp_path):
     )
 
     report_a = extract_crops(
-        coco, images_dir=tmp_path / "images", output_dir=tmp_path / "a", dataset_version="v1"
+        coco,
+        images_dir=tmp_path / "images",
+        output_dir=tmp_path / "a",
+        dataset_version="v1",
+        provenance=_provenance("v1"),
     )
     report_b = extract_crops(
-        coco, images_dir=tmp_path / "images", output_dir=tmp_path / "b", dataset_version="v1"
+        coco,
+        images_dir=tmp_path / "images",
+        output_dir=tmp_path / "b",
+        dataset_version="v1",
+        provenance=_provenance("v1"),
     )
 
     ids_a = [crop.crop_id for crop in report_a.crops]
@@ -441,3 +459,33 @@ def test_verification_sheet_renders_accepted_crops(tmp_path):
 
     with Image.open(sheet) as rendered:
         assert rendered.height >= 2 * 160
+
+
+def test_summary_counts_distinct_accepted_images_per_class(tmp_path):
+    """accepted_images_per_class cuenta image_id distintos, no cantidad de crops."""
+    _write_image(tmp_path / "images", "one.png")
+    _write_image(tmp_path / "images", "two.png")
+
+    coco = _coco(
+        [
+            {"id": 1, "file_name": "one.png", "width": 80, "height": 60},
+            {"id": 2, "file_name": "two.png", "width": 80, "height": 60},
+        ],
+        [
+            _annotation(1, 1, DOG, [0, 0, 10, 10]),
+            _annotation(2, 1, DOG, [20, 0, 10, 10]),
+            _annotation(3, 2, DOG, [0, 0, 10, 10]),
+            _annotation(4, 2, CAT, [20, 0, 10, 10]),
+        ],
+    )
+
+    report = _extract(tmp_path, coco)
+
+    assert report.summary.accepted_per_class == {
+        "dog": 3,
+        "cat": 1,
+    }
+    assert report.summary.accepted_images_per_class == {
+        "dog": 2,
+        "cat": 1,
+    }

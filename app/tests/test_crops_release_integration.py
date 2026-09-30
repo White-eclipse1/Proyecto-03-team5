@@ -72,6 +72,9 @@ def test_verified_p2_release_drives_crops_inputs(monkeypatch, tmp_path):
         "release_version": "v-test",
         "coco_path": "verified/annotations",
         "images_path": "verified/images",
+        "images_dvc_hash": "images-hash",
+        "annotations_dvc_hash": "annotations-hash",
+        "quality_report": "reports/releases/v-test/quality.json",
     }
 
     class ApprovedReleaseService:
@@ -90,10 +93,18 @@ def test_verified_p2_release_drives_crops_inputs(monkeypatch, tmp_path):
         seen["annotations_dir"] = path
         return {"images": [], "annotations": [], "categories": []}
 
-    def fake_extract(coco, *, images_dir, output_dir, dataset_version):
+    def fake_extract(
+        coco,
+        *,
+        images_dir,
+        output_dir,
+        dataset_version,
+        provenance=None,
+    ):
         seen["images_dir"] = images_dir
         seen["output_dir"] = output_dir
         seen["dataset_version"] = dataset_version
+        seen["provenance"] = provenance
         return "crop-report"
 
     def fake_write_report(report, path):
@@ -133,6 +144,12 @@ def test_verified_p2_release_drives_crops_inputs(monkeypatch, tmp_path):
     assert seen["images_dir"] == tmp_path / "verified" / "images"
     assert seen["output_dir"] == tmp_path / "crops"
     assert seen["dataset_version"] == "v-test"
+    assert seen["provenance"] == {
+        "release_version": "v-test",
+        "images_dvc_hash": "images-hash",
+        "annotations_dvc_hash": "annotations-hash",
+        "quality_report": "reports/releases/v-test/quality.json",
+    }
     assert seen["report"] == "crop-report"
     assert seen["report_path"] == tmp_path / "reports" / "crops.json"
 
@@ -144,9 +161,25 @@ def test_crops_dvc_stage_tracks_p2_release_provenance():
     dvc = yaml.safe_load((dvc_crops_stage.REPO_ROOT / "dvc.yaml").read_text(encoding="utf-8"))
     deps = set(dvc["stages"]["crops"]["deps"])
 
-    assert "../data/raw/annotations.dvc" in deps
-    assert "../data/raw/images.dvc" in deps
+    assert "../data/raw/annotations" in deps
+    assert "../data/raw/images" in deps
     assert "../reports/versions.json" in deps
     assert "../reports/releases" in deps
     assert "releases/p2_releases.json" in deps
     assert "releases/service.py" in deps
+
+
+def test_crops_stage_tracks_versioned_release_selection():
+    """Cambiar el release seleccionado debe invalidar el stage DVC."""
+    import yaml
+
+    dvc = yaml.safe_load((dvc_crops_stage.REPO_ROOT / "dvc.yaml").read_text(encoding="utf-8"))
+    crops = dvc["stages"]["crops"]
+
+    assert "params" in crops
+    assert {
+        "releases/selection.yaml": [
+            "release_version",
+            "catalog",
+        ]
+    } in crops["params"]
