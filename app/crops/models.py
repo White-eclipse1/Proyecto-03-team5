@@ -64,17 +64,26 @@ class CropRejection(CropModel):
     reasons: Annotated[list[RejectionReason], Field(min_length=1)]
 
 
+class CropProvenance(CropModel):
+    release_version: Identifier
+    images_dvc_hash: Annotated[str, Field(min_length=1)]
+    annotations_dvc_hash: Annotated[str, Field(min_length=1)]
+    quality_report: Annotated[str, Field(min_length=1)]
+
+
 class CropSummary(CropModel):
     total_annotations: Count
     accepted: Count
     rejected: Count
     accepted_per_class: dict[ClassName, Count]
+    accepted_images_per_class: dict[ClassName, Count]
     rejected_per_reason: dict[RejectionReason, Count]
 
 
 class CropReport(CropModel):
     schema_version: Literal["1.0"]
     dataset_version: Identifier
+    provenance: CropProvenance
     classes: list[ClassName]
     summary: CropSummary
     crops: list[CropRecord]
@@ -82,6 +91,8 @@ class CropReport(CropModel):
 
     @model_validator(mode="after")
     def consistent(self) -> Self:
+        if self.provenance.release_version != self.dataset_version:
+            raise ValueError("provenance.release_version debe coincidir con dataset_version")
         if tuple(self.classes) != CLASS_NAMES:
             raise ValueError(f"classes debe ser {list(CLASS_NAMES)}")
         crop_ids = [crop.crop_id for crop in self.crops]
@@ -97,4 +108,11 @@ class CropReport(CropModel):
             or self.summary.total_annotations != len(self.crops) + len(self.rejections)
         ):
             raise ValueError("summary no coincide con crops/rejections")
+
+        expected_images_per_class = {
+            class_name: len({crop.image_id for crop in self.crops if crop.class_name == class_name})
+            for class_name in CLASS_NAMES
+        }
+        if self.summary.accepted_images_per_class != expected_images_per_class:
+            raise ValueError("accepted_images_per_class no coincide con los image_id aceptados")
         return self

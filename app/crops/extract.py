@@ -16,6 +16,7 @@ original `[x, y, width, height]` sin redondear.
 import hashlib
 import logging
 from collections import Counter
+from collections.abc import Mapping
 from io import BytesIO
 from math import ceil, floor, isfinite
 from pathlib import Path
@@ -23,7 +24,13 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from crops.classes import CLASS_NAMES, resolve_category_classes
-from crops.models import CropRecord, CropRejection, CropReport, CropSummary
+from crops.models import (
+    CropProvenance,
+    CropRecord,
+    CropRejection,
+    CropReport,
+    CropSummary,
+)
 
 logger = logging.getLogger("crop-extraction")
 
@@ -101,6 +108,7 @@ def extract_crops(
     images_dir: Path,
     output_dir: Path,
     dataset_version: str,
+    provenance: Mapping[str, str],
 ) -> CropReport:
     """Escribe `output_dir/<clase>/<crop_id>.png` por cada bbox válida y devuelve el reporte.
 
@@ -110,6 +118,8 @@ def extract_crops(
     """
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(f"El directorio de crops no está vacío: {output_dir}")
+
+    release_provenance = CropProvenance.model_validate(dict(provenance))
 
     class_by_category = resolve_category_classes(coco["categories"])
     known_categories = {category["id"] for category in coco["categories"]}
@@ -192,6 +202,10 @@ def extract_crops(
         )
 
     accepted_per_class = Counter(crop.class_name for crop in crops)
+    accepted_images_per_class = {
+        class_name: len({crop.image_id for crop in crops if crop.class_name == class_name})
+        for class_name in CLASS_NAMES
+    }
     rejected_per_reason = Counter(
         reason for rejection in rejections for reason in rejection.reasons
     )
@@ -199,12 +213,14 @@ def extract_crops(
     return CropReport(
         schema_version="1.0",
         dataset_version=dataset_version,
+        provenance=release_provenance,
         classes=list(CLASS_NAMES),
         summary=CropSummary(
             total_annotations=len(annotations),
             accepted=len(crops),
             rejected=len(rejections),
             accepted_per_class={name: accepted_per_class[name] for name in CLASS_NAMES},
+            accepted_images_per_class=accepted_images_per_class,
             rejected_per_reason=dict(sorted(rejected_per_reason.items())),
         ),
         crops=crops,

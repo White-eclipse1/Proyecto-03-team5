@@ -12,7 +12,7 @@ locals {
 # Authentication only: no resource-access policies are attached to this role.
 resource "aws_iam_role" "github_actions" {
   name                 = "mlops-p2-github-oidc"
-  description          = "GitHub OIDC authentication check for the main branch of the MLOps project"
+  description          = "GitHub OIDC for main and same-repo pull requests of the MLOps project"
   max_session_duration = 3600
 
   assume_role_policy = jsonencode({
@@ -24,7 +24,11 @@ resource "aws_iam_role" "github_actions" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:ref:refs/heads/main"
+          # main (push) y PRs del mismo repo; GitHub no emite tokens OIDC para PRs de forks.
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:ref:refs/heads/main",
+            "repo:White-eclipse1@188363071/Proyecto-03-team5@1391607325:pull_request",
+          ]
         }
       }
     }]
