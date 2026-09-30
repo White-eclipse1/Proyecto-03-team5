@@ -275,7 +275,7 @@ export const evaluationSchema = z
     metrics: z.strictObject({ accuracy_top1: ratioSchema, f1_macro: ratioSchema }),
     per_class: z.array(
       z.strictObject({
-        class_name: labelSchema,
+        class: labelSchema,
         precision: ratioSchema,
         recall: ratioSchema,
         f1: ratioSchema,
@@ -514,6 +514,7 @@ export const trainingManifestSchema = z
       test: manifestSplitSchema,
     }),
     manifest_version: identifierSchema.optional(),
+    source_release: identifierSchema.optional(),
     seed: z.number().int().min(0).max(2 ** 31 - 1).optional(),
     records: z.array(manifestRecordSchema).optional(),
     counts: manifestCountsSchema.optional(),

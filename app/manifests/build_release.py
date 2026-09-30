@@ -70,6 +70,7 @@ def build_release_manifest(
     manifest = generate_manifest(
         crops=crops,
         dataset_version=crop_report["dataset_version"],
+        source_release=crop_report["dataset_version"],
         seed=seed,
         duplicate_groups=duplicate_groups,
         manifest_version=manifest_version,
@@ -78,7 +79,7 @@ def build_release_manifest(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(
-            manifest.model_dump(),
+            manifest.model_dump(by_alias=True),
             indent=2,
             sort_keys=True,
         )
@@ -93,9 +94,5 @@ if __name__ == "__main__":
     build_release_manifest(
         crops_path=root / "reports" / "crops.json",
         quality_path=root / "reports" / "releases" / "v0.1.1" / "quality.json",
-        output_path=root
-        / "reports"
-        / "releases"
-        / "v0.1.1"
-        / "manifest.json",
+        output_path=root / "reports" / "releases" / "v0.1.1" / "manifest.json",
     )

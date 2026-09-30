@@ -29,6 +29,7 @@ from math import isclose
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -468,7 +469,10 @@ class ManifestRecord(ContractModel):
     crop_id: Identifier
     source_image_id: CocoId
     duplicate_group: Identifier
-    class_name: Label
+    class_name: Label = Field(
+        validation_alias=AliasChoices("class_name", "class"),
+        serialization_alias="class",
+    )
     split: Literal["train", "validation", "test"]
 
 
@@ -500,6 +504,7 @@ class TrainingManifest(ContractModel):
     total_images: int = Field(gt=0)
     splits: ManifestSplits
     manifest_version: Identifier | None = None
+    source_release: Identifier | None = None
     seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
     records: list[ManifestRecord] | None = None
     counts: ManifestCounts | None = None

@@ -74,6 +74,7 @@ def test_manifest_extends_training_manifest_contract():
         schema_version="1.0",
         manifest_version="p3-v1",
         dataset_version="v0.1.1",
+        source_release="v0.1.1",
         seed=42,
         manifest_hash="sha256:" + ("a" * 64),
         total_images=600,
@@ -88,7 +89,18 @@ def test_manifest_extends_training_manifest_contract():
 
     assert manifest.manifest_version == "p3-v1"
     assert manifest.dataset_version == "v0.1.1"
+    assert manifest.source_release == "v0.1.1"
     assert manifest.splits.train.image_count == 420
+
+    record = ManifestRecord(
+        crop_id="img1-ann1",
+        source_image_id=1,
+        duplicate_group="group-1",
+        class_name="dog",
+        split="train",
+    )
+    assert record.model_dump(by_alias=True)["class"] == "dog"
+    assert "class_name" not in record.model_dump(by_alias=True)
 
 
 def test_same_seed_produces_same_assignments_and_hash():

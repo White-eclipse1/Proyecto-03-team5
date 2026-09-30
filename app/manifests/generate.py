@@ -207,12 +207,14 @@ def _ensure_class_presence(
 def _manifest_hash_payload(
     *,
     dataset_version: str,
+    source_release: str,
     manifest_version: str,
     seed: int,
     records: list[ManifestRecord],
 ) -> str:
     payload = {
         "dataset_version": dataset_version,
+        "source_release": source_release,
         "manifest_version": manifest_version,
         "seed": seed,
         "records": [
@@ -233,6 +235,7 @@ def generate_manifest(
     *,
     crops: list[dict],
     dataset_version: str,
+    source_release: str | None = None,
     seed: int,
     duplicate_groups: list[list[int]],
     manifest_version: str,
@@ -301,8 +304,11 @@ def generate_manifest(
         for split in SPLIT_TARGETS
     }
 
+    source_release = source_release or dataset_version
+
     manifest_hash = _manifest_hash_payload(
         dataset_version=dataset_version,
+        source_release=source_release,
         manifest_version=manifest_version,
         seed=seed,
         records=records,
@@ -312,6 +318,7 @@ def generate_manifest(
         schema_version="1.0",
         manifest_version=manifest_version,
         dataset_version=dataset_version,
+        source_release=source_release,
         seed=seed,
         manifest_hash=manifest_hash,
         total_images=total_images,
