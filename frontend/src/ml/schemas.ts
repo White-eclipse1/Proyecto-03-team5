@@ -483,6 +483,25 @@ export type ReleaseProvenance = z.infer<typeof releaseProvenanceSchema>;
 const manifestSplitSchema = z.strictObject({ image_count: countSchema, ratio: ratioSchema });
 export const SPLIT_TARGETS = { train: 0.7, validation: 0.2, test: 0.1 } as const;
 
+const manifestRecordSchema = z.strictObject({
+  crop_id: identifierSchema,
+  source_image_id: cocoIdSchema,
+  duplicate_group: identifierSchema,
+  class_name: labelSchema,
+  split: z.enum(["train", "validation", "test"]),
+});
+
+const manifestClassCountsSchema = z.strictObject({
+  dog: countSchema,
+  cat: countSchema,
+});
+
+const manifestCountsSchema = z.strictObject({
+  train: manifestClassCountsSchema,
+  validation: manifestClassCountsSchema,
+  test: manifestClassCountsSchema,
+});
+
 export const trainingManifestSchema = z
   .strictObject({
     schema_version: schemaVersionSchema,
@@ -494,6 +513,10 @@ export const trainingManifestSchema = z
       validation: manifestSplitSchema,
       test: manifestSplitSchema,
     }),
+    manifest_version: identifierSchema.optional(),
+    seed: z.number().int().min(0).max(2 ** 31 - 1).optional(),
+    records: z.array(manifestRecordSchema).optional(),
+    counts: manifestCountsSchema.optional(),
   })
   .superRefine((manifest, context) => {
     const splits = Object.values(manifest.splits);
