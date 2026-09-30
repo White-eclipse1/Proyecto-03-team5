@@ -621,4 +621,3 @@ export const ML_CONTRACTS = {
   provenance: releaseProvenanceSchema,
   manifest: trainingManifestSchema,
 } as const;
-
