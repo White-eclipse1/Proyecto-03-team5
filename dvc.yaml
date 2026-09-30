@@ -103,7 +103,10 @@ stages:
       - dvc_gate_stage.py
       - releases/service.py
       - releases/p2_releases.json
-      - crops
+      - crops/__init__.py
+      - crops/classes.py
+      - crops/extract.py
+      - crops/models.py
       - ingestion/__init__.py
       - ingestion/loader.py
       - presentation/contracts.py

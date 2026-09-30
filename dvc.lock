@@ -313,15 +313,26 @@ stages:
       hash: md5
       md5: 8e6d1165d4af7c9ee54e7bedd7072457
       size: 355
-    - path: crops
+    - path: crops/__init__.py
       hash: md5
-      md5: 77e4c13d5fad60227df3c5da0b64ce1d.dir
-      size: 41057
-      nfiles: 10
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0
+    - path: crops/classes.py
+      hash: md5
+      md5: 5f3e26e83c87728549497a3ac7c3faca
+      size: 1695
+    - path: crops/extract.py
+      hash: md5
+      md5: aae61d1a8b77a8275c256de29bb7a7ad
+      size: 8975
+    - path: crops/models.py
+      hash: md5
+      md5: 31c6dd4b586b9317e12ab236d0a6c14c
+      size: 4279
     - path: dvc_crops_stage.py
       hash: md5
-      md5: 7366a479c6f7a63bc47d586f04095ab6
-      size: 2840
+      md5: e90525af0c48388ad99ef2d8c6027a58
+      size: 3063
     - path: dvc_gate_stage.py
       hash: md5
       md5: 75ed4c9299c5c526be827e6c5386e929

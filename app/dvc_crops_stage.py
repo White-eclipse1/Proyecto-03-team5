@@ -8,7 +8,8 @@ import yaml
 from dvc_gate_stage import assert_quality_gate_passed
 from releases.service import P2ReleaseService
 
-from crops.extract import extract_crops, write_crop_report
+from crops.classes import MIN_IMAGES_PER_CLASS
+from crops.extract import assert_min_images_per_class, extract_crops, write_crop_report
 from ingestion.loader import merge_raw_batches
 
 APP_DIR = Path(__file__).resolve().parent
@@ -78,6 +79,8 @@ def write_crops() -> None:
         dataset_version=release["release_version"],
         provenance=provenance,
     )
+    # Sin el mínimo por clase no se publica el reporte: DVC no registra la corrida.
+    assert_min_images_per_class(report, MIN_IMAGES_PER_CLASS)
     write_crop_report(report, REPORTS_DIR / "crops.json")
 
 

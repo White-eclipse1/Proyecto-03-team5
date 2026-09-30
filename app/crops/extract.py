@@ -228,6 +228,23 @@ def extract_crops(
     )
 
 
+def assert_min_images_per_class(report: CropReport, minimum: int) -> None:
+    """Exige `minimum` imágenes originales distintas con crop aceptado para cada clase.
+
+    Cuenta `image_id`, no crops: una imagen con dos perros suma una sola vez.
+    """
+    short = {
+        name: count
+        for name, count in report.summary.accepted_images_per_class.items()
+        if count < minimum
+    }
+    if short:
+        raise ValueError(
+            f"Clases por debajo de {minimum} imágenes originales en "
+            f"{report.dataset_version}: {short}"
+        )
+
+
 def write_crop_report(report: CropReport, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report.model_dump_json(indent=2), encoding="utf-8")

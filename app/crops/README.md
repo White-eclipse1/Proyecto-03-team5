@@ -41,6 +41,44 @@ registrada en `rejections` con todos sus motivos:
 Las cajas no se reparan ni se recortan contra el borde: un crop recortado
 ya no correspondería a la bbox anotada.
 
+## Release de origen (OPS-01)
+
+El stage no lee `data/raw` a ciegas: `releases/selection.yaml` fija el
+release de P2 (`v0.1.1`) y `P2ReleaseService.verify_release` (OPS-01) lo
+valida contra `releases/p2_releases.json` y el registro oficial
+`reports/versions.json` antes de borrar o generar crops:
+
+- el release existe y su reporte de calidad congelado
+  (`reports/releases/v0.1.1/quality.json`) es de esa versión y no está en
+  `failed`;
+- los hashes de `data/raw/images.dvc` y `data/raw/annotations.dvc` son los
+  del release.
+
+Las rutas de COCO e imágenes salen del release verificado, y
+`reports/crops.json` → `provenance` guarda `release_version`,
+`images_dvc_hash`, `annotations_dvc_hash` y `quality_report`. La entrada
+`crops` de `dvc.lock` registra además el md5 de `data/raw/images` y
+`data/raw/annotations` en disco al generar los crops, que coincide con esos
+hashes (`test_committed_crop_report_is_traceable_to_the_dvc_release`).
+
+## Mínimo de imágenes originales por clase
+
+`summary.accepted_images_per_class` cuenta `image_id` distintos con al menos
+un crop aceptado (una imagen con dos perros cuenta una vez);
+`accepted_per_class` cuenta crops. El stage exige
+`MIN_IMAGES_PER_CLASS = 300` (`crops/classes.py`) para `dog` y `cat` y falla
+sin escribir el reporte si alguna clase queda por debajo.
+
+Resultado sobre v0.1.1: 668 anotaciones, 668 aceptadas, 0 rechazadas.
+
+| Clase | Crops | Imágenes originales |
+|-------|-------|---------------------|
+| `dog` | 325   | 300                 |
+| `cat` | 343   | 301                 |
+
+`dog` queda exactamente en el mínimo: cualquier rechazo nuevo sobre una
+imagen de perro hace fallar el stage.
+
 ## Salidas
 
 - `data/crops/<clase>/img<image_id>-ann<annotation_id>.png`: salida DVC
@@ -52,19 +90,25 @@ ya no correspondería a la bbox anotada.
     `[left, top, right, bottom]`, `source_file_name`, `crop_path` y
     `sha256`.
   - `rejections`: exclusiones con sus motivos.
-  - `summary`: aceptados por clase y conteo por motivo de rechazo (una
-    anotación con dos motivos cuenta en ambos).
+  - `provenance`: release de origen, hashes DVC y reporte de calidad.
+  - `summary`: crops aceptados por clase, imágenes originales distintas
+    por clase (`accepted_images_per_class`) y conteo por motivo de rechazo
+    (una anotación con dos motivos cuenta en ambos).
 
 `crop_box` usa `floor` en el origen y `ceil` en el extremo, así el crop
 cubre la bbox completa aunque tenga decimales.
 
 ## Cómo correrlo
 
-El stage `crops` de `dvc.yaml` depende del marcador del quality gate, así
-que no corre sobre un dataset con la compuerta en `failed`:
+El stage `crops` de `dvc.yaml` depende del marcador del quality gate, de
+la procedencia de OPS-01 y de `releases/selection.yaml`. Las dependencias
+de `crops/` se listan archivo por archivo para que `__pycache__` no entre en
+el hash de `dvc.lock`. Con el dataset descargado:
 
 ```bash
+dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
 dvc repro crops
+dvc status crops   # "Data and pipelines are up to date."
 ```
 
 Verificación manual (DoD): genera una hoja con cada imagen original, su
@@ -75,4 +119,4 @@ cd app
 uv run python -m crops.preview --limit 24 --out ../reports/crops-preview.png
 ```
 
-Tests: `uv run pytest tests/test_crops.py`.
+Tests: `uv run pytest tests/test_crops.py tests/test_crops_release_integration.py`.

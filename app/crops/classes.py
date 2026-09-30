@@ -14,6 +14,8 @@ CLASS_NAMES: tuple[str, ...] = ("dog", "cat")
 CLASS_TO_INDEX: Mapping[str, int] = MappingProxyType(
     {name: index for index, name in enumerate(CLASS_NAMES)}
 )
+# Mínimo de imágenes originales distintas con crop aceptado, por clase (dog y cat).
+MIN_IMAGES_PER_CLASS = 300
 
 
 def resolve_category_classes(categories: Iterable[Mapping]) -> dict[int, str]:
