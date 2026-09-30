@@ -275,7 +275,7 @@ export const evaluationSchema = z
     metrics: z.strictObject({ accuracy_top1: ratioSchema, f1_macro: ratioSchema }),
     per_class: z.array(
       z.strictObject({
-        class: labelSchema,
+        class_name: labelSchema,
         precision: ratioSchema,
         recall: ratioSchema,
         f1: ratioSchema,
