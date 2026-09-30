@@ -196,3 +196,39 @@ def test_generator_creates_70_20_10_and_keeps_both_classes_in_validation_and_tes
 
     assert classes_by_split["validation"] == {"dog", "cat"}
     assert classes_by_split["test"] == {"dog", "cat"}
+
+
+def test_p3_manifest_is_accepted_by_app_training_contract():
+    from presentation.ml_contracts import TrainingManifest
+
+    manifest = P3Manifest(
+        schema_version="1.0",
+        manifest_version="p3-v1",
+        dataset_version="v0.1.1",
+        seed=42,
+        manifest_hash="sha256:" + ("a" * 64),
+        total_images=10,
+        splits={
+            "train": {"image_count": 7, "ratio": 0.7},
+            "validation": {"image_count": 2, "ratio": 0.2},
+            "test": {"image_count": 1, "ratio": 0.1},
+        },
+        records=[
+            ManifestRecord(
+                crop_id="img1-ann1",
+                source_image_id=1,
+                duplicate_group="group-1",
+                class_name="dog",
+                split="train",
+            )
+        ],
+        counts={
+            "train": {"dog": 1, "cat": 0},
+            "validation": {"dog": 0, "cat": 0},
+            "test": {"dog": 0, "cat": 0},
+        },
+    )
+
+    parsed = TrainingManifest.model_validate(manifest.model_dump())
+
+    assert parsed.manifest_hash == manifest.manifest_hash
