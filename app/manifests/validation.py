@@ -14,9 +14,7 @@ def _reject_cross_split(records: list[ManifestRecord], field_name: str) -> None:
     owners = _owners_by(records, field_name)
     leaked = sorted(str(value) for value, splits in owners.items() if len(splits) > 1)
     if leaked:
-        raise ValueError(
-            f"{field_name} leakage across splits: {', '.join(leaked)}"
-        )
+        raise ValueError(f"{field_name} leakage across splits: {', '.join(leaked)}")
 
 
 def validate_no_leakage(records: list[ManifestRecord]) -> None:
