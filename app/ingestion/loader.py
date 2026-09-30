@@ -14,7 +14,15 @@ from ingestion.models import CocoDataset
 
 
 def load_dataset(annotations_dir: Path) -> CocoDataset:
-    """Lee y valida todos los `*.json` de `annotations_dir` como un solo dataset.
+    """Lee y valida todos los `*.json` de `annotations_dir` como un solo dataset."""
+    return CocoDataset.model_validate(merge_raw_batches(annotations_dir))
+
+
+def merge_raw_batches(annotations_dir: Path) -> dict:
+    """Junta los lotes en un solo dict COCO crudo, sin validar cada anotación.
+
+    Lo usa `crops.extract` (ML-01), que rechaza bbox inválidas una por una
+    en vez de rechazar el dataset entero como hace `CocoDataset`.
 
     Las categorías se deduplican por id, quedándose con la primera aparición.
     Si dos lotes usan el mismo id de categoría para
@@ -45,13 +53,11 @@ def load_dataset(annotations_dir: Path) -> CocoDataset:
             categories_by_id.setdefault(category["id"], category)
             categories_source.setdefault(category["id"], path)
 
-    return CocoDataset.model_validate(
-        {
-            "images": images,
-            "annotations": annotations,
-            "categories": list(categories_by_id.values()),
-        }
-    )
+    return {
+        "images": images,
+        "annotations": annotations,
+        "categories": list(categories_by_id.values()),
+    }
 
 
 def load_image_bytes(coco: CocoDataset, images_dir: Path) -> dict[int, bytes]:
