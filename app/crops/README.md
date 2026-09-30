@@ -12,6 +12,13 @@ crops, uno por clase.
 | `dog` | 0                 | 3                          |
 | `cat` | 1                 | 4                          |
 
+Clases excluidas: ninguna. El COCO de v0.1.1 solo declara `dog` (325
+anotaciones, 300 imágenes) y `cat` (343 anotaciones, 301 imágenes), y ambas
+cumplen el mínimo de 300 imágenes originales. Las clases se fijaron el
+2026-09-28, antes de cualquier entrenamiento o evaluación, y no se cambian
+según el resultado de prueba. Si un release futuro trae otra categoría (p. ej.
+`person`), sus anotaciones se excluyen como `unsupported_category`.
+
 `crops/classes.py` (`CLASS_NAMES`, `CLASS_TO_INDEX`) es la única fuente de
 verdad y está congelada. Los `category_id` no se fijan en código: se
 resuelven por nombre contra las categorías del release. Un release que no
@@ -120,3 +127,6 @@ uv run python -m crops.preview --limit 24 --out ../reports/crops-preview.png
 ```
 
 Tests: `uv run pytest tests/test_crops.py tests/test_crops_release_integration.py`.
+
+Evidencia sobre el release real (verificación manual, Agent Test y
+mutaciones): [`tests/evidence/ml-01-crops.md`](../tests/evidence/ml-01-crops.md).
