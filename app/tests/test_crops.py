@@ -8,8 +8,13 @@ import pytest
 import yaml
 from PIL import Image, ImageDraw
 
-from crops.classes import CLASS_NAMES, CLASS_TO_INDEX, resolve_category_classes
-from crops.extract import extract_crops, write_crop_report
+from crops.classes import (
+    CLASS_NAMES,
+    CLASS_TO_INDEX,
+    MIN_IMAGES_PER_CLASS,
+    resolve_category_classes,
+)
+from crops.extract import assert_min_images_per_class, extract_crops, write_crop_report
 from crops.models import CropReport
 from crops.preview import render_verification_sheet
 from ingestion.loader import merge_raw_batches
@@ -435,7 +440,14 @@ def test_dvc_pipeline_has_crops_stage_after_quality_gate():
 
     assert crops["cmd"].endswith("dvc_crops_stage.py")
     assert "../reports/.quality_gate.passed" in crops["deps"]
-    assert "crops" in crops["deps"]
+    # Archivos explícitos: la carpeta `crops` metería `__pycache__` en el hash de dvc.lock.
+    assert "crops" not in crops["deps"]
+    assert {
+        "crops/__init__.py",
+        "crops/classes.py",
+        "crops/extract.py",
+        "crops/models.py",
+    } <= set(crops["deps"])
     assert "../data/crops" in crops["outs"]
     assert any(
         isinstance(output, dict) and "../reports/crops.json" in output for output in crops["outs"]
@@ -489,3 +501,85 @@ def test_summary_counts_distinct_accepted_images_per_class(tmp_path):
         "dog": 2,
         "cat": 1,
     }
+
+
+# --- Mínimo de imágenes originales por clase ---------------------------------
+
+
+def test_minimum_images_per_class_is_frozen_at_300():
+    assert MIN_IMAGES_PER_CLASS == 300
+
+
+def _report_with_images(tmp_path, dog_images, cat_images):
+    images, annotations = [], []
+    for image_id in range(1, dog_images + cat_images + 1):
+        file_name = f"{image_id}.png"
+        _write_image(tmp_path / "images", file_name, size=(20, 20))
+        images.append({"id": image_id, "file_name": file_name, "width": 20, "height": 20})
+        category = DOG if image_id <= dog_images else CAT
+        annotations.append(_annotation(image_id, image_id, category, [0, 0, 10, 10]))
+    return _extract(tmp_path, _coco(images, annotations))
+
+
+def test_minimum_images_per_class_passes_when_both_classes_reach_it(tmp_path):
+    report = _report_with_images(tmp_path, dog_images=3, cat_images=3)
+
+    assert_min_images_per_class(report, minimum=3)
+
+
+def test_minimum_images_per_class_fails_naming_the_short_class(tmp_path):
+    report = _report_with_images(tmp_path, dog_images=3, cat_images=2)
+
+    with pytest.raises(ValueError, match="cat"):
+        assert_min_images_per_class(report, minimum=3)
+
+
+def test_minimum_counts_distinct_images_not_crops(tmp_path):
+    _write_image(tmp_path / "images", "a.png")
+    coco = _coco(
+        [{"id": 1, "file_name": "a.png", "width": 80, "height": 60}],
+        [
+            _annotation(1, 1, DOG, [0, 0, 10, 10]),
+            _annotation(2, 1, DOG, [20, 20, 10, 10]),
+            _annotation(3, 1, CAT, [40, 40, 10, 10]),
+        ],
+    )
+    report = _extract(tmp_path, coco)
+
+    assert report.summary.accepted_per_class["dog"] == 2
+    with pytest.raises(ValueError, match="dog"):
+        assert_min_images_per_class(report, minimum=2)
+
+
+# --- Reporte y lock commiteados ----------------------------------------------
+
+
+def _crops_lock():
+    return yaml.safe_load((ROOT / "dvc.lock").read_text(encoding="utf-8"))["stages"]["crops"]
+
+
+def test_dvc_lock_crops_entry_matches_dvc_yaml():
+    stage = yaml.safe_load((ROOT / "dvc.yaml").read_text(encoding="utf-8"))["stages"]["crops"]
+    lock = _crops_lock()
+
+    assert {dep["path"] for dep in lock["deps"]} == set(stage["deps"])
+    assert {out["path"] for out in lock["outs"]} == {"../data/crops", "../reports/crops.json"}
+
+
+def test_committed_crop_report_is_traceable_to_the_dvc_release():
+    report = CropReport.model_validate_json(
+        (ROOT / "reports" / "crops.json").read_text(encoding="utf-8")
+    )
+    lock_md5 = {dep["path"]: dep["md5"] for dep in _crops_lock()["deps"]}
+    dvc_md5 = {
+        name: yaml.safe_load((ROOT / "data" / "raw" / f"{name}.dvc").read_text())["outs"][0]["md5"]
+        for name in ("images", "annotations")
+    }
+
+    assert report.dataset_version == report.provenance.release_version == "v0.1.1"
+    assert report.provenance.images_dvc_hash == dvc_md5["images"]
+    assert report.provenance.annotations_dvc_hash == dvc_md5["annotations"]
+    # dvc.lock prueba que los datos en disco al generar los crops tenían ese mismo hash.
+    assert lock_md5["../data/raw/images"] == dvc_md5["images"]
+    assert lock_md5["../data/raw/annotations"] == dvc_md5["annotations"]
+    assert_min_images_per_class(report, minimum=MIN_IMAGES_PER_CLASS)

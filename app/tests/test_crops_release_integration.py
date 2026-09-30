@@ -134,6 +134,12 @@ def test_verified_p2_release_drives_crops_inputs(monkeypatch, tmp_path):
     monkeypatch.setattr(dvc_crops_stage, "extract_crops", fake_extract)
     monkeypatch.setattr(
         dvc_crops_stage,
+        "assert_min_images_per_class",
+        lambda report, minimum: seen.update(minimum_checked=(report, minimum)),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        dvc_crops_stage,
         "write_crop_report",
         fake_write_report,
     )
@@ -150,6 +156,7 @@ def test_verified_p2_release_drives_crops_inputs(monkeypatch, tmp_path):
         "annotations_dvc_hash": "annotations-hash",
         "quality_report": "reports/releases/v-test/quality.json",
     }
+    assert seen["minimum_checked"] == ("crop-report", 300)
     assert seen["report"] == "crop-report"
     assert seen["report_path"] == tmp_path / "reports" / "crops.json"
 
