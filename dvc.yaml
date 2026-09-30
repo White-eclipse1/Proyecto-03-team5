@@ -97,7 +97,7 @@ stages:
       - ../data/raw/annotations
       - ../data/raw/images
       - ../reports/.quality_gate.passed
-      - ../reports/releases
+      - ../reports/releases/v0.1.1/quality.json
       - ../reports/versions.json
       - dvc_crops_stage.py
       - dvc_gate_stage.py
@@ -118,3 +118,19 @@ stages:
       - ../data/crops
       - ../reports/crops.json:
           cache: false
+
+  manifest:
+    wdir: app
+    cmd: uv run python -m manifests.build_release
+    deps:
+      - manifests/__init__.py
+      - manifests/build_release.py
+      - manifests/generate.py
+      - manifests/models.py
+      - manifests/validation.py
+      - ../reports/crops.json
+      - ../reports/releases/v0.1.1/quality.json
+    outs:
+      - ../reports/releases/v0.1.1/manifest.json:
+          cache: false
+

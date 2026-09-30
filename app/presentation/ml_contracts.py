@@ -29,12 +29,14 @@ from math import isclose
 from typing import Annotated, Literal, Self
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
     StringConstraints,
     ValidationInfo,
     field_validator,
+    model_serializer,
     model_validator,
 )
 
@@ -449,9 +451,24 @@ class ReleaseProvenance(ContractModel):
         return self
 
 
+class ManifestProvenance(ContractModel):
+    release_version: Identifier
+    images_dvc_hash: str
+    annotations_dvc_hash: str
+    quality_report: str
+    crops_sha256: ManifestHash
+
+
 class ManifestSplit(ContractModel):
     image_count: Count
     ratio: Ratio
+    crop_count: Count | None = None
+    crop_ratio: Ratio | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_crop_fields(self, handler):
+        data = handler(self)
+        return {key: value for key, value in data.items() if value is not None}
 
 
 class ManifestSplits(ContractModel):
@@ -463,11 +480,37 @@ class ManifestSplits(ContractModel):
 SPLIT_TARGETS = {"train": 0.7, "validation": 0.2, "test": 0.1}
 
 
+class ManifestRecord(ContractModel):
+    crop_id: Identifier
+    source_image_id: CocoId
+    duplicate_group: Identifier
+    class_name: Label = Field(
+        validation_alias=AliasChoices("class_name", "class"),
+        serialization_alias="class",
+    )
+    split: Literal["train", "validation", "test"]
+
+
+class ManifestClassCounts(ContractModel):
+    dog: Count
+    cat: Count
+
+
+class ManifestCounts(ContractModel):
+    train: ManifestClassCounts
+    validation: ManifestClassCounts
+    test: ManifestClassCounts
+
+
 class TrainingManifest(ContractModel):
     """`releases/<version>/manifest.json`: the exact split used to train (70/20/10).
 
     Each split must hold its target share up to integer rounding: its image_count
     is less than one image away from `target * total_images`.
+
+    OPS-02 extends this contract with optional manifest provenance and per-crop
+    assignment fields. They remain optional for backwards compatibility with
+    APP-02 manifests created before P3.
     """
 
     schema_version: Literal["1.0"]
@@ -475,6 +518,17 @@ class TrainingManifest(ContractModel):
     manifest_hash: ManifestHash
     total_images: int = Field(gt=0)
     splits: ManifestSplits
+    manifest_version: Identifier | None = None
+    source_release: Identifier | None = None
+    provenance: ManifestProvenance | None = None
+    seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
+    records: list[ManifestRecord] | None = None
+    counts: ManifestCounts | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_p3_fields(self, handler):
+        data = handler(self)
+        return {key: value for key, value in data.items() if value is not None}
 
     @model_validator(mode="after")
     def counts_and_ratios_agree(self) -> Self:

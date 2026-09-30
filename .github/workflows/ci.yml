@@ -209,7 +209,7 @@ jobs:
 
       - name: Reproducir crops de ML-01 sobre PROD
         if: steps.role.outputs.configured == 'true'
-        run: .venv-dvc-ci/bin/dvc repro crops
+        run: .venv-dvc-ci/bin/dvc repro crops manifest
 
       - name: Guardar evidencia reproducible de crops
         if: steps.role.outputs.configured == 'true'
