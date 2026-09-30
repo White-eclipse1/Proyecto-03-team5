@@ -515,7 +515,12 @@ export const trainingManifestSchema = z
     }),
     manifest_version: identifierSchema.optional(),
     source_release: identifierSchema.optional(),
-    seed: z.number().int().min(0).max(2 ** 31 - 1).optional(),
+    seed: z
+      .number()
+      .int()
+      .min(0)
+      .max(2 ** 31 - 1)
+      .optional(),
     records: z.array(manifestRecordSchema).optional(),
     counts: manifestCountsSchema.optional(),
   })
