@@ -1,5 +1,4 @@
 import pytest
-
 from manifests.models import ManifestRecord, P3Manifest
 from manifests.validation import validate_no_leakage
 
