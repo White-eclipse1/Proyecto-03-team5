@@ -14,8 +14,15 @@
     }
   },
   "dataset_version": "v0.1.1",
-  "manifest_hash": "sha256:3314ae40bac0722112f698417fb66b961d7d7d1196bb6302b93ecb39b2a3b614",
+  "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
   "manifest_version": "p3-v1",
+  "provenance": {
+    "annotations_dvc_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+    "crops_sha256": "sha256:11cea337fd46877cdddbdc6281b21bd0d7de694ed66fb8cc582d5cab31216f86",
+    "images_dvc_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+    "quality_report": "reports/releases/v0.1.1/quality.json",
+    "release_version": "v0.1.1"
+  },
   "records": [
     {
       "class": "cat",
@@ -4699,14 +4706,20 @@
   "source_release": "v0.1.1",
   "splits": {
     "test": {
+      "crop_count": 71,
+      "crop_ratio": 0.1062874251497006,
       "image_count": 60,
       "ratio": 0.1
     },
     "train": {
+      "crop_count": 469,
+      "crop_ratio": 0.7020958083832335,
       "image_count": 420,
       "ratio": 0.7
     },
     "validation": {
+      "crop_count": 128,
+      "crop_ratio": 0.19161676646706588,
       "image_count": 120,
       "ratio": 0.2
     }

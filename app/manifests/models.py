@@ -27,9 +27,19 @@ class ManifestRecord(ManifestModel):
     split: SplitName
 
 
+class ManifestProvenance(ManifestModel):
+    release_version: Identifier
+    images_dvc_hash: str
+    annotations_dvc_hash: str
+    quality_report: str
+    crops_sha256: ManifestHash
+
+
 class ManifestSplit(ManifestModel):
     image_count: int = Field(ge=0)
     ratio: float = Field(ge=0, le=1)
+    crop_count: int | None = Field(default=None, ge=0)
+    crop_ratio: float | None = Field(default=None, ge=0, le=1)
 
 
 class ManifestSplits(ManifestModel):
@@ -43,6 +53,7 @@ class P3Manifest(ManifestModel):
     manifest_version: Identifier
     dataset_version: Identifier
     source_release: Identifier | None = None
+    provenance: ManifestProvenance | None = None
     seed: int = Field(ge=0)
 
     @model_validator(mode="after")

@@ -1,7 +1,9 @@
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from manifests.generate import generate_manifest
+from manifests.models import ManifestProvenance
 
 
 def _load_duplicate_groups(quality_path: Path) -> list[list[int]]:
@@ -67,11 +69,21 @@ def build_release_manifest(
 
     duplicate_groups = _load_duplicate_groups(quality_path)
 
+    source_provenance = crop_report["provenance"]
+    provenance = ManifestProvenance(
+        release_version=source_provenance["release_version"],
+        images_dvc_hash=source_provenance["images_dvc_hash"],
+        annotations_dvc_hash=source_provenance["annotations_dvc_hash"],
+        quality_report=source_provenance["quality_report"],
+        crops_sha256="sha256:" + sha256(crops_path.read_bytes()).hexdigest(),
+    )
+
     manifest = generate_manifest(
         crops=crops,
         dataset_version=crop_report["dataset_version"],
-        source_release=crop_report["dataset_version"],
+        source_release=source_provenance["release_version"],
         seed=seed,
+        provenance=provenance,
         duplicate_groups=duplicate_groups,
         manifest_version=manifest_version,
     )

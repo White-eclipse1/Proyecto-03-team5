@@ -107,16 +107,12 @@ def test_same_seed_produces_same_assignments_and_hash():
     from manifests.generate import generate_manifest
 
     crops = [
-        {"crop_id": "img1-ann1", "source_image_id": 1, "class_name": "dog"},
-        {"crop_id": "img2-ann2", "source_image_id": 2, "class_name": "dog"},
-        {"crop_id": "img3-ann3", "source_image_id": 3, "class_name": "cat"},
-        {"crop_id": "img4-ann4", "source_image_id": 4, "class_name": "cat"},
-        {"crop_id": "img5-ann5", "source_image_id": 5, "class_name": "dog"},
-        {"crop_id": "img6-ann6", "source_image_id": 6, "class_name": "cat"},
-        {"crop_id": "img7-ann7", "source_image_id": 7, "class_name": "dog"},
-        {"crop_id": "img8-ann8", "source_image_id": 8, "class_name": "cat"},
-        {"crop_id": "img9-ann9", "source_image_id": 9, "class_name": "dog"},
-        {"crop_id": "img10-ann10", "source_image_id": 10, "class_name": "cat"},
+        {
+            "crop_id": f"img{image_id}-ann{image_id}",
+            "source_image_id": image_id,
+            "class_name": "dog" if image_id % 2 else "cat",
+        }
+        for image_id in range(1, 101)
     ]
 
     first = generate_manifest(
@@ -144,18 +140,20 @@ def test_source_images_and_duplicate_groups_never_cross_splits():
     from manifests.generate import generate_manifest
 
     crops = [
-        {"crop_id": "img1-ann1", "source_image_id": 1, "class_name": "dog"},
-        {"crop_id": "img1-ann2", "source_image_id": 1, "class_name": "cat"},
-        {"crop_id": "img2-ann3", "source_image_id": 2, "class_name": "dog"},
-        {"crop_id": "img3-ann4", "source_image_id": 3, "class_name": "cat"},
-        {"crop_id": "img4-ann5", "source_image_id": 4, "class_name": "dog"},
-        {"crop_id": "img5-ann6", "source_image_id": 5, "class_name": "cat"},
-        {"crop_id": "img6-ann7", "source_image_id": 6, "class_name": "dog"},
-        {"crop_id": "img7-ann8", "source_image_id": 7, "class_name": "cat"},
-        {"crop_id": "img8-ann9", "source_image_id": 8, "class_name": "dog"},
-        {"crop_id": "img9-ann10", "source_image_id": 9, "class_name": "cat"},
-        {"crop_id": "img10-ann11", "source_image_id": 10, "class_name": "dog"},
+        {
+            "crop_id": f"img{image_id}-ann{image_id}",
+            "source_image_id": image_id,
+            "class_name": "dog" if image_id % 2 else "cat",
+        }
+        for image_id in range(1, 101)
     ]
+    crops.append(
+        {
+            "crop_id": "img1-ann101",
+            "source_image_id": 1,
+            "class_name": "cat",
+        }
+    )
 
     manifest = generate_manifest(
         crops=crops,
@@ -244,3 +242,21 @@ def test_p3_manifest_is_accepted_by_app_training_contract():
     parsed = TrainingManifest.model_validate(manifest.model_dump())
 
     assert parsed.manifest_hash == manifest.manifest_hash
+
+
+def test_rejects_crop_split_outside_five_percentage_point_tolerance():
+    from manifests.generate import _validate_crop_split_tolerance
+
+    records = [
+        ManifestRecord(
+            crop_id=f"img{i}-ann{i}",
+            source_image_id=i,
+            duplicate_group=f"group-{i}",
+            class_name="dog" if i % 2 else "cat",
+            split="train" if i <= 80 else ("validation" if i <= 90 else "test"),
+        )
+        for i in range(1, 101)
+    ]
+
+    with pytest.raises(ValueError, match="crop ratio"):
+        _validate_crop_split_tolerance(records)

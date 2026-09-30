@@ -4,6 +4,7 @@ from hashlib import sha256
 from random import Random
 
 from manifests.models import (
+    ManifestProvenance,
     ManifestRecord,
     ManifestSplit,
     ManifestSplits,
@@ -204,6 +205,25 @@ def _ensure_class_presence(
             present.update(classes_by_group[candidate])
 
 
+def _validate_crop_split_tolerance(
+    records: list[ManifestRecord],
+    *,
+    tolerance: float = 0.05,
+) -> None:
+    total_crops = len(records)
+    if total_crops == 0:
+        raise ValueError("manifest must contain at least one crop")
+
+    for split, target in SPLIT_TARGETS.items():
+        crop_count = sum(1 for record in records if record.split == split)
+        crop_ratio = crop_count / total_crops
+        if abs(crop_ratio - target) > tolerance:
+            raise ValueError(
+                f"{split} crop ratio {crop_ratio:.2%} is outside "
+                f"the +/-{tolerance:.0%} tolerance around {target:.0%}"
+            )
+
+
 def _manifest_hash_payload(
     *,
     dataset_version: str,
@@ -211,12 +231,14 @@ def _manifest_hash_payload(
     manifest_version: str,
     seed: int,
     records: list[ManifestRecord],
+    provenance: ManifestProvenance | None,
 ) -> str:
     payload = {
         "dataset_version": dataset_version,
         "source_release": source_release,
         "manifest_version": manifest_version,
         "seed": seed,
+        "provenance": provenance.model_dump() if provenance is not None else None,
         "records": [
             record.model_dump() for record in sorted(records, key=lambda record: record.crop_id)
         ],
@@ -239,6 +261,7 @@ def generate_manifest(
     seed: int,
     duplicate_groups: list[list[int]],
     manifest_version: str,
+    provenance: ManifestProvenance | None = None,
 ) -> P3Manifest:
     if not crops:
         raise ValueError("crops cannot be empty")
@@ -286,6 +309,7 @@ def generate_manifest(
     ]
 
     validate_no_leakage(records)
+    _validate_crop_split_tolerance(records)
 
     image_counts = {
         split: len({record.source_image_id for record in records if record.split == split})
@@ -293,6 +317,10 @@ def generate_manifest(
     }
 
     total_images = len(source_image_ids)
+    total_crops = len(records)
+    crop_counts = {
+        split: sum(1 for record in records if record.split == split) for split in SPLIT_TARGETS
+    }
 
     counts = {
         split: {
@@ -312,6 +340,7 @@ def generate_manifest(
         manifest_version=manifest_version,
         seed=seed,
         records=records,
+        provenance=provenance,
     )
 
     return P3Manifest(
@@ -319,6 +348,7 @@ def generate_manifest(
         manifest_version=manifest_version,
         dataset_version=dataset_version,
         source_release=source_release,
+        provenance=provenance,
         seed=seed,
         manifest_hash=manifest_hash,
         total_images=total_images,
@@ -326,14 +356,20 @@ def generate_manifest(
             train=ManifestSplit(
                 image_count=image_counts["train"],
                 ratio=image_counts["train"] / total_images,
+                crop_count=crop_counts["train"],
+                crop_ratio=crop_counts["train"] / total_crops,
             ),
             validation=ManifestSplit(
                 image_count=image_counts["validation"],
                 ratio=image_counts["validation"] / total_images,
+                crop_count=crop_counts["validation"],
+                crop_ratio=crop_counts["validation"] / total_crops,
             ),
             test=ManifestSplit(
                 image_count=image_counts["test"],
                 ratio=image_counts["test"] / total_images,
+                crop_count=crop_counts["test"],
+                crop_ratio=crop_counts["test"] / total_crops,
             ),
         ),
         records=records,
