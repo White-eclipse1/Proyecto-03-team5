@@ -171,7 +171,7 @@ def test_crops_dvc_stage_tracks_p2_release_provenance():
     assert "../data/raw/annotations" in deps
     assert "../data/raw/images" in deps
     assert "../reports/versions.json" in deps
-    assert "../reports/releases" in deps
+    assert "../reports/releases/v0.1.1/quality.json" in deps
     assert "releases/p2_releases.json" in deps
     assert "releases/service.py" in deps
 

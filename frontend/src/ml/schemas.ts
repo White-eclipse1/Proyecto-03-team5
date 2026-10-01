@@ -480,8 +480,40 @@ export const releaseProvenanceSchema = z
   );
 export type ReleaseProvenance = z.infer<typeof releaseProvenanceSchema>;
 
-const manifestSplitSchema = z.strictObject({ image_count: countSchema, ratio: ratioSchema });
+const manifestProvenanceSchema = z.strictObject({
+  release_version: identifierSchema,
+  images_dvc_hash: z.string(),
+  annotations_dvc_hash: z.string(),
+  quality_report: z.string(),
+  crops_sha256: manifestHashSchema,
+});
+
+const manifestSplitSchema = z.strictObject({
+  image_count: countSchema,
+  ratio: ratioSchema,
+  crop_count: countSchema.optional(),
+  crop_ratio: ratioSchema.optional(),
+});
 export const SPLIT_TARGETS = { train: 0.7, validation: 0.2, test: 0.1 } as const;
+
+const manifestRecordSchema = z.strictObject({
+  crop_id: identifierSchema,
+  source_image_id: cocoIdSchema,
+  duplicate_group: identifierSchema,
+  class: labelSchema,
+  split: z.enum(["train", "validation", "test"]),
+});
+
+const manifestClassCountsSchema = z.strictObject({
+  dog: countSchema,
+  cat: countSchema,
+});
+
+const manifestCountsSchema = z.strictObject({
+  train: manifestClassCountsSchema,
+  validation: manifestClassCountsSchema,
+  test: manifestClassCountsSchema,
+});
 
 export const trainingManifestSchema = z
   .strictObject({
@@ -494,6 +526,17 @@ export const trainingManifestSchema = z
       validation: manifestSplitSchema,
       test: manifestSplitSchema,
     }),
+    manifest_version: identifierSchema.optional(),
+    source_release: identifierSchema.optional(),
+    provenance: manifestProvenanceSchema.optional(),
+    seed: z
+      .number()
+      .int()
+      .min(0)
+      .max(2 ** 31 - 1)
+      .optional(),
+    records: z.array(manifestRecordSchema).optional(),
+    counts: manifestCountsSchema.optional(),
   })
   .superRefine((manifest, context) => {
     const splits = Object.values(manifest.splits);

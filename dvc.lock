@@ -163,7 +163,7 @@ stages:
       nfiles: 600
     - path: analyzers
       hash: md5
-      md5: 6bc2608ab57314dfe1d77ff92c7f8492.dir
+      md5: 6708b89d542fc89338a34ff1d12b7274.dir
       size: 64283
       nfiles: 17
     - path: dvc_quality_report_stage.py
@@ -172,12 +172,12 @@ stages:
       size: 785
     - path: ingestion
       hash: md5
-      md5: d90a006fdcd5d87d7f7cf5db2dad7c01.dir
+      md5: 1c83e7cf973cb9682b48e44ca8faa55e.dir
       size: 18255
       nfiles: 7
     - path: policies
       hash: md5
-      md5: ff390291c849fa5f4e8fc296c22213f9.dir
+      md5: 2f87034722cfe5fb6abbfa9bdd851104.dir
       size: 8279
       nfiles: 10
     - path: presentation/contracts.py
@@ -304,11 +304,10 @@ stages:
       hash: md5
       md5: edf1b9bbb2e79dff0fa187fdc33dd0ac
       size: 7
-    - path: ../reports/releases
+    - path: ../reports/releases/v0.1.1/quality.json
       hash: md5
-      md5: 0f269bd4e295017cc44cb2565187b9b4.dir
-      size: 47202
-      nfiles: 4
+      md5: 124d28ed7ed8fa0bd69b441015c67b61
+      size: 25698
     - path: ../reports/versions.json
       hash: md5
       md5: 8e6d1165d4af7c9ee54e7bedd7072457
@@ -371,3 +370,39 @@ stages:
       hash: md5
       md5: e9b14c0c8b1d7c8cc083843b0ae65f6a
       size: 370444
+  manifest:
+    cmd: uv run python -m manifests.build_release
+    deps:
+    - path: ../reports/crops.json
+      hash: md5
+      md5: e9b14c0c8b1d7c8cc083843b0ae65f6a
+      size: 370444
+    - path: ../reports/releases/v0.1.1/quality.json
+      hash: md5
+      md5: 124d28ed7ed8fa0bd69b441015c67b61
+      size: 25698
+    - path: manifests/__init__.py
+      hash: md5
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0
+    - path: manifests/build_release.py
+      hash: md5
+      md5: d0c63c7fea302a968f4c9e6d65ca977a
+      size: 3236
+    - path: manifests/generate.py
+      hash: md5
+      md5: 79c5e5359754922746c1bdba05f4ea0c
+      size: 11430
+    - path: manifests/models.py
+      hash: md5
+      md5: 2e1e521a6452af6bbdaf8e0790ac5a28
+      size: 1988
+    - path: manifests/validation.py
+      hash: md5
+      md5: 775608526b42999738e8ec2e65ba16d6
+      size: 863
+    outs:
+    - path: ../reports/releases/v0.1.1/manifest.json
+      hash: md5
+      md5: 533dc83dd7b5cb2b1ebba75c854724f0
+      size: 108199
