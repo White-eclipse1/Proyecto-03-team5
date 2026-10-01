@@ -10,6 +10,7 @@ import classification.experiments as experiments_module
 from classification.experiments import (
     MATRIX_TAG,
     VARIED_PARAMS,
+    identical_result_groups,
     load_matrix,
     matrix_report,
     run_matrix,
@@ -259,3 +260,24 @@ def test_report_ignores_failed_and_foreign_runs(client, release, tmp_path, monke
     assert report["excluded_runs"] == [
         {"run_id": failed.info.run_id, "entry": "r02", "reason": "status FAILED"}
     ]
+
+
+def test_runs_with_the_same_best_result_are_grouped():
+    runs = [
+        {"entry": "a", "best_epoch": 5, "best_val_loss": 0.08, "best_val_accuracy": 0.97},
+        {"entry": "b", "best_epoch": 3, "best_val_loss": 0.04, "best_val_accuracy": 0.98},
+        {"entry": "c", "best_epoch": 5, "best_val_loss": 0.08, "best_val_accuracy": 0.97},
+    ]
+
+    assert identical_result_groups(runs) == [["a", "c"]]
+
+
+def test_report_counts_only_distinct_results(client, release, tmp_path):
+    matrix = load_matrix(_write(tmp_path, _matrix_doc()))
+    _run(client, release, matrix)
+
+    report = matrix_report(client, matrix, min_runs=7)
+
+    groups = report["identical_results"]
+    assert report["distinct_results"] == 7 - sum(len(group) - 1 for group in groups)
+    assert report["checks"]["at_least_min_distinct_results"] is (report["distinct_results"] >= 7)
