@@ -296,7 +296,7 @@ No pongas credenciales AWS en este archivo.
 docker compose up --build
 ```
 
-Este comando levanta los servicios de MariaDB, MinIO, backend, frontend,
+Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app` y Copilot. El backend espera a que MariaDB y MinIO estén listos, aplica las
 migraciones y siembra únicamente las categorías `dog` y `cat` antes de
 arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
@@ -306,6 +306,7 @@ arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 | Frontend        | http://localhost:8080            |
 | Backend (API)   | http://localhost:3100            |
 | Consola MinIO   | http://localhost:9001 (minioadmin/minioadmin) |
+| MLflow (UI/API) | http://localhost:5000 (solo loopback; ver [OPS-03](#ops-03--mlflow-persistente)) |
 
 Para apagar normalmente los servicios, sin borrar los datos persistidos:
 
@@ -313,7 +314,8 @@ Para apagar normalmente los servicios, sin borrar los datos persistidos:
 docker compose down
 ```
 
-`docker compose down -v` elimina también los volúmenes de MariaDB y MinIO.
+`docker compose down -v` elimina también los volúmenes de MariaDB y MinIO
+(y con ellos los runs y artefactos de MLflow).
 Úsalo únicamente cuando quieras reiniciar desde cero los datos locales.
 
 Las credenciales de MariaDB/MinIO usadas en `docker-compose.yml` son las de
@@ -504,6 +506,8 @@ ignora todo `.env*` salvo las plantillas de ejemplo.
 | `MINIO_SECRET_KEY`      | Credencial secreta                             |
 | `MINIO_BUCKET`          | Bucket donde se guardan las imágenes           |
 | `MAX_UPLOAD_SIZE_BYTES` | Tamaño máximo por imagen (5 MiB por defecto)   |
+| `MLFLOW_TRACKING_URI`   | Servidor MLflow (`http://mlflow:5000` dentro de Compose, `http://localhost:5000` desde el host) |
+| `MLFLOW_PORT`           | Puerto del host para la UI de MLflow (opcional, 5000 por defecto) |
 
 Los `.env` son configuración local de Compose/backend/MinIO/Copilot. Las
 credenciales AWS se obtienen mediante el perfil SSO `mlops-p2`; nunca las
@@ -1164,3 +1168,62 @@ Se añadió `yaml` como dependencia directa del backend para leer/escribir
 YAML sin un parser artesanal. El backend actual no tiene autenticación ni
 autorización: esta edición está destinada al despliegue controlado existente,
 no constituye un panel administrativo protegido para exposición pública.
+
+## OPS-03 — MLflow persistente
+
+El servicio `mlflow` de `docker-compose.yml` es el Tracking Server del Proyecto 3
+(imagen en [`mlflow-server/`](mlflow-server/README.md), MLflow 3.16.1 con versiones
+fijas). No guarda estado en su contenedor:
+
+| Qué | Dónde | Volumen |
+|-----|-------|---------|
+| Experimentos, runs, parámetros, métricas por época, tags | Base `mlflow` en MariaDB | `mariadb_data` |
+| Artefactos (checkpoints, curvas) | Bucket `mlflow` en MinIO | `minio_data` |
+
+Por eso los runs sobreviven a `docker compose restart`, a `docker compose down`
+(sin `-v`) y a recrear los contenedores. La base y el bucket se crean solos al
+arrancar, también sobre volúmenes que ya existían.
+
+### Conectarse (worker, entrenamiento, scripts)
+
+La única configuración del cliente es `MLFLOW_TRACKING_URI`:
+
+- Dentro de Compose (`app`, `copilot` y el futuro worker la reciben de
+  `x-pipeline-env`): `http://mlflow:5000`.
+- Desde el host: `http://localhost:5000`.
+
+Los artefactos se suben y se descargan **a través del servidor**
+(`mlflow-artifacts:`), así que los clientes no necesitan credenciales de MinIO.
+En Python, usa el cliente del proyecto, que lee la URI con `TrackingSettings` y
+fuerza ese modo:
+
+```python
+from tracking.client import tracking_client
+
+client = tracking_client()  # también configura mlflow.set_tracking_uri(...)
+```
+
+Para comprobar la conexión desde un contenedor:
+
+```bash
+docker compose run --rm app python -m tracking.check
+```
+
+La UI está en http://localhost:5000 y solo escucha en loopback porque no tiene
+autenticación. MLflow 3 rechaza (403) cualquier `Host` que no esté en
+`MLFLOW_ALLOWED_HOSTS`; la lista ya incluye `mlflow` y `localhost`.
+
+### Verificar la persistencia
+
+`app/tests/test_mlflow_persistence.py` crea un run con parámetros, métricas por
+época, un checkpoint y una curva; recrea los contenedores de MariaDB, MinIO y
+MLflow, y recupera el mismo `run_id` por API comparando todo (hash del checkpoint
+incluido). Se omite por defecto; para correrla con el stack levantado:
+
+```bash
+docker compose up -d --build --wait mariadb minio mlflow
+cd app
+MLFLOW_INTEGRATION=1 MLFLOW_TRACKING_URI=http://localhost:5000   uv run pytest -v tests/test_mlflow_persistence.py
+```
+
+En CI la corre el job **MLflow persistente (OPS-03)**.
