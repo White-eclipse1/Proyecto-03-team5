@@ -84,6 +84,14 @@ def test_nan_never_counts_as_improvement():
     assert stopper.best_epoch == 1
 
 
+def test_nan_in_the_first_epoch_is_not_the_best():
+    stopper = EarlyStopping(patience=3, min_delta=0.0)
+
+    assert _feed(stopper, [math.nan, 0.9, 0.8]) is None
+    assert stopper.best_epoch == 3
+    assert stopper.best_value == 0.8
+
+
 def test_never_stops_while_improving():
     stopper = EarlyStopping(patience=1, min_delta=0.0)
 
@@ -257,6 +265,19 @@ def test_patience_and_min_delta_come_from_the_training_params(
 
     assert result.stopped_epoch == stopped
     assert result.best_epoch == best
+
+
+def test_a_run_without_any_valid_val_loss_fails_instead_of_saving_a_checkpoint(
+    client, release, injected, tmp_path
+):
+    injected["losses"] = [math.nan, math.nan]
+
+    with pytest.raises(RuntimeError, match="val_loss"):
+        _train(client, release, _params(max_epochs=2, patience=2), tmp_path)
+
+    [run] = client.search_runs([client.get_experiment_by_name("dogcat-classifier").experiment_id])
+    assert run.info.status == "FAILED"
+    assert not client.list_artifacts(run.info.run_id, "checkpoints")
 
 
 # --- Curvas con las métricas reales ----------------------------------------------------------
