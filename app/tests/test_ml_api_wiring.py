@@ -51,3 +51,17 @@ def test_nginx_routes_api_ml_to_the_training_service():
 def test_app_image_ships_the_training_package():
     dockerfile = (ROOT / "app" / "Dockerfile").read_text(encoding="utf-8")
     assert "COPY training/ ./training/" in dockerfile
+
+
+def test_ml_api_reaches_mlflow_and_fails_fast():
+    """APP-04: /runs lee MLflow; si no responde, 503 en segundos y no tras minutos de reintentos."""
+    env = _compose()["services"]["ml-api"]["environment"]
+    assert env["MLFLOW_TRACKING_URI"] == "http://mlflow:5000"
+    assert int(env["MLFLOW_HTTP_REQUEST_MAX_RETRIES"]) <= 2
+    assert int(env["MLFLOW_HTTP_REQUEST_TIMEOUT"]) <= 15
+
+
+def test_ci_runs_the_experiments_integration_test_against_mlflow():
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    commands = " ".join(step.get("run", "") for step in ci["jobs"]["mlflow"]["steps"])
+    assert "tests/test_experiments_mlflow_integration.py" in commands
