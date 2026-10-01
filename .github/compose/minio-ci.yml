@@ -1,0 +1,11 @@
+# Solo para CI. Desde 2026 la imagen oficial `quay.io/minio/minio` (y `minio/minio` en
+# Docker Hub) exige autenticación, así que un runner limpio no puede descargarla. Este
+# override usa la build pública de Chainguard (misma CLI `minio server`) sin tocar el
+# docker-compose.yml que usa el equipo en local. El cambio general está en un issue aparte.
+#
+# Se carga con COMPOSE_FILE=docker-compose.yml:.github/compose/minio-ci.yml (ver ci.yml).
+services:
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    # La imagen corre como 65532 y no puede escribir en un volumen nuevo montado en /data.
+    user: "0:0"

@@ -138,6 +138,9 @@ jobs:
       MINIO_ROOT_PASSWORD: ci-mlflow-${{ github.run_id }}
       MLFLOW_TRACKING_URI: http://localhost:5000
       MLFLOW_INTEGRATION: "1"
+      # La imagen oficial de MinIO ya no es pública; ver .github/compose/minio-ci.yml.
+      # COMPOSE_FILE también aplica al `docker compose up` que corre la prueba.
+      COMPOSE_FILE: docker-compose.yml:.github/compose/minio-ci.yml
       # Falla en minutos, no en horas, si el servidor deja de responder.
       MLFLOW_HTTP_REQUEST_MAX_RETRIES: "2"
     steps:
