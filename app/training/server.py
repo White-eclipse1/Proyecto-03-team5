@@ -81,6 +81,8 @@ def create_app(*, queue: TrainingJobQueue, reports_dir: Path) -> Starlette:
         if version not in published_releases(reports_dir):
             return _error(422, "release_not_found", f"El release {version} no está publicado.")
         release = load_release(reports_dir, version)
+        if release.quality_problem is not None:
+            return _error(409, "training_blocked", release.quality_problem)
         reason = training_request_rejection(
             job_request, release.quality_status, release.provenance, release.manifest
         )

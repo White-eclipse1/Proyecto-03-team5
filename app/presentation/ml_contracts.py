@@ -597,6 +597,10 @@ class TrainingManifest(ContractModel):
         return self
 
 
+QUALITY_GATE_OPEN = ("passed", "warning")
+"""Quality Gate statuses that allow training (P2: warn does not block)."""
+
+
 def training_blocked_reason(
     quality_status: str,
     provenance: ReleaseProvenance | None,
@@ -604,12 +608,18 @@ def training_blocked_reason(
 ) -> str | None:
     """Whether a release can be trained reproducibly; `None` means it can.
 
-    A `failed` Quality Gate blocks (warn does not), and so does a missing or
-    invalid DVC provenance or 70/20/10 manifest: pass `None` for either when the
-    file is missing or does not validate.
+    Only `passed` and `warning` open the Quality Gate: `failed` blocks, and so does
+    any other value (an unknown or malformed status must never pass). A missing or
+    invalid DVC provenance or 70/20/10 manifest blocks too: pass `None` for either
+    when the file is missing or does not validate.
     """
     if quality_status == "failed":
         return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
+    if quality_status not in QUALITY_GATE_OPEN:
+        return (
+            f"El Quality Gate del release tiene un estado inválido ({quality_status!r}); "
+            "solo passed o warning permiten entrenar."
+        )
     if provenance is None:
         return (
             "El release no tiene un provenance.json de DVC válido; "
