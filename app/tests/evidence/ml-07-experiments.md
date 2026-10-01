@@ -95,3 +95,42 @@ ML-06 (código anterior, incluidas parejas idénticas a propósito para probar l
 reproducibilidad). Se archivaron con el borrado lógico de MLflow
 (`MlflowClient.delete_run`, reversible con `restore_run`) para que no se
 confundan con la matriz.
+
+## Restauración en un clon limpio (mismos run IDs)
+
+El MLflow de OPS-03 vive en los volúmenes Docker de cada máquina. Las corridas se
+comparten con el snapshot DVC `data/mlflow-snapshot` (`tracking/snapshot.py`):
+volcado de la base `mlflow` (246 KB, sin contraseñas) más los artefactos de los
+12 runs (518 MB, sha256 en `snapshot.json`), en el remote `prod`.
+
+Prueba de un clon limpio: un segundo stack de Compose (`-p p3restore`, volúmenes
+nuevos, MLflow en el puerto 5051) arrancó **vacío** (solo el experimento `Default`,
+0 runs). Después de `python -m tracking.snapshot restore` (44 s):
+
+```text
+Container p3restore-mlflow-1  Restarting
+ Container p3restore-mlflow-1  Started
+f0cd9825563e45ccbdfe9dfd652a06c8: OK
+1d571224e7fc46468b495cdcbd33e88f: OK
+bb448230424146349a969253d30db43b: OK
+306817e87ca144eb9b9d716816097181: OK
+f6b548b403714d4a984cf756198a9c59: OK
+e6921aea1f3b409695b06736aa8f4f8f: OK
+83e5a40ad86942478269c49a66d1d04b: OK
+d9c99b5a0e4e4b3c84dd4c49a96cd82c: OK
+21db27c7ecd24ebc894bf2219b875148: OK
+137244d23bd34a24b1633bdd9f44f49b: OK
+06fc194ab16242f7a8403da8cd87a849: OK
+adc1c0b4ec304e28b626e8dacb458c29: OK
+checkpoint de bb448230424146349a969253d30db43b (r03-sgd) desde el MLflow restaurado: inferencia img102-ann118 real=dog P(dog,cat)=(1.000,0.000)
+```
+
+- Los 12 artefactos de cada run se verificaron por tamaño y sha256.
+- `classification.experiments report` sobre el MLflow restaurado pasa los 13
+  criterios y da **los mismos run IDs, en el mismo orden, con un reporte
+  idéntico** al de `reports/experiments/ml07_runs.json` (métricas, parámetros,
+  commit y hashes).
+- Un `best.pt` descargado del MLflow restaurado se carga y clasifica un crop de
+  validation.
+
+El stack de prueba se eliminó con sus volúmenes (`down -v` solo de `p3restore`).

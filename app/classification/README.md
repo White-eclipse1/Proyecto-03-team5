@@ -351,4 +351,33 @@ uv run python -m classification.experiments report --matrix classification/ml07_
   `reports/experiments/ml07_runs.json` y termina con código ≠ 0 si falla algún
   criterio.
 
+### Compartir las corridas: snapshot de MLflow
+
+El MLflow de OPS-03 vive en los volúmenes Docker de cada máquina. Para que otro
+clon (el de la evaluación o el de un compañero) vea **los mismos run IDs**,
+`tracking/snapshot.py` crea un snapshot versionado con DVC en
+`data/mlflow-snapshot`:
+
+| Archivo | Contenido |
+|---------|-----------|
+| `mlflow.sql` | Volcado de la base `mlflow` de MariaDB (`mariadb-dump` dentro del contenedor; la contraseña nunca sale del contenedor) |
+| `artifacts/<run_id>/...` | Artefactos de los runs `FINISHED` de la matriz: `checkpoints/best.pt`, `curves/*`, `reproducibility/sample_order.json` |
+| `snapshot.json` | Tamaño y sha256 de cada artefacto |
+
+```bash
+# Crear o actualizar (con el MLflow que tiene las corridas):
+uv run python -m tracking.snapshot create
+cd .. && dvc add data/mlflow-snapshot && dvc push -r prod data/mlflow-snapshot.dvc
+
+# Restaurar en otro clon (MLflow levantado):
+dvc pull -r prod data/mlflow-snapshot.dvc
+cd app && uv run python -m tracking.snapshot restore     # carga, reinicia MLflow, sube y verifica
+uv run python -m tracking.snapshot verify --deep          # solo verificar
+```
+
+`restore` **reemplaza** la base `mlflow` del MariaDB local por la del snapshot.
+Las corridas que solo existían en ese MLflow se pierden, así que úsalo en un
+stack nuevo o respalda antes. `--compose` permite apuntar a otro proyecto de
+Compose (por ejemplo, `--compose "docker compose -p otro"`).
+
 Evidencia: [`tests/evidence/ml-07-experiments.md`](../tests/evidence/ml-07-experiments.md).
