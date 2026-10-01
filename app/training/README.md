@@ -64,7 +64,7 @@ if job is not None:
 | `claim_next(worker_id)` | `queued` | `queued` (tomado) | `SELECT ... FOR UPDATE SKIP LOCKED`: dos workers nunca toman el mismo job |
 | `start(job_id, experiment_id=, run_id=)` | `queued` tomado | `running` | Exige haberlo tomado con `claim_next` |
 | `report_progress(job_id, epoch=, metrics=)` | `running` | `running` | `epoch <= params.max_epochs`; las métricas se guardan como `float` |
-| `log(job_id, message, level="info")` | cualquiera | — | `level`: `info`, `warning` o `error`; `seq` consecutivo por job |
+| `log(job_id, message, *, level="info")` | cualquiera | — | `level` solo por nombre (`level="warning"`): `info`, `warning` o `error`; `seq` consecutivo por job |
 | `succeed(job_id, checkpoint=)` | `running` | `succeeded` | El checkpoint debe ser `runs:/<mismo run_id>/...` |
 | `fail(job_id, ContractError)` | `queued` o `running` | `failed` | Puede fallar antes de crear el run |
 
