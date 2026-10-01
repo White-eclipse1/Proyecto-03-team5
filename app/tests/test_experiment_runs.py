@@ -30,7 +30,7 @@ RUNNING = "f1e2d3c4b5a697887766554433221100"
 NOT_TRAINING = "aaaabbbbccccddddeeeeffff00001111"
 COMMIT = "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d"
 MANIFEST = "sha256:" + "a" * 64
-START_MS = 1_790_000_000_000  # 2026-09-21T12:53:20Z
+START_MS = 1_790_000_000_000  # 2026-09-21T14:13:20Z
 
 
 def make_run(
@@ -127,8 +127,8 @@ def test_finished_run_maps_every_field_the_screen_needs():
     assert run.experiment_id == "1"
     assert run.run_name == "resnet18-adam"
     assert run.status == "FINISHED"
-    assert run.start_time == "2026-09-21T12:53:20Z"
-    assert run.end_time == "2026-09-21T12:54:50.500000Z"
+    assert run.start_time == "2026-09-21T14:13:20Z"
+    assert run.end_time == "2026-09-21T14:14:50.500000Z"
     assert (run.dataset_version, run.manifest_hash) == ("v0.1.1", MANIFEST)
     assert run.git_commit == COMMIT
     assert run.params == {"optimizer": "adam", "batch_size": "32"}

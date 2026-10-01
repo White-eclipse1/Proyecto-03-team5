@@ -4,6 +4,8 @@
     POST /training/jobs                  TrainingJobRequest → 202 TrainingJob (queued)
     GET  /training/jobs/{job_id}         TrainingJob
     GET  /training/jobs/{job_id}/logs    TrainingLogsResponse (?after=<seq>)
+    GET  /runs                           RunsResponse: runs de MLflow (APP-04)
+    GET  /runs/{run_id}/curves           RunCurvesResponse: historial por época (APP-04)
     GET  /health
 
 El POST valida el contrato y las reglas del release (`training_request_rejection`) y
@@ -12,6 +14,10 @@ OPS-04 en otro proceso, nunca dentro del request. Los errores siguen
 `ErrorResponse`. Un release desconocido responde 422 (no 404), porque el portal
 interpreta un 404 del POST como "servicio no conectado".
 
+Los runs se leen de MLflow en cada petición (sin caché). Si MLflow no responde, 503
+`mlflow_unavailable` (reintentable); si el servicio no tiene `MLFLOW_TRACKING_URI`,
+503 `mlflow_not_configured`.
+
 Desde `app/`:
 
     uv run python -m training.server
@@ -19,9 +25,11 @@ Desde `app/`:
 
 import json
 import logging
+import re
 from pathlib import Path
 
 import uvicorn
+from mlflow.exceptions import MlflowException
 from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -31,19 +39,23 @@ from starlette.routing import Route
 from presentation.ml_contracts import (
     ContractError,
     ErrorResponse,
+    RunsResponse,
     TrainingJobRequest,
     TrainingJobsResponse,
     TrainingLogsResponse,
     training_request_rejection,
 )
 from storage.db import get_engine
-from storage.settings import Settings
+from storage.settings import Settings, TrackingSettings
+from tracking.client import tracking_client
+from training.experiments import TrackingClient, list_runs, run_curves
 from training.queue import TrainingJobQueue
 from training.releases import load_release, published_releases
 
 logger = logging.getLogger("ml-api")
 
 PUBLIC_PREFIX = "/api/ml"
+RUN_ID = re.compile(r"^[0-9a-f]{32}$")
 
 
 def _error(status_code: int, code: str, message: str, *, retryable: bool = False) -> JSONResponse:
@@ -62,7 +74,12 @@ def _describe(exc: ValidationError) -> str:
     return "Solicitud inválida: " + "; ".join(problems)
 
 
-def create_app(*, queue: TrainingJobQueue, reports_dir: Path) -> Starlette:
+def create_app(
+    *,
+    queue: TrainingJobQueue,
+    reports_dir: Path,
+    tracking: TrackingClient | None = None,
+) -> Starlette:
     async def list_jobs(_request: Request) -> JSONResponse:
         response = TrainingJobsResponse(schema_version="1.0", jobs=queue.list_jobs())
         return JSONResponse(response.model_dump())
@@ -115,6 +132,42 @@ def create_app(*, queue: TrainingJobQueue, reports_dir: Path) -> Starlette:
         )
         return JSONResponse(response.model_dump())
 
+    def mlflow_error() -> JSONResponse | None:
+        if tracking is None:
+            return _error(
+                503,
+                "mlflow_not_configured",
+                "El servicio no tiene MLFLOW_TRACKING_URI: no puede leer los runs.",
+            )
+        return None
+
+    def mlflow_unavailable() -> JSONResponse:
+        logger.exception("MLflow no respondió")
+        return _error(503, "mlflow_unavailable", "MLflow no respondió.", retryable=True)
+
+    async def get_runs(_request: Request) -> JSONResponse:
+        if (error := mlflow_error()) is not None:
+            return error
+        try:
+            runs = list_runs(tracking)
+        except (MlflowException, OSError):
+            return mlflow_unavailable()
+        return JSONResponse(RunsResponse(schema_version="1.0", runs=runs).model_dump())
+
+    async def get_run_curves(request: Request) -> JSONResponse:
+        run_id = request.path_params["run_id"]
+        if not RUN_ID.fullmatch(run_id):
+            return _error(400, "invalid_request", "run_id son 32 hex en minúsculas.")
+        if (error := mlflow_error()) is not None:
+            return error
+        try:
+            curves = run_curves(tracking, run_id)
+        except (MlflowException, OSError):
+            return mlflow_unavailable()
+        if curves is None:
+            return _error(404, "run_not_found", "No existe ese run de entrenamiento en MLflow.")
+        return JSONResponse(curves.model_dump())
+
     async def health(_request: Request) -> JSONResponse:
         try:
             queue.ping()
@@ -130,8 +183,19 @@ def create_app(*, queue: TrainingJobQueue, reports_dir: Path) -> Starlette:
             Route("/training/jobs", create_job, methods=["POST"]),
             Route("/training/jobs/{job_id}", get_job, methods=["GET"]),
             Route("/training/jobs/{job_id}/logs", get_logs, methods=["GET"]),
+            Route("/runs", get_runs, methods=["GET"]),
+            Route("/runs/{run_id}/curves", get_run_curves, methods=["GET"]),
         ]
     )
+
+
+def _tracking_or_none() -> TrackingClient | None:
+    """Sin MLFLOW_TRACKING_URI la API de jobs sigue funcionando; /runs responde 503."""
+    try:
+        return tracking_client(TrackingSettings())
+    except ValidationError:
+        logger.warning("Sin MLFLOW_TRACKING_URI válido: /runs responderá mlflow_not_configured")
+        return None
 
 
 def main() -> None:
@@ -139,7 +203,7 @@ def main() -> None:
     settings = Settings()
     queue = TrainingJobQueue(get_engine())
     queue.create_tables()
-    app = create_app(queue=queue, reports_dir=settings.reports_dir)
+    app = create_app(queue=queue, reports_dir=settings.reports_dir, tracking=_tracking_or_none())
     uvicorn.run(app, host=settings.ml_api_host, port=settings.ml_api_port)
 
 
