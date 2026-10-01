@@ -163,6 +163,25 @@ services:
       - ./reports:/app/reports:ro
     restart: on-failure:5
 
+  # OPS-04: worker asincrono persistente de entrenamiento.
+  # Consume jobs de MariaDB, ejecuta run_training() y registra resultados en MLflow.
+  training-worker:
+    build: ./app
+    command: ["python", "-m", "training.worker"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    environment:
+      <<: *pipeline-env
+      TRAINING_WORKER_ID: training-worker-1
+      GIT_COMMIT: ${GIT_COMMIT:-}
+    volumes:
+      - ./data/crops:/app/data/crops:ro
+      - ./reports:/app/reports:ro
+    restart: on-failure:5
+
   # P2-52: agente del Copilot (LLM + herramientas MCP de solo lectura). Misma
   # imagen que `app`, otro comando. No se publica ningún puerto: solo nginx
   # (servicio `frontend`) lo alcanza, en /copilot-api/. Sin ANTHROPIC_API_KEY
