@@ -403,6 +403,52 @@ def test_dataset_fails_fast_when_a_crop_file_is_missing(tmp_path):
         _dataset(tmp_path, "train", report=report)
 
 
+def _tamper(path):
+    """Cambia un píxel: sigue siendo un PNG válido del mismo tamaño, pero otro archivo."""
+    with Image.open(path) as stored:
+        image = stored.convert("RGB")
+    image.putpixel((0, 0), tuple(255 - value for value in image.getpixel((0, 0))))
+    image.save(path)
+
+
+def test_dataset_rejects_a_modified_crop_png(tmp_path):
+    report = _crops(tmp_path)
+    target = report.crops[0]  # split train
+    _tamper(tmp_path / "crops" / target.crop_path)
+
+    with pytest.raises(ValueError, match=rf"{target.crop_id}.*sha256"):
+        _dataset(tmp_path, "train", report=report)
+
+
+def test_dataset_rejects_a_crop_png_replaced_by_another_crop(tmp_path):
+    report = _crops(tmp_path)
+    target, other = report.crops[2], report.crops[4]  # validation y test, ambos dog
+    (tmp_path / "crops" / target.crop_path).write_bytes(
+        (tmp_path / "crops" / other.crop_path).read_bytes()
+    )
+
+    with pytest.raises(ValueError, match=rf"{target.crop_id}.*sha256"):
+        _dataset(tmp_path, "validation", report=report)
+
+
+def test_modified_crop_is_rejected_by_load_split_before_training(tmp_path):
+    report = _crops(tmp_path)
+    manifest_path, report_path = _write_inputs(tmp_path, report)
+    _tamper(tmp_path / "crops" / report.crops[5].crop_path)  # split test
+
+    with pytest.raises(ValueError, match="sha256"):
+        load_split(
+            manifest_path, report_path, crops_dir=tmp_path / "crops", split="test", params=_params()
+        )
+
+
+def test_intact_crops_pass_the_sha256_check(tmp_path):
+    report = _crops(tmp_path)
+
+    for split in ("train", "validation", "test"):
+        assert len(_dataset(tmp_path, split, report=report)) == 2
+
+
 def test_load_split_takes_image_size_from_training_params(tmp_path):
     report = _crops(tmp_path)
     manifest_path, report_path = _write_inputs(tmp_path, report)
