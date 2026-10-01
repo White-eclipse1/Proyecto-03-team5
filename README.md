@@ -1268,3 +1268,5 @@ errores. Mientras haya jobs `queued` o `running`, la pantalla se actualiza cada 
 
 Detalle de la API, de la cola y de la interfaz para el worker en
 [`app/training/README.md`](app/training/README.md).
+
+ -> MariaDB queue -> training-worker -> run_training() -> MLflow
