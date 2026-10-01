@@ -65,7 +65,7 @@ def test_real_run_is_recoverable_through_the_mlflow_api(tmp_path):
         print(f"{name}: {[(m.step, round(m.value, 4)) for m in history]}")
         assert [m.step for m in history] == [1, 2]
     assert result.optimizer_steps == 2 * 15  # ceil(469 / 32) batches por época
-    local = client.download_artifacts(result.run_id, "checkpoints/last.pt", str(tmp_path))
+    local = client.download_artifacts(result.run_id, "checkpoints/best.pt", str(tmp_path))
     model = load_checkpoint(Path(local))
     assert model.config.image_size == 128 and model.class_map == {"dog": 0, "cat": 1}
     print(f"checkpoint {result.checkpoint_uri} descargado y recargado")
