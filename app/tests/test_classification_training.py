@@ -144,6 +144,33 @@ def test_each_step_uses_one_batch_of_batch_size(client, release, monkeypatch):
     assert len(seen) == result.optimizer_steps == 3
 
 
+def test_gradients_are_cleared_before_every_optimizer_step(client, release, monkeypatch):
+    events = []
+    real_build = training_module.build_optimizer
+
+    def spy_build(name, parameters, learning_rate):
+        optimizer = real_build(name, parameters, learning_rate)
+        real_zero, real_step = optimizer.zero_grad, optimizer.step
+
+        def zero_grad(*args, **kwargs):
+            events.append("zero_grad")
+            return real_zero(*args, **kwargs)
+
+        def step(*args, **kwargs):
+            events.append("step")
+            return real_step(*args, **kwargs)
+
+        optimizer.zero_grad, optimizer.step = zero_grad, step
+        return optimizer
+
+    monkeypatch.setattr(training_module, "build_optimizer", spy_build)
+
+    _train(client, release, _params(batch_size=4, max_epochs=2))
+
+    # Cada batch: gradientes limpios -> backward -> step (no se acumulan entre batches).
+    assert events == ["zero_grad", "step"] * 4
+
+
 # --- Parámetros configurables que afectan el entrenamiento ------------------------------
 
 

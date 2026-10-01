@@ -156,7 +156,7 @@ from classification.training import DataPaths, JobQueueHooks, run_training
 from tracking.client import tracking_client  # OPS-03, usa MLFLOW_TRACKING_URI
 
 result = run_training(
-    job.params,                          # TrainingParams del job
+    job.params,  # TrainingParams del job
     dataset_version=job.dataset_version,
     manifest_hash=job.manifest_hash,
     data=DataPaths.for_release(job.dataset_version),
