@@ -69,3 +69,76 @@ global de torch: el entrenamiento (ML-03) debe llamar `torch.manual_seed(seed)`
 para que también sea reproducible.
 
 Tests: `uv run pytest tests/test_classification_dataset.py`.
+
+## ML-03 — Modelo: ResNet18 preentrenada + cabeza configurable
+
+`classification/model.py`. El modelo **no** se usa tal como viene de torchvision:
+se reemplaza su capa final por una cabeza propia de 2 clases y se entrena
+(fine-tuning) con los crops del manifiesto P3.
+
+### Arquitectura
+
+```text
+imagen 3 x image_size x image_size (preprocesamiento de ML-02, normalización ImageNet)
+  -> ResNet18 backbone: conv1 -> bn1 -> layer1 -> layer2 -> layer3 -> layer4 -> avgpool
+  -> 512 características (la fc original de 1000 clases ImageNet se reemplaza por Identity)
+  -> cabeza: [Linear(in, h) -> ReLU -> Dropout(dropout)] por cada h en hidden_layers
+  -> Linear(…, 2) -> logits [dog, cat]
+```
+
+Ejemplo con `hidden_layers=[256, 64]`, `dropout=0.3`:
+`Linear(512,256) ReLU Dropout(0.3) Linear(256,64) ReLU Dropout(0.3) Linear(64,2)`.
+Con `hidden_layers=[]` la cabeza es `Dropout(dropout) Linear(512,2)`.
+
+| Parámetro | Origen | Validación |
+|-----------|--------|------------|
+| `image_size` | `TrainingParams.image_size` | múltiplo de 32 entre 32 y 1024; `forward` rechaza otro tamaño |
+| `hidden_layers` | `TrainingParams.hidden_layers` | 0 a 5 capas de 1 a 4096 unidades |
+| `dropout` | `TrainingParams.dropout` | `0 <= dropout < 1` |
+| `pretrained` | `ModelConfig` (por defecto `True`) | — |
+| `trainable` | `ModelConfig` (por defecto `layer4`) | `head`, `layer4` o `all` |
+
+`ModelConfig.from_params(params)` toma los tres primeros de la configuración de
+entrenamiento; una configuración inválida se rechaza antes de construir la red.
+
+Clases: `CLASS_MAP = {"dog": 0, "cat": 1}` (`crops.classes.CLASS_TO_INDEX`). La
+salida tiene exactamente 2 logits; `predict_proba` devuelve el softmax.
+
+### Pesos iniciales
+
+Parte de **pesos preentrenados**, no de cero:
+
+- `torchvision.models.ResNet18_Weights.IMAGENET1K_V1` (torchvision 0.29),
+  entrenados por PyTorch en ImageNet-1K (1000 clases).
+- URL: `https://download.pytorch.org/models/resnet18-f37072fd.pth`. torchvision
+  comprueba al descargar que el sha256 empiece por `f37072fd`.
+- La capa `fc` de ImageNet no se usa; la cabeza de 2 clases empieza con pesos
+  aleatorios (inicialización por defecto de `nn.Linear`).
+
+Con `pretrained=False` la misma arquitectura arranca con pesos aleatorios, y el
+checkpoint registra `weights_origin: null`.
+
+### Capas entrenables y congeladas
+
+| `trainable` | Entrenables | Congeladas | Parámetros entrenables / congelados (`hidden_layers=[256]`) |
+|-------------|-------------|------------|-------------------------------------|
+| `head` | cabeza | conv1, bn1, layer1–layer4 | 131,842 / 11,176,512 |
+| `layer4` (por defecto) | layer4 + cabeza | conv1, bn1, layer1–layer3 | 8,525,570 / 2,782,784 |
+| `all` | todo | — | 11,308,354 / 0 |
+
+Los bloques congelados tienen `requires_grad=False` y sus BatchNorm permanecen
+en modo eval incluso con `model.train()`, así sus estadísticas de ImageNet no
+cambian. `model.trainable_summary()` da este desglose para registrarlo en
+MLflow (ML-04).
+
+### Checkpoint
+
+`save_checkpoint(model, path, metadata=...)` guarda con `torch.save`: pesos
+(`state_dict`), `architecture`, `config`, `class_map`, `preprocessing`
+(`image_size`, resize cuadrado, media/desviación de ImageNet), `weights_origin`
+y `metadata` libre (run ID, manifest_hash, etc.). `load_checkpoint(path)`
+reconstruye la red **sin descargar** pesos, rechaza otra arquitectura u otro
+`class_map`, carga con `weights_only=True` y deja el modelo en modo eval.
+
+Tests: `uv run pytest tests/test_classification_model.py`. Evidencia con pesos y
+crops reales: [`tests/evidence/ml-03-model.md`](../tests/evidence/ml-03-model.md).
