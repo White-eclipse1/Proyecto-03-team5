@@ -2,39 +2,45 @@
 
 PyTorch 2.14 + torchvision 0.29 (CPU), fijados en `app/uv.lock`.
 
+```python
+from classification.dataset import build_dataloader, load_split
+
+train = load_split(
+    REPO / "reports/releases/v0.1.1/manifest.json",
+    REPO / "reports/crops.json",
+    crops_dir=REPO / "data/crops",
+    split="train",
+    params=params,  # TrainingParams: image_size, batch_size, seed...
+)
+loader = build_dataloader(train, batch_size=params.batch_size, seed=params.seed)
+```
+
 ## Qué consume
 
 El Dataset no lee una carpeta de imágenes: cruza una partición del manifiesto
-P3 70/20/10 (OPS-02) con `reports/crops.json` (ML-01) por `crop_id` y abre solo
-`data/crops/<crop_path>` de esos crops.
+P3 de OPS-02 (`reports/releases/v0.1.1/manifest.json`, contrato
+`manifests.models.P3Manifest`) con `reports/crops.json` (ML-01) por `crop_id` y
+abre solo `data/crops/<crop_path>` de esos crops.
 
-Formato mínimo del manifiesto que espera `classification/manifest.py` (los demás
-campos de OPS-02, como hash, versión o conteos, se aceptan y se ignoran):
+Manifiesto real `p3-v1` (seed 42), 668 crops de 600 imágenes:
 
-```json
-{
-  "dataset_version": "v0.1.1",
-  "records": [
-    {
-      "crop_id": "img40-ann65",
-      "source_image_id": 40,
-      "duplicate_group": "g40",
-      "class": "dog",
-      "split": "train"
-    }
-  ]
-}
-```
+| Split | Crops | dog | cat |
+|-------|-------|-----|-----|
+| train | 469 | 221 | 248 |
+| validation | 128 | 61 | 67 |
+| test | 71 | 43 | 28 |
 
-- `crop_id`: el de `reports/crops.json`, `img<image_id>-ann<annotation_id>`.
-- `source_image_id`: el `image_id` COCO de la imagen original.
-- `class`: `dog` o `cat`.
-- `split`: `train`, `validation` o `test`.
-- `duplicate_group`: texto o entero.
+Antes de entregar una sola muestra se comprueba que:
 
-Al construirse, el Dataset falla si el manifiesto es de otro release, si un
-`crop_id` no está entre los crops aceptados, si `class` o `source_image_id` no
-coinciden con `crops.json`, o si falta el PNG del crop.
+- `manifest_hash` coincide con el contenido del archivo (fórmula de OPS-02), así
+  que un manifiesto editado a mano se rechaza;
+- no hay fuga de `crop_id`, `source_image_id` ni `duplicate_group` entre
+  particiones (`manifests.validation.validate_no_leakage`);
+- `provenance.crops_sha256` es el sha256 del `crops.json` que se usa
+  (`load_split`);
+- el manifiesto y los crops son del mismo release, cada `crop_id` existe, no se
+  repite, y su `class` y `source_image_id` coinciden con `crops.json`;
+- existe el PNG de cada crop.
 
 ## Muestras
 

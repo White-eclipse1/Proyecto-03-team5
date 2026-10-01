@@ -1,10 +1,13 @@
 """ML-02 — Dataset/DataLoader de clasificación dog/cat para train, validation y test.
 
 El Dataset no recorre ninguna carpeta: cruza los registros de una partición del
-manifiesto P3 (OPS-02) con `reports/crops.json` (ML-01) por `crop_id` y abre
-solo `crops_dir/<crop_path>` de esos crops. Rechaza al construirse cualquier
-desacuerdo entre ambos (release, crop inexistente, clase o imagen de origen
-distinta) y cualquier PNG faltante, antes de que empiece un entrenamiento.
+manifiesto P3 (OPS-02, `reports/releases/<version>/manifest.json`) con
+`reports/crops.json` (ML-01) por `crop_id` y abre solo `crops_dir/<crop_path>`
+de esos crops. Rechaza al construirse cualquier desacuerdo entre ambos
+(release, fuga entre particiones, crop repetido o inexistente, clase o imagen
+de origen distinta) y cualquier PNG faltante, antes de que empiece un
+entrenamiento. `load_split` además exige que `crops.json` sea exactamente el
+archivo del que salió el manifiesto (`provenance.crops_sha256`).
 
 Cada muestra es un dict con `image` (tensor `3 x image_size x image_size`),
 `label` (índice de `crops.classes.CLASS_TO_INDEX`: dog=0, cat=1), `crop_id`,
@@ -13,16 +16,19 @@ cada predicción hasta la bbox COCO original.
 """
 
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 import torch
+from manifests.models import ManifestRecord, P3Manifest, SplitName
+from manifests.validation import validate_no_leakage
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from classification.manifest import CropManifest, Split, load_manifest
+from classification.manifest import load_manifest
 from classification.transforms import transform_for
 from crops.classes import CLASS_TO_INDEX
-from crops.models import CropReport
+from crops.models import CropRecord, CropReport
 from presentation.ml_contracts import TrainingParams
 
 
@@ -32,43 +38,58 @@ class ClassificationSample:
     source_image_id: int
     class_name: str
     label: int
-    split: Split
+    split: SplitName
     path: Path
+
+
+def match_manifest_to_crops(
+    manifest: P3Manifest, crop_report: CropReport, split: SplitName
+) -> list[tuple[ManifestRecord, CropRecord]]:
+    """Registros de `split` con su crop de ML-01, validados contra `crops.json`."""
+    if manifest.dataset_version != crop_report.dataset_version:
+        raise ValueError(
+            f"El manifiesto es del release {manifest.dataset_version} y los crops de "
+            f"{crop_report.dataset_version}"
+        )
+    crop_ids = [record.crop_id for record in manifest.records]
+    if len(crop_ids) != len(set(crop_ids)):
+        raise ValueError("crop_id repetido en el manifiesto")
+    validate_no_leakage(manifest.records)
+
+    crops = {crop.crop_id: crop for crop in crop_report.crops}
+    matched = []
+    for record in manifest.records:
+        if record.split != split:
+            continue
+        crop = crops.get(record.crop_id)
+        if crop is None:
+            raise ValueError(f"{record.crop_id} no está entre los crops aceptados de ML-01")
+        if record.class_name != crop.class_name:
+            raise ValueError(
+                f"{record.crop_id}: class={record.class_name} en el manifiesto y "
+                f"{crop.class_name} en crops.json"
+            )
+        if record.source_image_id != crop.image_id:
+            raise ValueError(
+                f"{record.crop_id}: source_image_id={record.source_image_id} en el "
+                f"manifiesto e image_id={crop.image_id} en crops.json"
+            )
+        matched.append((record, crop))
+    return matched
 
 
 class CropClassificationDataset(Dataset):
     def __init__(
         self,
-        manifest: CropManifest,
+        manifest: P3Manifest,
         crop_report: CropReport,
         *,
         crops_dir: Path,
-        split: Split,
+        split: SplitName,
         image_size: int,
     ) -> None:
-        if manifest.dataset_version != crop_report.dataset_version:
-            raise ValueError(
-                f"El manifiesto es del release {manifest.dataset_version} y los crops de "
-                f"{crop_report.dataset_version}"
-            )
-        crops = {crop.crop_id: crop for crop in crop_report.crops}
         samples = []
-        for record in manifest.records:
-            if record.split != split:
-                continue
-            crop = crops.get(record.crop_id)
-            if crop is None:
-                raise ValueError(f"{record.crop_id} no está entre los crops aceptados de ML-01")
-            if record.class_name != crop.class_name:
-                raise ValueError(
-                    f"{record.crop_id}: class={record.class_name} en el manifiesto y "
-                    f"{crop.class_name} en crops.json"
-                )
-            if record.source_image_id != crop.image_id:
-                raise ValueError(
-                    f"{record.crop_id}: source_image_id={record.source_image_id} en el "
-                    f"manifiesto e image_id={crop.image_id} en crops.json"
-                )
+        for record, crop in match_manifest_to_crops(manifest, crop_report, split):
             path = crops_dir / crop.crop_path
             if not path.is_file():
                 raise FileNotFoundError(f"Falta el crop {record.crop_id}: {path}")
@@ -85,6 +106,7 @@ class CropClassificationDataset(Dataset):
 
         self.split = split
         self.dataset_version = manifest.dataset_version
+        self.manifest_hash = manifest.manifest_hash
         self.class_to_index = dict(CLASS_TO_INDEX)
         self.transform = transform_for(split, image_size)
         self._samples = samples
@@ -114,13 +136,22 @@ def load_split(
     crop_report_path: Path,
     *,
     crops_dir: Path,
-    split: Split,
+    split: SplitName,
     params: TrainingParams,
 ) -> CropClassificationDataset:
     """Dataset de una partición con el `image_size` de la configuración de entrenamiento."""
+    manifest = load_manifest(manifest_path)
+    report_bytes = crop_report_path.read_bytes()
+    digest = "sha256:" + sha256(report_bytes).hexdigest()
+    expected = manifest.provenance.crops_sha256 if manifest.provenance else None
+    if digest != expected:
+        raise ValueError(
+            f"crops_sha256 del manifiesto ({expected}) no coincide con {crop_report_path.name} "
+            f"({digest}): el manifiesto no salió de estos crops"
+        )
     return CropClassificationDataset(
-        load_manifest(manifest_path),
-        CropReport.model_validate_json(crop_report_path.read_text(encoding="utf-8")),
+        manifest,
+        CropReport.model_validate_json(report_bytes),
         crops_dir=crops_dir,
         split=split,
         image_size=params.image_size,
