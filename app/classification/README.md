@@ -212,3 +212,54 @@ se creó, si el job no coincide con el manifiesto). El worker solo llama
 Tests: `uv run pytest tests/test_classification_training.py` (dataset controlado
 y MLflow local, sin red). Evidencia con el servidor real:
 [`tests/evidence/ml-04-training.md`](../tests/evidence/ml-04-training.md).
+
+## ML-05 — Semillas y augmentation controlada
+
+### Semillas registradas en cada run (parámetros de MLflow)
+
+| Parámetro | Valor | Qué controla |
+|-----------|-------|--------------|
+| `seed_split` | `seed` del manifiesto de OPS-02 (42 en `p3-v1`) | Asignación de crops a train/validation/test (70/20/10) |
+| `seed_dataloader` | `TrainingParams.seed` | `torch.Generator` del DataLoader: orden de train en cada época |
+| `seed_augmentation` | `TrainingParams.seed` | Augmentation de train: cada muestra usa la semilla de `sha256(seed:época:índice)` |
+| `seed_weight_init` | `TrainingParams.seed` | `torch.manual_seed` antes de construir el modelo: pesos iniciales de la cabeza y secuencia de dropout |
+
+Cada semilla alimenta su propio generador, así que comparten valor sin compartir
+secuencia. La augmentation corre dentro de `torch.random.fork_rng`: no depende
+del orden de lectura ni de los workers, y no consume el generador global que usa
+el dropout.
+
+El orden real en que entró cada crop de train, por época, queda en el artefacto
+`reproducibility/sample_order.json` y en la etiqueta `train_order_sha256`: dos
+runs vieron el mismo orden si esa etiqueta coincide.
+
+Versiones y entorno (etiquetas, `environment_tags()`): `python_version`,
+`torch_version`, `torchvision_version`, `numpy_version`, `pillow_version`,
+`mlflow_version`, `platform`, `torch_num_threads`,
+`torch_deterministic_algorithms` y `cuda_available`. Las dependencias exactas
+están fijadas en `app/uv.lock`.
+
+### Validation, test e inferencia
+
+- Train: `RandomResizedCrop`, `RandomHorizontalFlip` y `ColorJitter`.
+- Validation, test e inferencia: `eval_transform`, sin pasos aleatorios
+  (`random_transform_names(...) == []`).
+- `run_training` solo carga train y validation (nunca test). Si validation tuviera
+  un transform aleatorio, se niega a entrenar antes de crear el run.
+
+### Operaciones no deterministas conocidas
+
+Comprobado el 2026-10-01 en macOS arm64, CPU, torch 2.14.0
+([evidencia](../tests/evidence/ml-05-reproducibility.md)):
+
+| Fuente | Estado en este proyecto |
+|--------|-------------------------|
+| Hilos de CPU (`torch_num_threads`) | 4 hilos y 1 hilo dieron métricas idénticas. Otro CPU o BLAS puede cambiar los últimos decimales: por eso se registra la plataforma |
+| Workers del DataLoader | Con `seed_augmentation`, `num_workers=0` y `2` dan el mismo orden y los mismos tensores. Sin semilla por muestra (como en ML-02) la augmentation cambiaba con los workers |
+| `torch.use_deterministic_algorithms(True)` | En CPU corre sin error y da las mismas métricas que el modo normal; no se activa por defecto |
+| GPU / cuDNN | No se usa GPU (`cuda_available=False`). En GPU, algunas convoluciones y `scatter_add` no son deterministas: habría que activar `torch.backends.cudnn.deterministic = True`, `benchmark = False` y `use_deterministic_algorithms(True)` |
+| Pesos ImageNet | Fijos: torchvision verifica el hash `f37072fd` al descargarlos |
+| Librerías | `uv.lock` fija versiones exactas; otra versión de torch/torchvision/Pillow puede cambiar el redimensionado o los kernels |
+| Tiempo y orden de logs | Los `timestamp` de MLflow y los `run_id` cambian en cada corrida; no afectan el entrenamiento |
+
+Tests: `uv run pytest tests/test_classification_reproducibility.py`.
