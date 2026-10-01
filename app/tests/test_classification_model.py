@@ -217,12 +217,13 @@ def test_frozen_batchnorm_statistics_allow_single_sample_batches(trainable):
     model = build_model(_config(image_size=32, trainable=trainable))
     model.freeze_batchnorm_statistics()
     before = _snapshot(model)
-    images, labels = _batch(size=1, image_size=32)
+    images, _ = _batch(size=1, image_size=32)
+    labels = torch.tensor([1])
     optimizer = torch.optim.SGD([p for p in model.parameters() if p.requires_grad], lr=0.1)
 
     model.train()
     optimizer.zero_grad()
-    nn.functional.cross_entropy(model(images), labels[:1]).backward()  # a 32 px, layer4 es 1x1
+    nn.functional.cross_entropy(model(images), labels).backward()  # a 32 px, layer4 es 1x1
     optimizer.step()
 
     batchnorms = [m for m in model.modules() if isinstance(m, nn.BatchNorm2d)]
