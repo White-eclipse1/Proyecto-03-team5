@@ -28,6 +28,7 @@ import { z } from "zod";
 const identifierSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
 const manifestHashSchema = z.string().regex(/^(md5:[0-9a-f]{32}|sha256:[0-9a-f]{64})$/);
 const runIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
+const gitCommitSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const experimentIdSchema = z.string().regex(/^[0-9]+$/);
 const checkpointSchema = z.string().regex(/^runs:\/[0-9a-f]{32}\/[^\s]+$/);
 const modelVersionSchema = z.string().regex(/^[1-9][0-9]*$/);
@@ -294,6 +295,8 @@ export const experimentRunSchema = z
     end_time: timestampSchema.nullable(),
     dataset_version: identifierSchema,
     manifest_hash: manifestHashSchema,
+    /** APP-04: commit del código que entrenó; null si el run no lo registró. */
+    git_commit: gitCommitSchema.nullable(),
     params: z.record(z.string(), z.string()),
     metrics: z.record(z.string(), z.number()),
   })
@@ -310,6 +313,25 @@ export const runsResponseSchema = z
     "run_id debe ser único"
   );
 export type RunsResponse = z.infer<typeof runsResponseSchema>;
+
+const curvePointSchema = z.strictObject({ step: countSchema, value: z.number() });
+export type CurvePoint = z.infer<typeof curvePointSchema>;
+
+/** APP-04: `GET /api/ml/runs/{run_id}/curves`, historial por época de cada métrica. */
+export const runCurvesResponseSchema = z
+  .strictObject({
+    schema_version: schemaVersionSchema,
+    run_id: runIdSchema,
+    curves: z.record(labelSchema, z.array(curvePointSchema)),
+  })
+  .refine(
+    (response) =>
+      Object.values(response.curves).every((points) =>
+        points.slice(1).every((point, index) => point.step > (points[index]?.step ?? -1))
+      ),
+    { message: "los steps de cada curva deben ser estrictamente crecientes" }
+  );
+export type RunCurvesResponse = z.infer<typeof runCurvesResponseSchema>;
 
 export const evaluationSchema = z
   .strictObject({
@@ -664,6 +686,7 @@ export const ML_CONTRACTS = {
   training_jobs: trainingJobsResponseSchema,
   training_logs: trainingLogsResponseSchema,
   runs: runsResponseSchema,
+  run_curves: runCurvesResponseSchema,
   evaluations: evaluationsResponseSchema,
   models: modelsResponseSchema,
   inference_request: inferenceRequestSchema,

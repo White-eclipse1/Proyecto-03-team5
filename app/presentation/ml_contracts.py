@@ -46,6 +46,7 @@ ManifestHash = Annotated[
     str, StringConstraints(pattern=r"^(md5:[0-9a-f]{32}|sha256:[0-9a-f]{64})$")
 ]
 RunId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
+GitCommit = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
 ExperimentId = Annotated[str, StringConstraints(pattern=r"^[0-9]+$")]
 Checkpoint = Annotated[str, StringConstraints(pattern=r"^runs:/[0-9a-f]{32}/[^\s]+$")]
 ModelVersion = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]*$")]
@@ -264,6 +265,8 @@ class ExperimentRun(ContractModel):
     end_time: Timestamp | None
     dataset_version: Identifier
     manifest_hash: ManifestHash
+    # APP-04: commit del código que entrenó; `None` si el run no lo registró.
+    git_commit: GitCommit | None
     params: dict[str, str]
     metrics: dict[str, float]
 
@@ -281,6 +284,27 @@ class RunsResponse(ContractModel):
     @model_validator(mode="after")
     def unique_runs(self) -> Self:
         require_unique([run.run_id for run in self.runs], "run_id must be unique")
+        return self
+
+
+class CurvePoint(ContractModel):
+    step: Count
+    value: float
+
+
+class RunCurvesResponse(ContractModel):
+    """APP-04: `GET /api/ml/runs/{run_id}/curves`, the per-epoch history of each metric."""
+
+    schema_version: Literal["1.0"]
+    run_id: RunId
+    curves: dict[Label, list[CurvePoint]]
+
+    @model_validator(mode="after")
+    def steps_strictly_increasing(self) -> Self:
+        for name, points in self.curves.items():
+            steps = [point.step for point in points]
+            if any(later <= earlier for earlier, later in pairwise(steps)):
+                raise ValueError(f"steps of {name} must be strictly increasing")
         return self
 
 
@@ -646,6 +670,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "training_jobs": TrainingJobsResponse,
     "training_logs": TrainingLogsResponse,
     "runs": RunsResponse,
+    "run_curves": RunCurvesResponse,
     "evaluations": EvaluationsResponse,
     "models": ModelsResponse,
     "inference_request": InferenceRequest,
