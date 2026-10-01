@@ -277,13 +277,20 @@ def test_load_checkpoint_never_downloads_weights(tmp_path, monkeypatch):
     payload = torch.load(path, weights_only=True)
     payload["config"]["pretrained"] = True
     torch.save(payload, path)
+    requested = []
+    real_resnet18 = model_module.resnet18
 
-    def no_download(*args, **kwargs):
-        raise AssertionError("load_checkpoint no debe descargar pesos")
+    def spy(*, weights):
+        requested.append(weights)
+        return real_resnet18(weights=None)
 
-    monkeypatch.setattr(torch.hub, "load_state_dict_from_url", no_download)
+    monkeypatch.setattr(model_module, "resnet18", spy)
 
-    assert load_checkpoint(path).config.pretrained is True
+    restored = load_checkpoint(path)
+
+    # Los pesos salen del checkpoint: ni ImageNet ni caché de torch hub.
+    assert requested == [None]
+    assert restored.config.pretrained is True
 
 
 @pytest.mark.parametrize(
