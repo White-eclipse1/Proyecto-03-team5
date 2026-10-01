@@ -166,7 +166,8 @@ class TrainingProgress(ContractModel):
 
     epoch: Count
     max_epochs: int = Field(ge=1)
-    metrics: dict[Label, float]
+    # None = esa época registró un valor no finito (NaN o ±inf); el job sigue corriendo.
+    metrics: dict[Label, float | None]
     updated_at: Timestamp
 
     @model_validator(mode="after")

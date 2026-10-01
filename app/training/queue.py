@@ -15,6 +15,8 @@ una transición que deje un job fuera del contrato se rechaza con
 """
 
 import json
+import math
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -87,6 +89,18 @@ class JobNotFoundError(LookupError):
 
 class InvalidTransitionError(ValueError):
     """El cambio pedido no es válido para el estado actual del job."""
+
+
+def _finite_or_none(value: float) -> float | None:
+    """`None` para NaN, ±inf y ±1.797e308 (como MLflow guarda ±inf en SQL).
+
+    Un val_loss=NaN en una época no debe hacer fallar el job por la validación de la
+    cola: se guarda como null y la pantalla lo muestra como "no finito".
+    """
+    number = float(value)
+    if not math.isfinite(number) or abs(number) >= sys.float_info.max:
+        return None
+    return number
 
 
 def _utc_now() -> datetime:
@@ -212,7 +226,7 @@ class TrainingJobQueue:
                 "progress": {
                     "epoch": epoch,
                     "max_epochs": job.params.max_epochs,
-                    "metrics": {name: float(value) for name, value in metrics.items()},
+                    "metrics": {name: _finite_or_none(value) for name, value in metrics.items()},
                     "updated_at": self._now(),
                 }
             }
