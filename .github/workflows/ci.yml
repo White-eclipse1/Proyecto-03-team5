@@ -127,6 +127,39 @@ jobs:
           MINIO_ROOT_PASSWORD: ci
         run: docker compose config --quiet
 
+  training-queue:
+    name: Cola de entrenamiento en MariaDB (APP-03)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Credenciales efímeras del runner: solo existen durante este job.
+      MARIADB_ROOT_PASSWORD: ci-queue-${{ github.run_id }}
+      MINIO_ROOT_USER: ci-queue
+      MINIO_ROOT_PASSWORD: ci-queue-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # Misma versión que app/Dockerfile.
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Instalar dependencias
+        working-directory: app
+        run: uv sync --locked --no-build
+      - name: Levantar MariaDB (la misma imagen del stack)
+        run: docker compose up -d --wait mariadb
+      - name: Cola de jobs sobre MariaDB, incluido FOR UPDATE SKIP LOCKED
+        working-directory: app
+        env:
+          TRAINING_QUEUE_DATABASE_URL: mysql+pymysql://root:${{ env.MARIADB_ROOT_PASSWORD }}@127.0.0.1:3306/image_repo
+        run: uv run --locked --no-build pytest -v tests/test_training_queue.py
+      - name: Apagar y borrar los datos efímeros del runner
+        if: always()
+        run: docker compose down -v
+
   quality-gate:
     name: Quality gate (fixture)
     runs-on: ubuntu-latest
@@ -226,7 +259,7 @@ jobs:
     # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
     # fallido dejaría a `CI OK` en "skipped", y GitHub lo trata como aprobado.
     if: always()
-    needs: [python, backend, frontend, compose, quality-gate, quality-gate-prod]
+    needs: [python, backend, frontend, compose, training-queue, quality-gate, quality-gate-prod]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

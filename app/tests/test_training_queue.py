@@ -230,3 +230,27 @@ def test_empty_log_lines_are_rejected(queue):
     job = started(queue)
     with pytest.raises(ValueError):
         queue.log(job.job_id, "")
+
+
+# --- Concurrencia (solo MariaDB: SQLite no implementa SKIP LOCKED) -----------------
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TRAINING_QUEUE_DATABASE_URL"),
+    reason="Requiere MariaDB (TRAINING_QUEUE_DATABASE_URL)",
+)
+def test_claim_skips_a_job_another_worker_is_claiming(queue, database_url):
+    """Mientras otro worker tiene la fila bloqueada, claim_next la salta sin esperar."""
+    busy = queue.enqueue(request())
+    free = queue.enqueue(request())
+    other_worker = create_engine(database_url)
+
+    with other_worker.begin() as connection:
+        connection.execute(
+            text("SELECT job_id FROM ml_training_jobs WHERE job_id = :job_id FOR UPDATE"),
+            {"job_id": busy.job_id},
+        )
+        claimed = queue.claim_next("worker-2")
+
+    assert claimed is not None and claimed.job_id == free.job_id
+    other_worker.dispose()
