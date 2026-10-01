@@ -9,6 +9,7 @@ import path from "node:path";
  */
 export type MlContractName =
   | "training_jobs"
+  | "training_logs"
   | "runs"
   | "evaluations"
   | "models"

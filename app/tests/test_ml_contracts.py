@@ -31,6 +31,7 @@ from presentation.ml_contracts import (
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
 VALID = {
     "training_jobs": "training_jobs.json",
+    "training_logs": "training_logs.json",
     "runs": "runs.json",
     "evaluations": "evaluations.json",
     "models": "models.json",

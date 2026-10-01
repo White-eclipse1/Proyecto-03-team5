@@ -14,6 +14,7 @@ import { loadInvalidCases, loadMlExample, type MlContractName } from "./mlCorpus
 // APP-01: mismo corpus que `app/tests/test_ml_contracts.py` (Pydantic).
 const CONTRACT_NAMES: MlContractName[] = [
   "training_jobs",
+  "training_logs",
   "runs",
   "evaluations",
   "models",

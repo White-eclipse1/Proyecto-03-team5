@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-0003",
+  "entries": [
+    {
+      "seq": 1,
+      "timestamp": "2026-01-15T09:01:12Z",
+      "level": "info",
+      "message": "Run MLflow f1e2d3c4b5a697887766554433221100 creado en el experimento 1."
+    },
+    {
+      "seq": 2,
+      "timestamp": "2026-01-15T09:01:15Z",
+      "level": "info",
+      "message": "Manifest md5:5d41402abc4b2a76b9719d911017c592: 469 recortes en train, 128 en validation."
+    },
+    {
+      "seq": 3,
+      "timestamp": "2026-01-15T09:40:05Z",
+      "level": "info",
+      "message": "Época 12/50: train_loss=0.412 val_loss=0.468 val_accuracy=0.812"
+    },
+    {
+      "seq": 4,
+      "timestamp": "2026-01-15T09:40:06Z",
+      "level": "warning",
+      "message": "val_loss no mejoró en 2 épocas (patience 5)."
+    }
+  ]
+}
