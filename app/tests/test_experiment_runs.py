@@ -6,6 +6,8 @@ contra un servidor MLflow real está en `test_experiments_mlflow_integration.py`
 """
 
 import json
+import math
+import sys
 
 import pytest
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunTag
@@ -135,6 +137,27 @@ def test_finished_run_maps_every_field_the_screen_needs():
     assert run.metrics == {"val_accuracy": 0.869, "train_loss": 0.231}
 
 
+def test_a_nan_latest_metric_keeps_the_run_visible_without_inventing_a_value():
+    """Revisión de #41: con val_loss=NaN el run desaparecía de Experiments."""
+    run = run_to_contract(
+        make_run(FINISHED, metrics={"val_loss": (math.nan, 3), "val_accuracy": (0.81, 3)})
+    )
+
+    assert run is not None
+    assert run.metrics == {"val_loss": None, "val_accuracy": 0.81}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [math.inf, -math.inf, sys.float_info.max, -sys.float_info.max],
+    ids=["inf", "-inf", "sql-clamped-inf", "sql-clamped--inf"],
+)
+def test_infinite_metrics_are_null_too(value):
+    """MLflow sobre MySQL guarda ±inf como ±1.797e308: tampoco es un valor real."""
+    run = run_to_contract(make_run(FINISHED, metrics={"train_loss": (value, 1)}))
+    assert run.metrics == {"train_loss": None}
+
+
 def test_running_run_has_no_end_time():
     run = run_to_contract(make_run(RUNNING, status="RUNNING"))
     assert run.status == "RUNNING" and run.end_time is None
@@ -180,6 +203,27 @@ def test_list_runs_returns_training_runs_newest_first_across_experiments():
     RunsResponse(schema_version="1.0", runs=runs)
 
 
+def test_runs_started_in_the_same_millisecond_have_a_stable_order():
+    """Empate en start_time: se desempata por run_id, igual que la pantalla."""
+    first = make_run("1" * 32)
+    second = make_run("2" * 32)
+
+    for runs in ([first, second], [second, first]):
+        assert [r.run_id for r in list_runs(FakeMlflow(runs))] == ["1" * 32, "2" * 32]
+
+
+def test_sub_second_start_times_keep_newest_first():
+    older = make_run("1" * 32)
+    newer = make_run("2" * 32)
+    newer.info._start_time = START_MS + 500
+
+    runs = list_runs(FakeMlflow([older, newer]))
+
+    assert [r.run_id for r in runs] == ["2" * 32, "1" * 32]
+    assert runs[0].start_time == "2026-09-21T14:13:20.500000Z"
+    assert runs[1].start_time == "2026-09-21T14:13:20Z"
+
+
 # --- Curvas -------------------------------------------------------------------------
 
 
@@ -199,6 +243,16 @@ def test_curves_come_from_the_metric_history_ordered_by_step():
         (3, 0.85),
     ]
     assert set(curves.curves) == {"val_accuracy", "train_loss"}
+
+
+def test_a_nan_epoch_is_a_null_point_in_its_curve():
+    """Revisión de #41: un NaN en una época intermedia hacía fallar la consulta de curvas."""
+    history = {(FINISHED, "val_loss"): [(1, 0.70), (2, math.nan), (3, 0.52)]}
+    run = make_run(FINISHED, metrics={"val_loss": (0.52, 3)})
+
+    points = run_curves(FakeMlflow([run], history), FINISHED).curves["val_loss"]
+
+    assert [(p.step, p.value) for p in points] == [(1, 0.70), (2, None), (3, 0.52)]
 
 
 def test_a_step_logged_twice_keeps_the_last_value():
@@ -251,6 +305,25 @@ def test_get_curves_serves_the_contract(tmp_path):
     assert response.status_code == 200
     curves = RunCurvesResponse.model_validate(response.json())
     assert [p.value for p in curves.curves["val_accuracy"]] == [0.6, 0.8]
+
+
+def reject_non_json(value):
+    raise ValueError(f"no es JSON estándar: {value}")
+
+
+def test_api_serves_non_finite_values_as_json_null(tmp_path):
+    history = {(FINISHED, "val_loss"): [(1, 0.7), (2, math.nan), (3, math.nan)]}
+    run = make_run(FINISHED, metrics={"val_loss": (math.nan, 3), "val_accuracy": (0.8, 3)})
+    client = client_with(tmp_path, FakeMlflow([run], history))
+
+    runs = client.get("/runs")
+    curves = client.get(f"/runs/{FINISHED}/curves")
+
+    assert runs.status_code == 200 and curves.status_code == 200
+    listed = json.loads(runs.text, parse_constant=reject_non_json)["runs"][0]
+    assert listed["metrics"] == {"val_loss": None, "val_accuracy": 0.8}
+    points = json.loads(curves.text, parse_constant=reject_non_json)["curves"]["val_loss"]
+    assert [p["value"] for p in points] == [0.7, None, None]
 
 
 def test_unknown_run_curves_are_404(tmp_path):

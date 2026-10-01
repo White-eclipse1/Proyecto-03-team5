@@ -24,7 +24,8 @@
         "min_delta": "0.001"
       },
       "metrics": {
-        "train_loss": 0.482
+        "train_loss": 0.482,
+        "val_loss": null
       }
     },
     {

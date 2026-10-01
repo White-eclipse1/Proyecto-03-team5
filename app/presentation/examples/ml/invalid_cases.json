@@ -7309,5 +7309,95 @@
         ]
       }
     }
+  },
+  {
+    "name": "run_metric_nan_as_text",
+    "contract": "runs",
+    "reason": "Un valor no finito viaja como null, nunca como texto \"NaN\".",
+    "field": "runs.0.metrics.val_loss",
+    "document": {
+      "schema_version": "1.0",
+      "runs": [
+        {
+          "run_id": "f1e2d3c4b5a697887766554433221100",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adamw-bs16",
+          "status": "RUNNING",
+          "start_time": "2026-01-15T09:01:12Z",
+          "end_time": null,
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "git_commit": "3f2a9c1e7b4d5a6f8e0c1b2a3d4e5f6a7b8c9d0e",
+          "params": {
+            "optimizer": "adamw",
+            "batch_size": "16",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2",
+            "seed": "42",
+            "patience": "5",
+            "min_delta": "0.001"
+          },
+          "metrics": {
+            "train_loss": 0.482,
+            "val_loss": "NaN"
+          }
+        },
+        {
+          "run_id": "9c8b7a6d5e4f30211203f4e5d6c7b8a9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam-img512",
+          "status": "FAILED",
+          "start_time": "2026-01-14T18:00:40Z",
+          "end_time": "2026-01-14T18:07:02Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "git_commit": null,
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "512",
+            "hidden_layers": "512,256",
+            "dropout": "0.2",
+            "seed": "42",
+            "patience": "5",
+            "min_delta": "0.001"
+          },
+          "metrics": {}
+        },
+        {
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "experiment_id": "1",
+          "run_name": "mlp-512-256-adam",
+          "status": "FINISHED",
+          "start_time": "2026-01-14T12:00:30Z",
+          "end_time": "2026-01-14T13:45:10Z",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "git_commit": "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d",
+          "params": {
+            "optimizer": "adam",
+            "batch_size": "32",
+            "max_epochs": "50",
+            "learning_rate": "0.001",
+            "image_size": "224",
+            "hidden_layers": "512,256",
+            "dropout": "0.2",
+            "seed": "42",
+            "patience": "5",
+            "min_delta": "0.001"
+          },
+          "metrics": {
+            "train_loss": 0.231,
+            "val_accuracy_top1": 0.875,
+            "val_f1_macro": 0.873
+          }
+        }
+      ]
+    }
   }
 ]

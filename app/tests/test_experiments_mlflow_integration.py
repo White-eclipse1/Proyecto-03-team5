@@ -8,6 +8,7 @@ Agent Test del issue #16: modificar un tag y un valor de un run en MLflow y
 comprobar que la API (y por lo tanto la UI) refleja el cambio.
 """
 
+import math
 import os
 from uuid import uuid4
 
@@ -134,6 +135,27 @@ def test_changing_the_run_in_mlflow_is_reflected_by_the_api(api, mlflow_client, 
     assert run.dataset_version == "v0.1.2"
     assert run.metrics["val_accuracy"] == 0.88
     assert curves.curves["val_accuracy"][-1].step == 4
+
+
+def test_non_finite_values_from_a_real_server_stay_visible_as_null(
+    api, mlflow_client, training_run
+):
+    """Revisión de #41, contra MLflow real: NaN se conserva; ±inf llega como ±1.797e308."""
+    mlflow_client.log_metric(training_run, "val_loss", math.nan, step=4)
+    mlflow_client.log_metric(training_run, "val_loss", 0.33, step=5)
+    mlflow_client.log_metric(training_run, "val_accuracy", math.nan, step=4)
+    mlflow_client.log_metric(training_run, "grad_norm", math.inf, step=1)
+
+    run = find(api, training_run)
+    curves = api.get(f"/runs/{training_run}/curves")
+
+    assert run is not None
+    assert run.metrics["val_accuracy"] is None
+    assert run.metrics["grad_norm"] is None
+    assert run.metrics["val_loss"] == 0.33
+    assert curves.status_code == 200, curves.text
+    val_loss = RunCurvesResponse.model_validate(curves.json()).curves["val_loss"]
+    assert [(p.step, p.value) for p in val_loss][-2:] == [(4, None), (5, 0.33)]
 
 
 def test_deleted_run_disappears(api, mlflow_client, training_run):
