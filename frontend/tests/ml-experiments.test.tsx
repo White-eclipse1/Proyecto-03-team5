@@ -139,6 +139,78 @@ describe("APP-04 tabla de runs", () => {
   });
 });
 
+describe("APP-04 valores no finitos de MLflow (revisión de #41)", () => {
+  it("un run con val_loss NaN sigue en la tabla y la métrica se marca como no finita", async () => {
+    serve();
+    openAt("/ml/experiments");
+
+    const row = await rowOf("mlp-512-256-adamw-bs16");
+    expect(within(row).getByTitle("MLflow registró un valor no finito (NaN o ±inf)")).toHaveTextContent(
+      "no finito"
+    );
+  });
+
+  it("al ordenar, una métrica no finita queda al final en ambas direcciones", async () => {
+    serve(() => {
+      const runs = withExtraFinishedRun(runsExample());
+      (runs.runs.find((r) => r.run_id === FINISHED)!.metrics as Record<string, number>).val_loss =
+        0.4;
+      (runs.runs.find((r) => r.run_id === EXTRA)!.metrics as Record<string, number>).val_loss = 0.3;
+      return runs;
+    });
+    openAt("/ml/experiments");
+    await screen.findByText("resnet18-sgd");
+    const header = screen.getByRole("button", { name: /^val_loss/ });
+
+    fireEvent.click(header);
+    expect(runNames().slice(0, 2)).toEqual(["mlp-512-256-adam", "resnet18-sgd"]);
+    expect(runNames().slice(2)).toContain("mlp-512-256-adamw-bs16");
+    fireEvent.click(header);
+    expect(runNames().slice(0, 2)).toEqual(["resnet18-sgd", "mlp-512-256-adam"]);
+    expect(runNames().slice(2)).toContain("mlp-512-256-adamw-bs16");
+  });
+
+  it("la tabla de la curva marca la época no finita en vez de inventar un valor", async () => {
+    serve();
+    openAt(`/ml/experiments?runs=${FINISHED}`);
+
+    const panel = await screen.findByRole("region", { name: "Curvas de mlp-512-256-adam" });
+    const table = await within(panel).findByRole("table", { name: "val_loss por época" });
+    const epoch3 = within(table).getAllByRole("row")[3]!;
+    expect(within(epoch3).getByText("no finito")).toBeInTheDocument();
+  });
+});
+
+describe("APP-04 orden por fecha (revisión de #41)", () => {
+  function sameSecondRuns(secondStart: string) {
+    return () => {
+      const runs = withExtraFinishedRun(onlyFinished());
+      runs.runs.find((r) => r.run_id === FINISHED)!.start_time = "2026-01-14T12:00:30Z";
+      runs.runs.find((r) => r.run_id === EXTRA)!.start_time = secondStart;
+      return runs;
+    };
+  }
+
+  it("dentro del mismo segundo, el run con milisegundos posteriores va primero", async () => {
+    serve(sameSecondRuns("2026-01-14T12:00:30.500000Z"));
+    openAt("/ml/experiments");
+    await screen.findByText("resnet18-sgd");
+
+    const names = runNames();
+    expect(names.indexOf("resnet18-sgd")).toBeLessThan(names.indexOf("mlp-512-256-adam"));
+  });
+
+  it("con la misma hora exacta, desempata por run_id como la API", async () => {
+    serve(sameSecondRuns("2026-01-14T12:00:30Z"));
+    openAt("/ml/experiments");
+    await screen.findByText("resnet18-sgd");
+
+    const names = runNames();
+    // FINISHED (0a1b…) < EXTRA (abcd…)
+    expect(names.indexOf("mlp-512-256-adam")).toBeLessThan(names.indexOf("resnet18-sgd"));
+  });
+});
+
 describe("APP-04 ordenar y filtrar", () => {
   it("ordena por val_accuracy_top1 y alterna la dirección", async () => {
     serve(() => withExtraFinishedRun(runsExample()));

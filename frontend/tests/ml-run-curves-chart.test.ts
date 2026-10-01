@@ -5,7 +5,7 @@ import { type CurveSeries, labelledRunIds, niceAxis } from "../src/ml/components
 // Revisión visual: las etiquetas chocaban cuando las curvas convergen y el eje Y
 // mostraba valores como 0.575 / 0.46 / 0.345.
 
-function series(runId: string, slot: number, values: number[]): CurveSeries {
+function series(runId: string, slot: number, values: (number | null)[]): CurveSeries {
   return {
     slot,
     runId,
@@ -27,6 +27,11 @@ describe("niceAxis", () => {
     expect(axis.ticks).toEqual([0, 0.2, 0.4, 0.6, 0.8, 1]);
   });
 
+  it("ignora las épocas no finitas (null)", () => {
+    const axis = niceAxis([series("a", 1, [0.58, null, 0.31])]);
+    expect(axis.domain).toEqual([0.3, 0.6]);
+  });
+
   it("no colapsa un rango plano", () => {
     const axis = niceAxis([series("a", 1, [0.5, 0.5])]);
     expect(axis.domain[0]).toBeLessThan(0.5);
@@ -46,6 +51,11 @@ describe("labelledRunIds", () => {
     expect(labelled.has("c")).toBe(true);
     expect(labelled.has("a") && labelled.has("b")).toBe(false);
     expect(labelled.size).toBe(2);
+  });
+
+  it("no etiqueta una línea cuya última época es no finita: no hay punto donde ponerla", () => {
+    const runs = [series("a", 1, [0.6, 0.9]), series("b", 2, [0.6, null])];
+    expect(labelledRunIds(runs, [0.5, 1])).toEqual(new Set());
   });
 
   it("no etiqueta una sola línea: el título de la gráfica ya la nombra", () => {
