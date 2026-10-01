@@ -318,7 +318,8 @@ válida del release es un recorte (ML-01), identificado por `image_id` +
 |---|---|---|
 | `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled`, sus `TrainingParams` y su `progress` (APP-03) |
 | `TrainingLogsResponse` | `GET /api/ml/training/jobs/{job_id}/logs` | Líneas de log del job (`seq`, `timestamp`, `level`, `message`), de la más vieja a la más nueva (APP-03) |
-| `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) |
+| `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) y su `git_commit` (APP-04) |
+| `RunCurvesResponse` | `GET /api/ml/runs/{run_id}/curves` | Historial por época (`step`, `value`) de cada métrica del run (APP-04) |
 | `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas de clasificación por checkpoint en `validation`/`test` |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
 | `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
@@ -360,6 +361,10 @@ IDs obligatorios y con formato fijo:
 
 El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 `checkpoint`, uno `failed` exige `error` y uno `queued` todavía no tiene `run_id`.
+
+**APP-04.** `ExperimentRun.git_commit` es el SHA completo (40 hex en minúsculas) o
+`null` si el run no lo registró; la pantalla lo muestra como faltante, no lo inventa.
+En `RunCurvesResponse`, los `step` de cada curva son estrictamente crecientes.
 
 **APP-03.** `experiment_id` es `null` mientras el job está `queued`: lo asigna el
 worker al crear el run de MLflow, y es obligatorio en cuanto existe `run_id`.
