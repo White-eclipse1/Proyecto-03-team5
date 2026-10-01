@@ -365,6 +365,10 @@ El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 **APP-04.** `ExperimentRun.git_commit` es el SHA completo (40 hex en minúsculas) o
 `null` si el run no lo registró; la pantalla lo muestra como faltante, no lo inventa.
 En `RunCurvesResponse`, los `step` de cada curva son estrictamente crecientes.
+Un valor no finito que MLflow haya registrado (NaN, ±inf, o el ±1.797e308 con que su
+store SQL guarda ±inf) viaja como `null`, en `ExperimentRun.metrics` y en los puntos de
+la curva: el run no desaparece y la pantalla lo muestra como "no finito", sin inventar
+un número.
 
 **APP-03.** `experiment_id` es `null` mientras el job está `queued`: lo asigna el
 worker al crear el run de MLflow, y es obligatorio en cuanto existe `run_id`.

@@ -268,7 +268,9 @@ class ExperimentRun(ContractModel):
     # APP-04: commit del código que entrenó; `None` si el run no lo registró.
     git_commit: GitCommit | None
     params: dict[str, str]
-    metrics: dict[str, float]
+    # APP-04: `None` = MLflow registró un valor no finito (NaN o ±inf). JSON no admite
+    # NaN, y mostrarlo como número sería inventarlo: el run sigue visible igual.
+    metrics: dict[str, float | None]
 
     @model_validator(mode="after")
     def end_time_matches_status(self) -> Self:
@@ -289,7 +291,7 @@ class RunsResponse(ContractModel):
 
 class CurvePoint(ContractModel):
     step: Count
-    value: float
+    value: float | None  # None: esa época registró un valor no finito (NaN o ±inf)
 
 
 class RunCurvesResponse(ContractModel):

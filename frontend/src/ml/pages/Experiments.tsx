@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { Cell, Missing } from "../components/DataTable";
 import { MlPage } from "../components/MlPage";
 import { MlResourceBoundary } from "../components/MlResourceBoundary";
+import { NonFinite } from "../components/NonFinite";
 import { RunComparison, type SlottedRun } from "../components/RunComparison";
 import { mlflowRunUrl, useExperimentRuns } from "../dataSource";
 import type { ExperimentRun } from "../schemas";
@@ -30,22 +31,28 @@ const isActive = (run: ExperimentRun) => run.status === "RUNNING" || run.status 
 type SortKey = "run_name" | "status" | "start_time" | `metric:${string}`;
 type Sort = { key: SortKey; direction: "ascending" | "descending" };
 
-function sortValue(run: ExperimentRun, key: SortKey): string | number | undefined {
+function sortValue(run: ExperimentRun, key: SortKey): string | number | null | undefined {
   if (key.startsWith("metric:")) return run.metrics[key.slice("metric:".length)];
-  return run[key as "run_name" | "status" | "start_time"];
+  // Por el instante real, no por el texto ISO: "…:20Z" > "…:20.500000Z" como texto.
+  if (key === "start_time") return Date.parse(run.start_time);
+  return run[key as "run_name" | "status"];
 }
 
 function compareRuns(a: ExperimentRun, b: ExperimentRun, sort: Sort): number {
   const left = sortValue(a, sort.key);
   const right = sortValue(b, sort.key);
-  if (left === undefined || right === undefined) {
-    // Sin valor siempre al final, en cualquier dirección.
-    return left === undefined ? (right === undefined ? 0 : 1) : -1;
+  const leftMissing = left === undefined || left === null;
+  const rightMissing = right === undefined || right === null;
+  if (leftMissing || rightMissing) {
+    // Sin valor (o no finito) siempre al final, en cualquier dirección.
+    return leftMissing ? (rightMissing ? a.run_id.localeCompare(b.run_id) : 1) : -1;
   }
   const order =
     typeof left === "number" && typeof right === "number"
       ? left - right
       : String(left).localeCompare(String(right));
+  // Empate exacto: por run_id, igual que la API.
+  if (order === 0) return a.run_id.localeCompare(b.run_id);
   return sort.direction === "ascending" ? order : -order;
 }
 
@@ -208,7 +215,11 @@ function RunsTable({
                 ))}
                 {validationMetrics.map((metric) => (
                   <Cell key={metric} mono>
-                    {run.metrics[metric] ?? <Missing />}
+                    {run.metrics[metric] === null ? (
+                      <NonFinite />
+                    ) : (
+                      (run.metrics[metric] ?? <Missing />)
+                    )}
                   </Cell>
                 ))}
                 <Cell mono>{run.start_time}</Cell>

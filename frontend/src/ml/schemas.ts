@@ -298,7 +298,8 @@ export const experimentRunSchema = z
     /** APP-04: commit del código que entrenó; null si el run no lo registró. */
     git_commit: gitCommitSchema.nullable(),
     params: z.record(z.string(), z.string()),
-    metrics: z.record(z.string(), z.number()),
+    /** null = MLflow registró un valor no finito (NaN o ±inf); el run sigue visible. */
+    metrics: z.record(z.string(), z.number().nullable()),
   })
   .refine(
     (run) => (run.end_time === null) === (run.status === "SCHEDULED" || run.status === "RUNNING"),
@@ -314,7 +315,8 @@ export const runsResponseSchema = z
   );
 export type RunsResponse = z.infer<typeof runsResponseSchema>;
 
-const curvePointSchema = z.strictObject({ step: countSchema, value: z.number() });
+/** `value` null: esa época registró un valor no finito (NaN o ±inf). */
+const curvePointSchema = z.strictObject({ step: countSchema, value: z.number().nullable() });
 export type CurvePoint = z.infer<typeof curvePointSchema>;
 
 /** APP-04: `GET /api/ml/runs/{run_id}/curves`, historial por época de cada métrica. */

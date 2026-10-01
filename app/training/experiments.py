@@ -6,6 +6,8 @@ entrenamiento válida (ver `tracking/run_schema.py`).
 """
 
 import logging
+import math
+import sys
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -39,6 +41,18 @@ def _timestamp(milliseconds: int | None) -> str | None:
     return f"{text}Z" if moment.microsecond == 0 else f"{text}.{moment.microsecond:06d}Z"
 
 
+def finite_or_none(value: float) -> float | None:
+    """El valor, o `None` si no es finito.
+
+    MLflow conserva NaN, pero su store SQL guarda ±inf como ±sys.float_info.max
+    (1.797e308): también es un valor no finito y mostrarlo como número sería inventarlo.
+    """
+    number = float(value)
+    if not math.isfinite(number) or abs(number) >= sys.float_info.max:
+        return None
+    return number
+
+
 def run_to_contract(run: Run) -> ExperimentRun | None:
     """El run como `ExperimentRun`, o `None` si no es un entrenamiento trazable."""
     tags = run.data.tags
@@ -56,7 +70,7 @@ def run_to_contract(run: Run) -> ExperimentRun | None:
             manifest_hash=tags[TAG_MANIFEST_HASH],
             git_commit=tags.get(TAG_GIT_COMMIT),
             params=dict(run.data.params),
-            metrics={name: float(value) for name, value in run.data.metrics.items()},
+            metrics={name: finite_or_none(value) for name, value in run.data.metrics.items()},
         )
     except ValidationError as exc:
         logger.warning("Run %s omitido: no cumple ExperimentRun (%s)", run.info.run_id, exc)
@@ -84,8 +98,9 @@ def list_runs(client: TrackingClient) -> list[ExperimentRun]:
         page_token = getattr(page, "token", None)
         if not page_token:
             break
-    # Por los milisegundos de MLflow, no por el texto ISO ("…:20Z" > "…:20.5Z").
-    return [run for _, run in sorted(started, key=lambda item: item[0], reverse=True)]
+    # Por los milisegundos de MLflow, no por el texto ISO ("…:20Z" > "…:20.5Z"); un
+    # empate exacto se desempata por run_id, igual que la pantalla.
+    return [run for _, run in sorted(started, key=lambda item: (-item[0], item[1].run_id))]
 
 
 def _is_missing(exc: MlflowException) -> bool:
@@ -105,9 +120,10 @@ def run_curves(client: TrackingClient, run_id: str) -> RunCurvesResponse | None:
 
     curves: dict[str, list[CurvePoint]] = {}
     for name in sorted(run.data.metrics):
-        by_step: dict[int, float] = {}
+        by_step: dict[int, float | None] = {}
         history = sorted(client.get_metric_history(run_id, name), key=lambda m: m.timestamp)
         for metric in history:
-            by_step[metric.step] = float(metric.value)  # el último registro de un step gana
+            # El último registro de un step gana; un NaN/inf queda como punto None.
+            by_step[metric.step] = finite_or_none(metric.value)
         curves[name] = [CurvePoint(step=step, value=by_step[step]) for step in sorted(by_step)]
     return RunCurvesResponse(schema_version="1.0", run_id=run_id, curves=curves)

@@ -8,6 +8,7 @@ import {
   YAxis,
 } from "recharts";
 import type { CurvePoint } from "../schemas";
+import { NonFinite } from "./NonFinite";
 
 /**
  * APP-04: colores de las series de la comparación. Son los 3 primeros slots de la
@@ -40,7 +41,7 @@ export function SeriesSwatch({ slot }: Readonly<{ slot: number }>) {
   );
 }
 
-type Row = { step: number } & Record<string, number>;
+type Row = { step: number } & Record<string, number | null>;
 
 function mergeByStep(series: CurveSeries[]): Row[] {
   const rows = new Map<number, Row>();
@@ -64,7 +65,10 @@ const LABEL_GAP_PX = 13;
  * 0.2 si el rango pasa de 0.6). Antes, el rango automático daba 0.575 / 0.46 / 0.345.
  */
 export function niceAxis(series: CurveSeries[]): { domain: [number, number]; ticks: number[] } {
-  const values = series.flatMap((s) => s.points.map((p) => p.value));
+  // Las épocas no finitas (null) no cuentan para la escala.
+  const values = series.flatMap((s) =>
+    s.points.flatMap((p) => (p.value === null ? [] : [p.value]))
+  );
   if (values.length === 0) return { domain: [0, 1], ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] };
   let low = Math.floor(Math.min(...values) * 10 + 1e-9);
   let high = Math.ceil(Math.max(...values) * 10 - 1e-9);
@@ -88,7 +92,8 @@ export function niceAxis(series: CurveSeries[]): { domain: [number, number]; tic
 export function labelledRunIds(series: CurveSeries[], domain: [number, number]): Set<string> {
   const ends = series.flatMap((s) => {
     const last = s.points.at(-1);
-    return last ? [{ runId: s.runId, value: last.value }] : [];
+    // Si la última época no es finita no hay punto donde poner la etiqueta.
+    return last && last.value !== null ? [{ runId: s.runId, value: last.value }] : [];
   });
   if (ends.length < 2) return new Set();
   const minGap = (LABEL_GAP_PX / PLOT_HEIGHT_PX) * (domain[1] - domain[0]);
@@ -100,8 +105,9 @@ export function labelledRunIds(series: CurveSeries[], domain: [number, number]):
 }
 
 /** Nombre del run al final de su línea (alivio de contraste además de la tabla). */
-function endLabel(series: CurveSeries) {
-  const lastIndex = series.points.length - 1;
+function endLabel(series: CurveSeries, rows: Row[]) {
+  // Índice en las filas del chart (unidas por época), no en los puntos del run.
+  const lastIndex = rows.findIndex((row) => row.step === series.points.at(-1)?.step);
   return ({ x, y, index }: { x?: number | string; y?: number | string; index?: number }) =>
     index === lastIndex && typeof x === "number" && typeof y === "number" ? (
       <text x={x + 6} y={y} dy={4} fontSize={11} fill={LABEL_TEXT}>
@@ -189,9 +195,10 @@ export function RunCurvesChart({
                 strokeLinejoin="round"
                 dot={false}
                 activeDot={{ r: 4, stroke: SURFACE, strokeWidth: 2 }}
-                connectNulls
+                // Una época no finita queda como hueco: unir los puntos inventaría el tramo.
+                connectNulls={false}
                 isAnimationActive={false}
-                label={labelled.has(s.runId) ? endLabel(s) : false}
+                label={labelled.has(s.runId) ? endLabel(s, data) : false}
               />
             ))}
           </LineChart>
@@ -219,7 +226,7 @@ export function RunCurvesChart({
                 <td className="py-0.5 pr-3">{row.step}</td>
                 {withData.map((s) => (
                   <td key={s.runId} className="py-0.5 pr-3">
-                    {row[s.runId] ?? "—"}
+                    {row[s.runId] === null ? <NonFinite /> : (row[s.runId] ?? "—")}
                   </td>
                 ))}
               </tr>

@@ -56,6 +56,9 @@ aparece en Experiments.**
 | Hiperparámetros | `log_params` con los nombres de `TrainingParams` | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers`, `dropout`, `seed`, `patience`, `min_delta` |
 | Curvas | `log_metric(nombre, valor, step=época)`, desde la época 1 | `train_loss`, `val_loss`, `train_accuracy`, `val_accuracy` |
 
+Un valor no finito (NaN o ±inf) se sirve como `null`: el run sigue en la lista, la
+celda dice "no finito" y en la curva esa época queda como un hueco.
+
 Las columnas de métricas de validación de la tabla son **todas** las métricas `val_*`
 de los runs (por ejemplo, `val_accuracy_top1` si la evaluación la registra), y se
 pueden ordenar.

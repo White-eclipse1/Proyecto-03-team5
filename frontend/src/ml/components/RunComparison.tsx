@@ -1,5 +1,6 @@
 import { useRunCurves } from "../dataSource";
 import type { ExperimentRun } from "../schemas";
+import { NonFinite } from "./NonFinite";
 import { type CurveSeries, RunCurvesChart, SeriesSwatch } from "./RunCurvesChart";
 
 /** Métricas por época que registra ML-04 (ver app/tracking/run_schema.py). */
@@ -30,7 +31,7 @@ function orderedKeys(keys: Set<string>, preferred: readonly string[]): string[] 
 function DiffRow({
   label,
   values,
-}: Readonly<{ label: string; values: (string | number | undefined)[] }>) {
+}: Readonly<{ label: string; values: (string | number | null | undefined)[] }>) {
   const differs = values.length > 1 && new Set(values.map(String)).size > 1;
   return (
     <tr className={differs ? "bg-accent-lilac-soft/60" : undefined}>
@@ -40,7 +41,7 @@ function DiffRow({
       {values.map((value, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: columnas fijas por run seleccionado
         <td key={index} className="whitespace-nowrap px-3 py-1.5 font-mono text-xs">
-          {value ?? <span className="text-ink-faint">—</span>}
+          {value === null ? <NonFinite /> : (value ?? <span className="text-ink-faint">—</span>)}
         </td>
       ))}
       <td className="px-3 py-1.5 text-xs">
