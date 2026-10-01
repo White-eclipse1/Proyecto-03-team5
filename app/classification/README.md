@@ -163,7 +163,7 @@ result = run_training(
     client=tracking_client(),
     hooks=JobQueueHooks(queue, job.job_id),  # start / report_progress / log de la cola
 )
-queue.succeed(job.job_id, checkpoint=result.checkpoint_uri)  # runs:/<run_id>/checkpoints/last.pt
+queue.succeed(job.job_id, checkpoint=result.checkpoint_uri)  # runs:/<run_id>/checkpoints/best.pt
 ```
 
 Si `run_training` lanza una excepción, el run ya quedó `FAILED` en MLflow (o no
@@ -188,8 +188,8 @@ se creó, si el job no coincide con el manifiesto). El worker solo llama
    - Con `batch_size > 1`, BatchNorm usa las estadísticas del batch
      (`batchnorm_statistics=batch`) y, si el último batch de train tendría una sola
      muestra, se descarta (`train_drop_last=True`) por la misma razón.
-4. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run `FINISHED`.
-   El mejor checkpoint y early stopping son ML-06.
+4. Early stopping y mejor checkpoint (ML-06, ver abajo): sube `checkpoints/best.pt`
+   con los pesos de la mejor época y las curvas, y cierra el run `FINISHED`.
 
 ### Qué queda en MLflow (experimento `dogcat-classifier`)
 
@@ -198,7 +198,7 @@ se creó, si el job no coincide con el manifiesto). El worker solo llama
 | Parámetros efectivos (texto, como `ExperimentRun.params`) | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers` (`"128,64"`), `dropout`, `seed`, `patience`, `min_delta`, `architecture`, `pretrained`, `trainable`, `train_samples`, `validation_samples`, `train_drop_last`, `batchnorm_statistics` |
 | Métricas por época (`step` = época) | `train_loss`, `train_accuracy`, `val_loss`, `val_accuracy` |
 | Etiquetas de procedencia | `mlflow.source.git.commit`, `git_commit`, `dataset_version`, `manifest_hash`, `manifest_version`, `dvc_images_hash`, `dvc_annotations_hash`, `quality_report`, `crops_sha256`, `classes` (`dog,cat`), `class_map`, `weights_origin`, `trainable_summary`, `torch_version`, `torchvision_version` |
-| Artefacto | `checkpoints/last.pt` (`save_checkpoint` de ML-03, con `run_id`, release, `manifest_hash`, commit y épocas en `metadata`) |
+| Artefactos | `checkpoints/best.pt` (`save_checkpoint` de ML-03, con `run_id`, release, `manifest_hash`, commit, `best_epoch` y `stopped_epoch` en `metadata`), `curves/training_curves.png`, `curves/history.json`, `reproducibility/sample_order.json` |
 | Fallo | estado `FAILED` (`KILLED` si se interrumpe) y etiqueta `error` |
 
 ### Requisitos del proceso que entrena (worker)
@@ -268,3 +268,40 @@ Comprobado el 2026-10-01 en macOS arm64, CPU, torch 2.14.0
 | Tiempo y orden de logs | Los `timestamp` de MLflow y los `run_id` cambian en cada corrida; no afectan el entrenamiento |
 
 Tests: `uv run pytest tests/test_classification_reproducibility.py`.
+
+## ML-06 — Early stopping y mejor checkpoint
+
+`classification/early_stopping.py` (lógica pura) y su uso en `run_training`.
+
+| Elemento | Definición |
+|----------|------------|
+| Métrica vigilada (predeclarada) | `val_loss`, a minimizar (`MONITOR`, `MONITOR_MODE`) |
+| Mejor época (`best_epoch`, pesos que se restauran) | La de **menor** `val_loss` finito, aunque haya bajado menos que `min_delta` |
+| Reinicio de la paciencia | Solo si `val_loss < menor anterior - min_delta`. Un valor igual o una mejora menor que `min_delta` no la reinicia |
+| Pérdidas no finitas | `NaN`, `+inf` y `-inf` nunca son la mejor época y cuentan como época sin mejora; si todas lo son, el run falla sin checkpoint |
+| Parada | Tras `patience` épocas seguidas sin una mejora mayor que `min_delta`; esa época es `stopped_epoch` |
+| `patience`, `min_delta` | Vienen de `TrainingParams` (formulario y API) |
+| Pesos finales | Los de `best_epoch`, copiados en memoria cuando mejoró y **restaurados** al terminar, no los de la última época |
+
+Se usa `val_loss` y no `val_accuracy` porque con 128 crops de validation la
+accuracy se mueve en saltos de 1/128 y empata con facilidad. La pérdida es
+continua.
+
+### Qué queda en MLflow
+
+| Tipo | Claves |
+|------|--------|
+| Parámetros | `early_stopping_monitor=val_loss`, `early_stopping_mode=min`, `patience`, `min_delta` |
+| Métricas de resumen | `best_epoch`, `best_val_loss`, `epochs_completed` y, si hubo parada temprana, `stopped_epoch` |
+| Etiqueta | `early_stopped` (`True` o `False`) |
+| Artefactos | `checkpoints/best.pt` (pesos restaurados; `metadata` con `best_epoch`, `best_val_loss`, `stopped_epoch` y `epochs_completed`), `curves/training_curves.png` (loss y accuracy de train y validation por época, con líneas en `best_epoch` y en la parada), `curves/history.json` (los mismos valores que las métricas por época de MLflow) |
+
+`TrainingResult` devuelve `best_epoch`, `stopped_epoch` (o `None`) y
+`checkpoint_uri = runs:/<run_id>/checkpoints/best.pt`, que el worker pasa a
+`queue.succeed`.
+
+Tests: `uv run pytest tests/test_classification_early_stopping.py`. Las
+secuencias artificiales de `val_loss` prueban la lógica, y una secuencia
+inyectada en `run_training` comprueba que el checkpoint final son los pesos de
+la mejor época. Evidencia con datos reales:
+[`tests/evidence/ml-06-early-stopping.md`](../tests/evidence/ml-06-early-stopping.md).

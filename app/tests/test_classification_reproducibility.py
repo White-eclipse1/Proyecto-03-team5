@@ -54,6 +54,9 @@ def _params(**overrides):
         "min_delta": 0.0,
     }
     values.update(overrides)
+    # Sin early stopping salvo que el test fije `patience` (ML-06 detiene antes si no).
+    if "patience" not in overrides:
+        values["patience"] = values["max_epochs"]
     return TrainingParams(**values)
 
 

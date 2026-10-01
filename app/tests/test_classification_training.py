@@ -56,6 +56,9 @@ def _params(**overrides):
         "min_delta": 0.0,
     }
     values.update(overrides)
+    # Sin early stopping salvo que el test fije `patience` (ML-06 detiene antes si no).
+    if "patience" not in overrides:
+        values["patience"] = values["max_epochs"]
     return TrainingParams(**values)
 
 
@@ -123,7 +126,7 @@ def test_batch_size_one_trains_with_frozen_batchnorm_statistics(client, release,
     assert run.info.status == "FINISHED"
     assert result.optimizer_steps == 2 * 8  # un paso por crop de train
     assert run.data.params["batchnorm_statistics"] == "frozen"
-    local = client.download_artifacts(result.run_id, "checkpoints/last.pt", str(tmp_path))
+    local = client.download_artifacts(result.run_id, "checkpoints/best.pt", str(tmp_path))
     state = torch.load(local, weights_only=True)["state_dict"]
     # Con una muestra por batch, BatchNorm usa sus estadísticas guardadas y no las cambia
     # (pretrained=False: siguen en su valor inicial, media 0 y varianza 1).
@@ -235,7 +238,7 @@ def test_checkpoint_model_uses_image_size_hidden_layers_and_dropout(client, rele
     params = _params(image_size=64, hidden_layers=[32, 8], dropout=0.3, max_epochs=1)
     result = _train(client, release, params)
 
-    path = client.download_artifacts(result.run_id, "checkpoints/last.pt", str(tmp_path))
+    path = client.download_artifacts(result.run_id, "checkpoints/best.pt", str(tmp_path))
     model = load_checkpoint(Path(path))
 
     assert model.config.image_size == 64
@@ -305,7 +308,7 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
         "hidden_layers": "16,8",
         "dropout": "0.1",
         "seed": "7",
-        "patience": "1",
+        "patience": "2",
         "min_delta": "0.0",
         "architecture": "resnet18",
         "pretrained": "False",
@@ -318,6 +321,8 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
         "seed_dataloader": "7",
         "seed_augmentation": "7",
         "seed_weight_init": "7",
+        "early_stopping_monitor": "val_loss",
+        "early_stopping_mode": "min",
     }
     tags = run.data.tags
     assert tags["mlflow.source.git.commit"] == COMMIT
@@ -329,19 +334,23 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
     assert tags["classes"] == "dog,cat"
     assert json.loads(tags["class_map"]) == {"dog": 0, "cat": 1}
 
-    assert result.checkpoint_uri == f"runs:/{result.run_id}/checkpoints/last.pt"
+    assert result.checkpoint_uri == f"runs:/{result.run_id}/checkpoints/best.pt"
     assert [artifact.path for artifact in client.list_artifacts(result.run_id, "checkpoints")] == [
-        "checkpoints/last.pt"
+        "checkpoints/best.pt"
     ]
-    local = client.download_artifacts(result.run_id, "checkpoints/last.pt", str(tmp_path))
+    local = client.download_artifacts(result.run_id, "checkpoints/best.pt", str(tmp_path))
     payload = torch.load(local, weights_only=True)
-    assert payload["metadata"] == {
+    metadata = payload["metadata"]
+    assert {
+        k: metadata[k] for k in ("run_id", "dataset_version", "manifest_hash", "git_commit")
+    } == {
         "run_id": result.run_id,
         "dataset_version": release.dataset_version,
         "manifest_hash": release.manifest_hash,
         "git_commit": COMMIT,
-        "epochs": 2,
     }
+    assert metadata["best_epoch"] == result.best_epoch
+    assert metadata["epochs_completed"] == len(result.history) == 2
 
 
 def test_hooks_receive_the_run_and_every_epoch(client, release):
