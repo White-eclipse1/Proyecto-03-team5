@@ -20,6 +20,7 @@ from classification.training import (
     EXPERIMENT_NAME,
     METRIC_NAMES,
     DataPaths,
+    JobQueueHooks,
     build_optimizer,
     resolve_git_commit,
     run_training,
@@ -384,3 +385,49 @@ def test_invalid_git_commit_is_rejected(monkeypatch, value):
 
     with pytest.raises(ValueError, match="GIT_COMMIT"):
         resolve_git_commit()
+
+
+# --- Adaptador para la cola de APP-03 (worker de OPS-04) ------------------------------------
+
+
+class FakeQueue:
+    """Mismas firmas que `training.queue.TrainingJobQueue` (APP-03, PR #38)."""
+
+    def __init__(self):
+        self.calls = []
+
+    def start(self, job_id, *, experiment_id, run_id):
+        self.calls.append(("start", job_id, experiment_id, run_id))
+
+    def report_progress(self, job_id, *, epoch, metrics):
+        self.calls.append(("progress", job_id, epoch, dict(metrics)))
+
+    def log(self, job_id, message, level="info"):
+        self.calls.append(("log", job_id, level, message))
+
+
+def test_job_queue_hooks_drive_the_queue_during_a_run(client, release):
+    queue = FakeQueue()
+
+    result = _train(client, release, _params(max_epochs=2), hooks=JobQueueHooks(queue, "job-1"))
+
+    assert queue.calls[0] == ("start", "job-1", result.experiment_id, result.run_id)
+    progress = [call for call in queue.calls if call[0] == "progress"]
+    assert [call[2] for call in progress] == [1, 2]
+    assert progress[-1][3] == result.history[-1].as_dict()
+    assert all(call[1] == "job-1" for call in queue.calls)
+    assert any(call[0] == "log" and "Época 2/2" in call[3] for call in queue.calls)
+
+
+def test_job_queue_hooks_forward_error_logs(client, release, monkeypatch):
+    queue = FakeQueue()
+    monkeypatch.setattr(
+        training_module, "_evaluate", lambda *args: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        _train(client, release, _params(max_epochs=1), hooks=JobQueueHooks(queue, "job-2"))
+
+    assert queue.calls[0][0] == "start"
+    assert any(call[0] == "log" and call[2] == "error" for call in queue.calls)
+    assert not [call for call in queue.calls if call[0] == "progress"]
