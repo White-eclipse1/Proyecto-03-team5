@@ -128,6 +128,26 @@ def test_seeded_augmentation_still_varies_by_epoch_and_sample(release):
     assert not torch.equal(_read(train, 1, global_seed=0), _read(train, 0, global_seed=0))
 
 
+def test_sample_seed_depends_on_seed_epoch_and_index(release):
+    train = _split(release, "train", augmentation_seed=5)
+    other = _split(release, "train", augmentation_seed=6)
+    seeds = {train.sample_seed(index) for index in range(len(train))}
+
+    assert len(seeds) == len(train)  # una semilla distinta por muestra
+    assert train.sample_seed(0) != other.sample_seed(0)
+    first = train.sample_seed(0)
+    train.set_epoch(2)
+    assert train.sample_seed(0) != first
+    assert 0 <= first < 2**63
+
+
+def test_identical_crops_get_different_augmentation_by_index(release):
+    train = _split(release, "train", augmentation_seed=5)
+    train._samples[1] = train._samples[0]  # mismo archivo en dos posiciones
+
+    assert not torch.equal(_read(train, 0, global_seed=0), _read(train, 1, global_seed=0))
+
+
 def test_augmentation_seed_reproduces_across_dataset_instances(release):
     one = _split(release, "train", augmentation_seed=5)
     two = _split(release, "train", augmentation_seed=5)
@@ -234,6 +254,39 @@ def test_sample_order_is_logged_as_an_artifact(client, release, tmp_path):
 
 
 # --- Protección de validation/test en el entrenamiento --------------------------------------
+
+
+def test_training_seeds_the_train_augmentation_and_advances_its_epoch(client, release, monkeypatch):
+    created = {}
+    real_load = training_module.load_split
+
+    def spy(*args, split, **kwargs):
+        dataset = real_load(*args, split=split, **kwargs)
+        created[split] = dataset
+        return dataset
+
+    monkeypatch.setattr(training_module, "load_split", spy)
+    epochs = []
+    real_set_epoch = type(
+        real_load(
+            release.manifest_path,
+            release.crop_report_path,
+            crops_dir=release.crops_dir,
+            split="train",
+            params=_params(),
+        )
+    ).set_epoch
+
+    def record(self, epoch):
+        epochs.append((self.split, epoch))
+        return real_set_epoch(self, epoch)
+
+    monkeypatch.setattr(dataset_module.CropClassificationDataset, "set_epoch", record)
+
+    _train(client, release, _params(seed=31, max_epochs=3))
+
+    assert created["train"].augmentation_seed == 31
+    assert epochs == [("train", 1), ("train", 2), ("train", 3)]
 
 
 def test_training_never_loads_the_test_split(client, release, monkeypatch):
