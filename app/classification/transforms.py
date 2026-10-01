@@ -56,6 +56,12 @@ def train_transform(image_size: int) -> v2.Compose:
     )
 
 
+def random_transform_names(transform: v2.Compose) -> list[str]:
+    """Pasos aleatorios de un transform (`Random*`, `ColorJitter`): vacío fuera de train."""
+    names = [type(step).__name__ for step in transform.transforms]
+    return [name for name in names if name.startswith("Random") or name == "ColorJitter"]
+
+
 def transform_for(split: str, image_size: int) -> v2.Compose:
     if split == "train":
         return train_transform(image_size)
