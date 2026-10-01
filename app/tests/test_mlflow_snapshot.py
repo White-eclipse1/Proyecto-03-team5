@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from mlflow.tracking import MlflowClient
 
+from tests._mlflow_paths import artifact_dir
 from tracking.snapshot import (
     ARTIFACTS_DIR,
     DUMP_FILE,
@@ -50,7 +51,7 @@ def _sha(data: bytes) -> str:
 
 
 def _artifacts_root(client, run_id) -> Path:
-    return Path(client.get_run(run_id).info.artifact_uri.removeprefix("file://"))
+    return artifact_dir(client, run_id)
 
 
 # --- Export ----------------------------------------------------------------------------
@@ -117,6 +118,20 @@ def test_restore_uploads_missing_artifacts_to_the_same_run_ids(client, tmp_path)
     assert verify_snapshot(client, dest) == {run_id: []}
     local = client.download_artifacts(run_id, "checkpoints/best.pt", str(tmp_path / "dl"))
     assert Path(local).read_bytes() == b"pesos"
+
+
+def test_restore_keeps_nested_artifact_paths(client, tmp_path):
+    run_id = _run(client, tmp_path, "r01", files={"curves/extra/history.json": b"{}"})
+    dest = tmp_path / "snapshot"
+    export_snapshot(client, MATRIX, dest)
+    shutil.rmtree(_artifacts_root(client, run_id))
+
+    restore_artifacts(client, dest)
+
+    assert verify_snapshot(client, dest) == {run_id: []}
+    assert [a.path for a in client.list_artifacts(run_id, "curves/extra")] == [
+        "curves/extra/history.json"
+    ]
 
 
 def test_verify_reports_missing_runs_and_changed_files(client, tmp_path):

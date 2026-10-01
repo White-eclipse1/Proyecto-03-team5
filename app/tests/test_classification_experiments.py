@@ -17,6 +17,7 @@ from classification.experiments import (
 )
 from classification.training import EXPERIMENT_NAME, DataPaths
 from tests._classification_fixtures import write_controlled_release
+from tests._mlflow_paths import artifact_dir
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
 BASE = {
@@ -308,11 +309,10 @@ def test_report_fails_when_identical_results_leave_fewer_distinct_runs(
 
 def test_report_detects_a_run_without_checkpoint(client, release, tmp_path):
     import shutil
-    from pathlib import Path
 
     matrix = load_matrix(_write(tmp_path, _matrix_doc()))
     runs = dict(_run(client, release, matrix))
-    artifacts = Path(client.get_run(runs["r02"]).info.artifact_uri.removeprefix("file://"))
+    artifacts = artifact_dir(client, runs["r02"])
     shutil.rmtree(artifacts / "checkpoints")
 
     report = matrix_report(client, matrix, min_runs=7)

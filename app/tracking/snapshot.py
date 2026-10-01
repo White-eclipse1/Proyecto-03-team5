@@ -31,7 +31,7 @@ import sys
 import tempfile
 import time
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -117,7 +117,8 @@ def restore_artifacts(client: MlflowClient, src: Path) -> None:
     """Sube cada artefacto del snapshot al mismo run_id y la misma ruta."""
     for run_id, entry in _manifest(src)["runs"].items():
         for relpath in entry["files"]:
-            parent = str(Path(relpath).parent)
+            # Rutas de artefacto de MLflow: siempre con "/", también en Windows.
+            parent = str(PurePosixPath(relpath).parent)
             client.log_artifact(
                 run_id,
                 str(src / ARTIFACTS_DIR / run_id / relpath),
