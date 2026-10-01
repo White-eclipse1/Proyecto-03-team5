@@ -61,13 +61,44 @@ def test_improvement_resets_the_patience_counter():
     assert stopper.best_epoch == 5
 
 
-def test_min_delta_ignores_tiny_improvements():
+def test_min_delta_only_decides_when_patience_resets():
     stopper = EarlyStopping(patience=2, min_delta=0.1)
 
     stopped = _feed(stopper, [1.0, 0.95, 0.91, 0.5])
 
+    # 0.95 y 0.91 no bajan más de min_delta: no reinician la paciencia y se detiene en 3.
     assert stopped == 3
-    assert stopper.best_epoch == 1
+    # Pero la mejor época es la de menor val_loss (0.91), no la última mejora "grande" (1.0).
+    assert stopper.best_epoch == 3
+    assert stopper.best_value == 0.91
+
+
+def test_best_epoch_is_the_lowest_val_loss_even_below_min_delta():
+    stopper = EarlyStopping(patience=2, min_delta=0.1)
+
+    stopped = _feed(stopper, [1.0, 0.95, 0.97, 0.2])
+
+    assert stopped == 3
+    assert stopper.best_epoch == 2
+    assert stopper.best_value == 0.95
+
+
+def test_small_improvements_do_not_reset_patience():
+    stopper = EarlyStopping(patience=3, min_delta=0.1)
+
+    # Cada época es un nuevo mínimo, pero ninguna mejora en más de 0.1.
+    stopped = _feed(stopper, [1.0, 0.95, 0.92, 0.91, 0.1])
+
+    assert stopped == 4
+    assert stopper.best_epoch == 4
+
+
+def test_significant_improvement_is_measured_from_the_lowest_value():
+    stopper = EarlyStopping(patience=2, min_delta=0.1)
+
+    # 0.85 es mínimo nuevo sin reinicio; 0.78 baja 0.07 desde 0.85: tampoco reinicia.
+    assert _feed(stopper, [0.9, 0.85, 0.78]) == 3
+    assert stopper.best_epoch == 3
 
 
 def test_an_equal_value_is_not_an_improvement():
@@ -75,6 +106,32 @@ def test_an_equal_value_is_not_an_improvement():
 
     assert _feed(stopper, [0.5, 0.5]) == 2
     assert stopper.best_epoch == 1
+
+
+@pytest.mark.parametrize("bad", [math.inf, -math.inf, math.nan])
+def test_non_finite_losses_are_never_the_best(bad):
+    stopper = EarlyStopping(patience=2, min_delta=0.0)
+
+    assert _feed(stopper, [0.7, bad, 0.6]) is None
+    assert stopper.best_epoch == 3
+    assert stopper.best_value == 0.6
+
+
+@pytest.mark.parametrize("bad", [math.inf, -math.inf])
+def test_non_finite_losses_count_as_epochs_without_improvement(bad):
+    stopper = EarlyStopping(patience=1, min_delta=0.0)
+
+    assert _feed(stopper, [0.7, bad]) == 2
+    assert stopper.best_epoch == 1
+
+
+@pytest.mark.parametrize("bad", [math.inf, -math.inf])
+def test_non_finite_loss_in_the_first_epoch_is_not_the_best(bad):
+    stopper = EarlyStopping(patience=3, min_delta=0.0)
+
+    _feed(stopper, [bad, 0.9])
+
+    assert stopper.best_epoch == 2
 
 
 def test_nan_never_counts_as_improvement():
@@ -252,7 +309,7 @@ def test_best_epoch_in_the_middle_of_a_full_run_is_restored(client, release, inj
 
 @pytest.mark.parametrize(
     ("patience", "min_delta", "stopped", "best"),
-    [(1, 0.0, 3, 2), (3, 0.0, None, 5), (2, 0.15, 3, 1)],
+    [(1, 0.0, 3, 2), (3, 0.0, None, 5), (2, 0.15, 3, 2)],
 )
 def test_patience_and_min_delta_come_from_the_training_params(
     client, release, injected, tmp_path, patience, min_delta, stopped, best
@@ -278,6 +335,42 @@ def test_a_run_without_any_valid_val_loss_fails_instead_of_saving_a_checkpoint(
     [run] = client.search_runs([client.get_experiment_by_name("dogcat-classifier").experiment_id])
     assert run.info.status == "FAILED"
     assert not client.list_artifacts(run.info.run_id, "checkpoints")
+
+
+def test_best_checkpoint_keeps_the_lowest_val_loss_with_min_delta(
+    client, release, injected, tmp_path
+):
+    # Escenario de la revisión: la época 3 (0.45) no mejora en más de min_delta=0.1 a la
+    # época 2 (0.5), pero tiene menor val_loss: best.pt deben ser sus pesos.
+    injected["losses"] = [0.9, 0.5, 0.45, 0.6, 0.7]
+
+    result, checkpoint = _train(
+        client, release, _params(max_epochs=5, patience=2, min_delta=0.1), tmp_path
+    )
+
+    assert result.stopped_epoch == 4
+    assert result.best_epoch == 3
+    assert _same_weights(checkpoint["state_dict"], injected["weights"][2])
+    assert not _same_weights(checkpoint["state_dict"], injected["weights"][1])
+    assert checkpoint["metadata"]["best_val_loss"] == 0.45
+    assert client.get_run(result.run_id).data.metrics["best_val_loss"] == 0.45
+
+
+def test_infinite_val_loss_is_never_restored(client, release, injected, tmp_path):
+    injected["losses"] = [0.9, math.inf, 0.8]
+
+    result, checkpoint = _train(client, release, _params(max_epochs=3, patience=3), tmp_path)
+
+    assert result.best_epoch == 3
+    assert _same_weights(checkpoint["state_dict"], injected["weights"][2])
+
+
+@pytest.mark.parametrize("bad", [math.inf, -math.inf])
+def test_a_run_with_only_infinite_val_loss_fails(client, release, injected, tmp_path, bad):
+    injected["losses"] = [bad, bad]
+
+    with pytest.raises(RuntimeError, match="val_loss"):
+        _train(client, release, _params(max_epochs=2, patience=2), tmp_path)
 
 
 # --- Curvas con las métricas reales ----------------------------------------------------------
