@@ -127,6 +127,49 @@ jobs:
           MINIO_ROOT_PASSWORD: ci
         run: docker compose config --quiet
 
+  mlflow:
+    name: MLflow persistente (OPS-03)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Credenciales efímeras del runner: solo existen durante este job.
+      MARIADB_ROOT_PASSWORD: ci-mlflow-${{ github.run_id }}
+      MINIO_ROOT_USER: ci-mlflow
+      MINIO_ROOT_PASSWORD: ci-mlflow-${{ github.run_id }}
+      MLFLOW_TRACKING_URI: http://localhost:5000
+      MLFLOW_INTEGRATION: "1"
+      # Falla en minutos, no en horas, si el servidor deja de responder.
+      MLFLOW_HTTP_REQUEST_MAX_RETRIES: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # Misma versión que app/Dockerfile.
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Instalar dependencias del cliente
+        working-directory: app
+        run: uv sync --locked --no-build
+      - name: Levantar MariaDB, MinIO y MLflow
+        run: docker compose up -d --build --wait mariadb minio mlflow
+      - name: Otro contenedor alcanza http://mlflow:5000 (como el worker)
+        run: >-
+          docker compose run --rm --no-deps --entrypoint python mlflow -c
+          "from mlflow.tracking import MlflowClient;
+          print(MlflowClient('http://mlflow:5000').search_experiments(max_results=1))"
+      - name: Un run sobrevive a recrear el stack (Agent Test del issue #8)
+        working-directory: app
+        run: uv run --locked --no-build pytest -v tests/test_mlflow_persistence.py
+      - name: Logs del servidor MLflow
+        if: failure()
+        run: docker compose logs mlflow mariadb minio
+      - name: Apagar y borrar los datos efímeros del runner
+        if: always()
+        run: docker compose down -v
+
   training-queue:
     name: Cola de entrenamiento en MariaDB (APP-03)
     runs-on: ubuntu-latest
@@ -259,7 +302,7 @@ jobs:
     # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
     # fallido dejaría a `CI OK` en "skipped", y GitHub lo trata como aprobado.
     if: always()
-    needs: [python, backend, frontend, compose, training-queue, quality-gate, quality-gate-prod]
+    needs: [python, backend, frontend, compose, mlflow, training-queue, quality-gate, quality-gate-prod]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

@@ -276,6 +276,11 @@ aplicación local también se necesitan Docker y Docker Compose.
 
 ## Despliegue con un solo comando
 
+> **¿Ya tenías el proyecto levantado antes del issue #36?** La imagen de MinIO
+> cambió y tu volumen sigue funcionando. Si quieres un respaldo, hazlo después del
+> `git pull` y antes del primer `docker compose up`: ver
+> [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
+
 Antes del primer arranque, crea el `.env` local para Compose y completa los
 dos valores de MinIO con credenciales locales:
 
@@ -291,7 +296,7 @@ No pongas credenciales AWS en este archivo.
 docker compose up --build
 ```
 
-Este comando levanta los servicios de MariaDB, MinIO, backend, frontend,
+Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las
 migraciones y siembra únicamente las categorías `dog` y `cat` antes de
 arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
@@ -301,6 +306,7 @@ arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 | Frontend        | http://localhost:8080            |
 | Backend (API)   | http://localhost:3100            |
 | Consola MinIO   | http://localhost:9001 (minioadmin/minioadmin) |
+| MLflow (UI/API) | http://localhost:5000 (solo loopback; ver [OPS-03](#ops-03--mlflow-persistente)) |
 | API de entrenamiento | http://localhost:8080/api/ml/ (vía nginx; ver [APP-03](#app-03--jobs-de-entrenamiento)) |
 
 Para apagar normalmente los servicios, sin borrar los datos persistidos:
@@ -309,12 +315,79 @@ Para apagar normalmente los servicios, sin borrar los datos persistidos:
 docker compose down
 ```
 
-`docker compose down -v` elimina también los volúmenes de MariaDB y MinIO.
+`docker compose down -v` elimina también los volúmenes de MariaDB y MinIO
+(y con ellos los runs y artefactos de MLflow).
 Úsalo únicamente cuando quieras reiniciar desde cero los datos locales.
 
 Las credenciales de MariaDB/MinIO usadas en `docker-compose.yml` son las de
 desarrollo del proyecto; para un despliegue real, cámbialas ahí antes de
 publicar los puertos a una red no confiable.
+
+## Cambio de imagen de MinIO (issue #36)
+
+Desde 2026, la imagen oficial de MinIO (`quay.io/minio/minio`, y `minio/minio` en
+Docker Hub) ya no se puede descargar sin autenticación. Por eso un clon nuevo no
+podía hacer `docker compose up`. `docker-compose.yml` ahora usa la build pública de
+Chainguard, `cgr.dev/chainguard/minio:latest` (misma CLI `minio server`), con
+`user: "0:0"`.
+
+**Tus datos locales no cambian de lugar.** La imagen nueva lee el volumen
+`minio_data` creado con la anterior: buckets y objetos siguen ahí. No hace falta
+migrar ni borrar nada; basta con:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+El dataset oficial (600 imágenes + COCO del release `v0.1.1`) tampoco depende de
+MinIO: vive en el remote DVC `prod` (AWS S3) y se recupera con `dvc pull -r prod`.
+
+### Respaldo opcional antes de actualizar
+
+La imagen nueva trae una versión más reciente de MinIO, que podría actualizar el
+formato del volumen al arrancar. Si quieres una copia por si acaso, haz el respaldo
+**después del `git pull` y antes del primer `up`**. `git pull` solo cambia archivos
+del repo (y trae el script); tu volumen no lo toca nadie hasta que arranca MinIO.
+
+```bash
+docker compose down                      # sin -v: quita los contenedores, conserva los volúmenes
+git pull                                 # trae la imagen nueva y scripts/minio-backup.sh
+bash scripts/minio-backup.sh inventory   # solo lectura: qué buckets y objetos tienes
+bash scripts/minio-backup.sh backup      # copia exacta → volumen <proyecto>_minio_backup
+docker compose up -d --build             # recién aquí la imagen nueva abre tu volumen
+```
+
+`backup` no arranca ningún MinIO: copia los archivos del volumen con un contenedor
+`alpine` que monta el original **en solo lectura**, y compara el sha256 de cada
+archivo del original y de la copia. Así la copia queda en el formato anterior (sirve
+incluso para volver a la imagen vieja). Si algo no coincide, termina con error y
+borra la copia incompleta.
+
+Qué suele aparecer en `inventory`:
+
+| Bucket | Qué es |
+|--------|--------|
+| `dvc-cache` | Remote DVC `dev`: copia del dataset que ya está en `prod` (S3). |
+| `image-annotations` | Imágenes subidas al portal en local. `seed/sample-red.png` y `seed/sample-blue.png` son de prueba (las creaba una versión vieja del seeder). |
+| `mlflow` | Artefactos de MLflow (OPS-03), si ya corriste experimentos. |
+
+### Si algo salió mal: restaurar el respaldo
+
+```bash
+docker compose down                         # sin -v: el volumen debe quedar libre
+docker volume rm <proyecto>_minio_data      # restore solo escribe en un volumen vacío
+bash scripts/minio-backup.sh restore        # copia exacta del respaldo, verificada con sha256
+docker compose up -d
+```
+
+Cuando todo esté bien: `docker volume rm <proyecto>_minio_backup`.
+
+Usa `docker compose down` y no `stop`: un contenedor detenido sigue asociado al
+volumen, y entonces `docker volume rm` falla. El script se niega a correr mientras
+algún contenedor use el volumen. `<proyecto>` es el nombre de la carpeta del repo en
+minúsculas (`docker volume ls | grep minio_data` te lo muestra), o
+`COMPOSE_PROJECT_NAME` si lo defines.
 
 ## Desarrollo local sin Docker para las apps
 
@@ -330,11 +403,11 @@ docker run --name proyecto1-mariadb \
   -e MARIADB_DATABASE=image_repo \
   -p 3306:3306 -d mariadb:11
 
-docker run --name proyecto1-minio \
+docker run --name proyecto1-minio --user 0:0 \
   -p 9000:9000 -p 9001:9001 \
   -e MINIO_ROOT_USER=minioadmin \
   -e MINIO_ROOT_PASSWORD=minioadmin \
-  -d quay.io/minio/minio server /data --console-address ":9001"
+  -d cgr.dev/chainguard/minio:latest server /data --console-address ":9001"
 ```
 
 El bucket se crea automáticamente al arrancar el backend.
@@ -434,6 +507,8 @@ ignora todo `.env*` salvo las plantillas de ejemplo.
 | `MINIO_SECRET_KEY`      | Credencial secreta                             |
 | `MINIO_BUCKET`          | Bucket donde se guardan las imágenes           |
 | `MAX_UPLOAD_SIZE_BYTES` | Tamaño máximo por imagen (5 MiB por defecto)   |
+| `MLFLOW_TRACKING_URI`   | Servidor MLflow (`http://mlflow:5000` dentro de Compose, `http://localhost:5000` desde el host) |
+| `MLFLOW_PORT`           | Puerto del host para la UI de MLflow (opcional, 5000 por defecto) |
 
 Los `.env` son configuración local de Compose/backend/MinIO/Copilot. Las
 credenciales AWS se obtienen mediante el perfil SSO `mlops-p2`; nunca las
@@ -1094,6 +1169,65 @@ Se añadió `yaml` como dependencia directa del backend para leer/escribir
 YAML sin un parser artesanal. El backend actual no tiene autenticación ni
 autorización: esta edición está destinada al despliegue controlado existente,
 no constituye un panel administrativo protegido para exposición pública.
+
+## OPS-03 — MLflow persistente
+
+El servicio `mlflow` de `docker-compose.yml` es el Tracking Server del Proyecto 3
+(imagen en [`mlflow-server/`](mlflow-server/README.md), MLflow 3.16.1 con versiones
+fijas). No guarda estado en su contenedor:
+
+| Qué | Dónde | Volumen |
+|-----|-------|---------|
+| Experimentos, runs, parámetros, métricas por época, tags | Base `mlflow` en MariaDB | `mariadb_data` |
+| Artefactos (checkpoints, curvas) | Bucket `mlflow` en MinIO | `minio_data` |
+
+Por eso los runs sobreviven a `docker compose restart`, a `docker compose down`
+(sin `-v`) y a recrear los contenedores. La base y el bucket se crean solos al
+arrancar, también sobre volúmenes que ya existían.
+
+### Conectarse (worker, entrenamiento, scripts)
+
+La única configuración del cliente es `MLFLOW_TRACKING_URI`:
+
+- Dentro de Compose (`app`, `copilot` y el futuro worker la reciben de
+  `x-pipeline-env`): `http://mlflow:5000`.
+- Desde el host: `http://localhost:5000`.
+
+Los artefactos se suben y se descargan **a través del servidor**
+(`mlflow-artifacts:`), así que los clientes no necesitan credenciales de MinIO.
+En Python, usa el cliente del proyecto, que lee la URI con `TrackingSettings` y
+fuerza ese modo:
+
+```python
+from tracking.client import tracking_client
+
+client = tracking_client()  # también configura mlflow.set_tracking_uri(...)
+```
+
+Para comprobar la conexión desde un contenedor:
+
+```bash
+docker compose run --rm app python -m tracking.check
+```
+
+La UI está en http://localhost:5000 y solo escucha en loopback porque no tiene
+autenticación. MLflow 3 rechaza (403) cualquier `Host` que no esté en
+`MLFLOW_ALLOWED_HOSTS`; la lista ya incluye `mlflow` y `localhost`.
+
+### Verificar la persistencia
+
+`app/tests/test_mlflow_persistence.py` crea un run con parámetros, métricas por
+época, un checkpoint y una curva; recrea los contenedores de MariaDB, MinIO y
+MLflow, y recupera el mismo `run_id` por API comparando todo (hash del checkpoint
+incluido). Se omite por defecto; para correrla con el stack levantado:
+
+```bash
+docker compose up -d --build --wait mariadb minio mlflow
+cd app
+MLFLOW_INTEGRATION=1 MLFLOW_TRACKING_URI=http://localhost:5000   uv run pytest -v tests/test_mlflow_persistence.py
+```
+
+En CI la corre el job **MLflow persistente (OPS-03)**.
 
 ## APP-03 — Jobs de entrenamiento
 

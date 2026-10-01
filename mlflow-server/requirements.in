@@ -1,0 +1,5 @@
+# Dependencias directas del servidor MLflow (OPS-03). requirements.txt se genera desde
+# aquí con versiones fijas para Linux/Python 3.12 (ver README de este directorio).
+mlflow==3.16.1
+pymysql==1.2.3
+boto3==1.43.106
