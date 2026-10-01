@@ -1,0 +1,53 @@
+"""APP-03: el servicio `ml-api` está conectado al stack del portal.
+
+`docker compose up` lo levanta junto al resto, nginx le manda `/api/ml/` (antes
+iba al backend de Node, que no implementa esas rutas) y su imagen incluye el
+paquete `training/`.
+"""
+
+import re
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _compose() -> dict:
+    return yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+
+
+def test_ml_api_service_runs_the_training_server():
+    service = _compose()["services"]["ml-api"]
+
+    assert service["build"] == "./app"
+    assert service["command"] == ["python", "-m", "training.server"]
+    assert service["environment"]["ML_API_HOST"] == "0.0.0.0"
+    assert service["environment"]["DATABASE_URL"].endswith("@mariadb:3306/image_repo")
+
+
+def test_ml_api_reads_release_files_without_writing_them():
+    assert "./reports:/app/reports:ro" in _compose()["services"]["ml-api"]["volumes"]
+
+
+def test_ml_api_waits_for_mariadb_and_is_not_published():
+    service = _compose()["services"]["ml-api"]
+    assert service["depends_on"]["mariadb"]["condition"] == "service_healthy"
+    assert "ports" not in service, "solo nginx (frontend) debe alcanzar la API"
+
+
+def test_frontend_waits_for_ml_api():
+    assert "ml-api" in _compose()["services"]["frontend"]["depends_on"]
+
+
+def test_nginx_routes_api_ml_to_the_training_service():
+    nginx = (ROOT / "frontend" / "docker" / "nginx.conf").read_text(encoding="utf-8")
+    block = re.search(r"location /api/ml/ \{(.*?)\}", nginx, re.S)
+
+    assert block, "nginx.conf no tiene location /api/ml/"
+    assert "proxy_pass http://ml-api:8001/;" in block.group(1)
+
+
+def test_app_image_ships_the_training_package():
+    dockerfile = (ROOT / "app" / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY training/ ./training/" in dockerfile
