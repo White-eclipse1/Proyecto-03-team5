@@ -1,13 +1,21 @@
 """ML-02: Dataset/DataLoader de clasificación dog/cat sobre el manifiesto P3 (OPS-02)."""
 
 import json
+from hashlib import sha256
+from pathlib import Path
 
 import pytest
 import torch
+from manifests.models import P3Manifest
 from PIL import Image, ImageDraw
 
-from classification.dataset import CropClassificationDataset, build_dataloader, load_split
-from classification.manifest import CropManifest, load_manifest
+from classification.dataset import (
+    CropClassificationDataset,
+    build_dataloader,
+    load_split,
+    match_manifest_to_crops,
+)
+from classification.manifest import load_manifest, manifest_hash
 from classification.transforms import (
     eval_transform,
     preprocess_image,
@@ -15,7 +23,10 @@ from classification.transforms import (
     transform_for,
 )
 from crops.extract import extract_crops
+from crops.models import CropReport
 from presentation.ml_contracts import TrainingParams
+
+ROOT = Path(__file__).resolve().parents[2]
 
 DOG, CAT = 3, 4
 IMAGE_SIZE = 32
@@ -65,29 +76,79 @@ def _crops(tmp_path, count=6):
     )
 
 
-def _manifest_payload(report, splits=None):
+def _rehash(payload):
+    """Recalcula `manifest_hash` con la misma fórmula de OPS-02 tras editar el payload."""
+    payload["manifest_hash"] = "sha256:" + "0" * 64
+    payload["manifest_hash"] = manifest_hash(P3Manifest.model_validate(payload))
+    return payload
+
+
+def _manifest_payload(report, splits=None, crops_sha256=None):
+    """Manifiesto con el contrato completo de OPS-02 (`manifests.models.P3Manifest`)."""
     splits = splits or ["train", "train", "validation", "validation", "test", "test"]
-    return {
+    total = len(report.crops)
+    payload = {
         "schema_version": "1.0",
-        "manifest_version": "p3-v1.0.0",
+        "manifest_version": "p3-test",
         "dataset_version": report.dataset_version,
+        "source_release": report.dataset_version,
+        "provenance": {
+            "release_version": report.dataset_version,
+            "images_dvc_hash": report.provenance.images_dvc_hash,
+            "annotations_dvc_hash": report.provenance.annotations_dvc_hash,
+            "quality_report": report.provenance.quality_report,
+            "crops_sha256": crops_sha256 or "sha256:" + "f" * 64,
+        },
         "seed": 42,
+        "total_images": total,
+        "splits": {
+            name: {"image_count": splits.count(name), "ratio": splits.count(name) / total}
+            for name in ("train", "validation", "test")
+        },
         "records": [
             {
                 "crop_id": crop.crop_id,
                 "source_image_id": crop.image_id,
-                "duplicate_group": f"g{crop.image_id}",
+                "duplicate_group": f"group-{crop.image_id}",
                 "class": crop.class_name,
                 "split": split,
             }
             for crop, split in zip(report.crops, splits, strict=True)
         ],
+        "counts": {},
     }
+    return _rehash(payload)
+
+
+def _write_inputs(tmp_path, report, payload=None):
+    """Escribe crops.json y un manifiesto cuyo `crops_sha256` apunta a ese archivo."""
+    report_path = tmp_path / "crops.json"
+    report_path.write_text(report.model_dump_json(), encoding="utf-8")
+    digest = "sha256:" + sha256(report_path.read_bytes()).hexdigest()
+    payload = payload or _manifest_payload(report, crops_sha256=digest)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+    return manifest_path, report_path
+
+
+def _params(image_size=64):
+    return TrainingParams(
+        optimizer="adam",
+        batch_size=2,
+        max_epochs=3,
+        learning_rate=0.001,
+        image_size=image_size,
+        hidden_layers=[16],
+        dropout=0.1,
+        seed=7,
+        patience=2,
+        min_delta=0.0,
+    )
 
 
 def _dataset(tmp_path, split, report=None, payload=None):
     report = report or _crops(tmp_path)
-    manifest = CropManifest.model_validate(payload or _manifest_payload(report))
+    manifest = P3Manifest.model_validate(payload or _manifest_payload(report))
     return CropClassificationDataset(
         manifest, report, crops_dir=tmp_path / "crops", split=split, image_size=IMAGE_SIZE
     )
@@ -199,8 +260,7 @@ def test_train_sample_is_augmented_across_reads(tmp_path):
 
 def test_manifest_reads_ops02_records(tmp_path):
     report = _crops(tmp_path)
-    path = tmp_path / "manifest.json"
-    path.write_text(json.dumps(_manifest_payload(report)), encoding="utf-8")
+    path, _ = _write_inputs(tmp_path, report)
 
     manifest = load_manifest(path)
 
@@ -212,12 +272,24 @@ def test_manifest_reads_ops02_records(tmp_path):
     assert record.split == "train"
 
 
-def test_manifest_tolerates_extra_fields_from_ops02(tmp_path):
-    payload = _manifest_payload(_crops(tmp_path))
-    payload["manifest_hash"] = "sha256:" + "a" * 64
-    payload["records"][0]["annotation_id"] = 101
+def test_manifest_edited_after_generation_is_rejected(tmp_path):
+    report = _crops(tmp_path)
+    payload = _manifest_payload(report)
+    payload["records"][0]["split"] = "test"  # sin recalcular manifest_hash
+    path, _ = _write_inputs(tmp_path, report, payload=payload)
 
-    assert CropManifest.model_validate(payload).records[0].crop_id
+    with pytest.raises(ValueError, match="manifest_hash"):
+        load_manifest(path)
+
+
+def test_manifest_with_leakage_between_splits_is_rejected(tmp_path):
+    report = _crops(tmp_path)
+    payload = _manifest_payload(report)
+    payload["records"][4]["duplicate_group"] = payload["records"][0]["duplicate_group"]
+    path, _ = _write_inputs(tmp_path, report, payload=_rehash(payload))
+
+    with pytest.raises(ValueError, match="leakage"):
+        load_manifest(path)
 
 
 @pytest.mark.parametrize(
@@ -229,15 +301,25 @@ def test_manifest_rejects_invalid_records(tmp_path, field, value):
     payload["records"][0][field] = value
 
     with pytest.raises(ValueError):
-        CropManifest.model_validate(payload)
+        P3Manifest.model_validate(payload)
 
 
-def test_manifest_rejects_repeated_crop_id(tmp_path):
-    payload = _manifest_payload(_crops(tmp_path))
+def test_dataset_rejects_repeated_crop_id(tmp_path):
+    report = _crops(tmp_path)
+    payload = _manifest_payload(report)
     payload["records"][1]["crop_id"] = payload["records"][0]["crop_id"]
 
     with pytest.raises(ValueError, match="crop_id"):
-        CropManifest.model_validate(payload)
+        _dataset(tmp_path, "train", report=report, payload=payload)
+
+
+def test_dataset_rejects_leaky_manifest_built_in_memory(tmp_path):
+    report = _crops(tmp_path)
+    payload = _manifest_payload(report)
+    payload["records"][4]["source_image_id"] = payload["records"][0]["source_image_id"]
+
+    with pytest.raises(ValueError, match="leakage"):
+        _dataset(tmp_path, "train", report=report, payload=payload)
 
 
 # --- Dataset -------------------------------------------------------------------
@@ -323,28 +405,29 @@ def test_dataset_fails_fast_when_a_crop_file_is_missing(tmp_path):
 
 def test_load_split_takes_image_size_from_training_params(tmp_path):
     report = _crops(tmp_path)
-    manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(json.dumps(_manifest_payload(report)), encoding="utf-8")
-    report_path = tmp_path / "crops.json"
-    report_path.write_text(report.model_dump_json(), encoding="utf-8")
-    params = TrainingParams(
-        optimizer="adam",
-        batch_size=2,
-        max_epochs=3,
-        learning_rate=0.001,
-        image_size=64,
-        hidden_layers=[16],
-        dropout=0.1,
-        seed=7,
-        patience=2,
-        min_delta=0.0,
-    )
+    manifest_path, report_path = _write_inputs(tmp_path, report)
 
     dataset = load_split(
-        manifest_path, report_path, crops_dir=tmp_path / "crops", split="test", params=params
+        manifest_path, report_path, crops_dir=tmp_path / "crops", split="test", params=_params()
     )
 
     assert dataset[0]["image"].shape == (3, 64, 64)
+
+
+def test_load_split_rejects_crops_report_other_than_the_manifest_source(tmp_path):
+    report = _crops(tmp_path)
+    manifest_path, report_path = _write_inputs(
+        tmp_path, report, payload=_manifest_payload(report, crops_sha256="sha256:" + "e" * 64)
+    )
+
+    with pytest.raises(ValueError, match="crops_sha256"):
+        load_split(
+            manifest_path,
+            report_path,
+            crops_dir=tmp_path / "crops",
+            split="train",
+            params=_params(),
+        )
 
 
 # --- DataLoader ----------------------------------------------------------------
@@ -385,3 +468,48 @@ def test_eval_loaders_keep_manifest_order(tmp_path):
         dataset = _dataset(tmp_path, split, report=report)
         order = _order(build_dataloader(dataset, batch_size=1, seed=5))
         assert order == [dataset.sample(i).crop_id for i in range(len(dataset))]
+
+
+# --- Manifiesto real de OPS-02 (reports/releases/v0.1.1/manifest.json) ---------
+
+REAL_MANIFEST = ROOT / "reports" / "releases" / "v0.1.1" / "manifest.json"
+REAL_CROPS_REPORT = ROOT / "reports" / "crops.json"
+REAL_CROPS_DIR = ROOT / "data" / "crops"
+
+
+def test_real_manifest_is_consumable_against_the_committed_crops():
+    manifest = load_manifest(REAL_MANIFEST)
+    report = CropReport.model_validate_json(REAL_CROPS_REPORT.read_text(encoding="utf-8"))
+
+    assert manifest.provenance.crops_sha256 == (
+        "sha256:" + sha256(REAL_CROPS_REPORT.read_bytes()).hexdigest()
+    )
+    sizes = {}
+    for split in ("train", "validation", "test"):
+        matched = match_manifest_to_crops(manifest, report, split)
+        sizes[split] = len(matched)
+        classes = {record.class_name for record, _ in matched}
+        assert classes == {"dog", "cat"}
+        assert all(record.source_image_id == crop.image_id for record, crop in matched)
+    assert sizes == {"train": 469, "validation": 128, "test": 71}
+    assert sum(sizes.values()) == len(report.crops)
+
+
+@pytest.mark.skipif(not REAL_CROPS_DIR.is_dir(), reason="data/crops sin descargar (dvc pull)")
+def test_real_validation_sample_is_deterministic():
+    dataset = load_split(
+        REAL_MANIFEST,
+        REAL_CROPS_REPORT,
+        crops_dir=REAL_CROPS_DIR,
+        split="validation",
+        params=_params(image_size=128),
+    )
+    reads = []
+    for seed in range(5):
+        torch.manual_seed(seed)
+        reads.append(dataset[0]["image"])
+
+    assert len(dataset) == 128
+    assert reads[0].shape == (3, 128, 128)
+    for image in reads[1:]:
+        assert torch.equal(image, reads[0])
