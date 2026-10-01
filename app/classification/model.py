@@ -11,6 +11,11 @@ Arquitectura (ver `classification/README.md`):
   bloque residual + cabeza, por defecto) o `all`. Los bloques congelados no
   reciben gradiente y sus BatchNorm quedan en modo eval también durante el
   entrenamiento, para que sus estadísticas de ImageNet no cambien.
+- `freeze_batchnorm_statistics()` deja **todas** las BatchNorm en modo eval al
+  entrenar: usan sus estadísticas guardadas en vez de las del batch, y sus pesos
+  (gamma/beta) siguen entrenándose donde sean entrenables. Es lo que permite
+  `batch_size=1`, donde las estadísticas de un solo crop son ruido (o, con
+  `image_size=32`, un único valor por canal que BatchNorm no puede normalizar).
 
 El checkpoint guarda pesos, configuración, `class_map`, preprocesamiento y
 origen de los pesos iniciales; `load_checkpoint` reconstruye la red sin
@@ -104,6 +109,16 @@ class DogCatResNet18(nn.Module):
         self._frozen_blocks = tuple(block for block in BACKBONE_BLOCKS if block not in trainable)
         for block in self._frozen_blocks:
             getattr(self.backbone, block).requires_grad_(False)
+        self._freeze_all_batchnorm = False
+
+    @property
+    def batchnorm_statistics(self) -> str:
+        """`frozen` si todas las BatchNorm usan sus estadísticas guardadas; si no, `batch`."""
+        return "frozen" if self._freeze_all_batchnorm else "batch"
+
+    def freeze_batchnorm_statistics(self) -> "DogCatResNet18":
+        self._freeze_all_batchnorm = True
+        return self.train(self.training)
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         expected = (3, self.config.image_size, self.config.image_size)
@@ -118,6 +133,10 @@ class DogCatResNet18(nn.Module):
         super().train(mode)
         for block in self._frozen_blocks:
             getattr(self.backbone, block).eval()
+        if self._freeze_all_batchnorm:
+            for module in self.modules():
+                if isinstance(module, nn.BatchNorm2d):
+                    module.eval()
         return self
 
     def trainable_summary(self) -> dict:
