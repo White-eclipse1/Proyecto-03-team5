@@ -20,7 +20,7 @@ import { errorFromResponse, useMlResource } from "./useMlResource";
 
 /**
  * Rutas del backend para las pantallas de modelos, relativas a `API_BASE_URL`.
- * Todavía no las implementa ningún servicio: APP-02…APP-07 conectan las fuentes
+ * `trainingJobs` lo sirve `ml-api` (APP-03); APP-04…APP-07 conectan las demás fuentes
  * reales respetando los contratos de `schemas.ts`.
  */
 export const ML_ENDPOINTS = {

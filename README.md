@@ -292,7 +292,7 @@ docker compose up --build
 ```
 
 Este comando levanta los servicios de MariaDB, MinIO, backend, frontend,
-pipeline `app` y Copilot. El backend espera a que MariaDB y MinIO estén listos, aplica las
+pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las
 migraciones y siembra únicamente las categorías `dog` y `cat` antes de
 arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 
@@ -301,6 +301,7 @@ arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 | Frontend        | http://localhost:8080            |
 | Backend (API)   | http://localhost:3100            |
 | Consola MinIO   | http://localhost:9001 (minioadmin/minioadmin) |
+| API de entrenamiento | http://localhost:8080/api/ml/ (vía nginx; ver [APP-03](#app-03--jobs-de-entrenamiento)) |
 
 Para apagar normalmente los servicios, sin borrar los datos persistidos:
 
@@ -1093,3 +1094,20 @@ Se añadió `yaml` como dependencia directa del backend para leer/escribir
 YAML sin un parser artesanal. El backend actual no tiene autenticación ni
 autorización: esta edición está destinada al despliegue controlado existente,
 no constituye un panel administrativo protegido para exposición pública.
+
+## APP-03 — Jobs de entrenamiento
+
+La pantalla **Training** (`/ml/training`) crea jobs con `POST /api/ml/training/jobs`.
+nginx manda `/api/ml/` al servicio `ml-api` (Python, `app/training/server.py`), que
+valida el request y las reglas del release (Quality Gate, `provenance.json`,
+`manifest.json` y `manifest_hash`) y **solo encola** el job en MariaDB. El
+entrenamiento lo corre el worker de OPS-04 en otro proceso, nunca dentro del
+request HTTP.
+
+Como el estado vive en MariaDB, refrescar la página o reiniciar los contenedores
+(`docker compose down` sin `-v`) no pierde los jobs, su progreso, sus logs ni sus
+errores. Mientras haya jobs `queued` o `running`, la pantalla se actualiza cada 3 s.
+"Ver logs" deja el job en la URL (`?job=<id>`).
+
+Detalle de la API, de la cola y de la interfaz para el worker en
+[`app/training/README.md`](app/training/README.md).
