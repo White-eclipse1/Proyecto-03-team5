@@ -1,0 +1,16 @@
+# ML-08 — política de selección del candidato, predeclarada antes de consultar el test.
+#
+# Candidatos: runs FINISHED de la matriz ml07-v1 (ML-07). Solo se comparan métricas
+# de validation registradas en MLflow; ninguna métrica de test participa.
+# best_val_loss es la misma métrica que vigila el early stopping (ML-06): la del
+# checkpoint restaurado (checkpoints/best.pt). Desempates fijos: mayor val_accuracy
+# en la mejor época y, si sigue el empate, el nombre de la entrada.
+matrix_id: ml07-v1
+split: validation
+metric: best_val_loss
+mode: min
+tie_breakers:
+  - metric: best_val_accuracy
+    mode: max
+  - metric: entry
+    mode: min
