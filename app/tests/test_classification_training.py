@@ -298,6 +298,10 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
         "train_samples": "8",
         "validation_samples": "4",
         "train_drop_last": "False",
+        "seed_split": "42",
+        "seed_dataloader": "7",
+        "seed_augmentation": "7",
+        "seed_weight_init": "7",
     }
     tags = run.data.tags
     assert tags["mlflow.source.git.commit"] == COMMIT

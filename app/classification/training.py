@@ -26,20 +26,33 @@
 
 Los `hooks` conectan el loop con la cola sin que este módulo dependa de ella:
 `on_run_started` -> `queue.start`, `on_epoch_end` -> `queue.report_progress`,
-`log` -> `queue.log`. Early stopping y mejor checkpoint son ML-06; el registro
-completo de semillas y versiones es ML-05.
+`log` -> `queue.log`. Early stopping y mejor checkpoint son ML-06.
+
+Reproducibilidad (ML-05): cada run registra la semilla del split (la del
+manifiesto de OPS-02) y las del DataLoader, la augmentation y la inicialización
+de pesos (`TrainingParams.seed`, cada una en su propio generador), las versiones
+de librerías y plataforma (`environment_tags`), y el orden en que entró cada crop
+de train por época (`SAMPLE_ORDER_ARTIFACT`, etiqueta `train_order_sha256`).
+El entrenamiento nunca carga el split de test y se niega a correr si validation
+tuviera transforms aleatorios. Operaciones no deterministas conocidas:
+`classification/README.md`, sección ML-05.
 """
 
 import json
 import os
+import platform
 import re
 import subprocess
 import time
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Protocol
 
+import mlflow
+import numpy
+import PIL
 import torch
 import torchvision
 from mlflow.entities import Metric, Param
@@ -57,12 +70,14 @@ from classification.model import (
     build_model,
     save_checkpoint,
 )
+from classification.transforms import random_transform_names
 from crops.classes import CLASS_NAMES
 from presentation.ml_contracts import TrainingParams
 
 EXPERIMENT_NAME = "dogcat-classifier"
 METRIC_NAMES = ("train_loss", "train_accuracy", "val_loss", "val_accuracy")
 CHECKPOINT_ARTIFACT = "checkpoints/last.pt"
+SAMPLE_ORDER_ARTIFACT = "reproducibility/sample_order.json"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -102,6 +117,7 @@ class TrainingResult:
     checkpoint_uri: str
     history: list[EpochMetrics]
     optimizer_steps: int
+    sample_order: dict[int, list[str]]
 
 
 class TrainingHooks(Protocol):
@@ -154,6 +170,22 @@ class JobQueueHooks:
         self._queue.log(self._job_id, message, level=level)
 
 
+def environment_tags() -> dict[str, str]:
+    """Versiones de librerías y plataforma con las que corre el entrenamiento."""
+    return {
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "torchvision_version": torchvision.__version__,
+        "numpy_version": numpy.__version__,
+        "pillow_version": PIL.__version__,
+        "mlflow_version": mlflow.__version__,
+        "platform": platform.platform(),
+        "torch_num_threads": str(torch.get_num_threads()),
+        "torch_deterministic_algorithms": str(torch.are_deterministic_algorithms_enabled()),
+        "cuda_available": str(torch.cuda.is_available()),
+    }
+
+
 def resolve_git_commit() -> str:
     """Commit del código que entrena: `GIT_COMMIT` (p. ej. en Docker) o `git rev-parse HEAD`."""
     commit = os.environ.get("GIT_COMMIT")
@@ -189,12 +221,17 @@ def build_optimizer(
 
 def _train_epoch(
     model: nn.Module, loader: DataLoader, optimizer: torch.optim.Optimizer, criterion: nn.Module
-) -> tuple[float, float, int]:
-    """Una época por minibatches: un `optimizer.step()` por batch. Devuelve loss, acc, pasos."""
+) -> tuple[float, float, int, list[str]]:
+    """Una época por minibatches: un `optimizer.step()` por batch.
+
+    Devuelve loss, accuracy, pasos y el orden en que entraron los crops.
+    """
     model.train()
     total_loss, correct, seen, steps = 0.0, 0, 0, 0
+    order: list[str] = []
     for batch in loader:
         images, labels = batch["image"], batch["label"]
+        order.extend(batch["crop_id"])
         optimizer.zero_grad()
         logits = model(images)
         loss = criterion(logits, labels)
@@ -204,7 +241,7 @@ def _train_epoch(
         total_loss += loss.item() * len(labels)
         correct += (logits.argmax(dim=1) == labels).sum().item()
         seen += len(labels)
-    return total_loss / seen, correct / seen, steps
+    return total_loss / seen, correct / seen, steps, order
 
 
 def _evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module) -> tuple[float, float]:
@@ -231,6 +268,7 @@ def _mlflow_params(
     train_samples: int,
     validation_samples: int,
     drop_last: bool,
+    split_seed: int,
 ) -> dict[str, str]:
     """Parámetros efectivos como texto, igual que `ExperimentRun.params` del portal."""
     values = params.model_dump()
@@ -243,6 +281,10 @@ def _mlflow_params(
         train_samples=str(train_samples),
         validation_samples=str(validation_samples),
         train_drop_last=str(drop_last),
+        seed_split=str(split_seed),
+        seed_dataloader=str(params.seed),
+        seed_augmentation=str(params.seed),
+        seed_weight_init=str(params.seed),
     )
     return effective
 
@@ -262,11 +304,19 @@ def run_training(
 ) -> TrainingResult:
     hooks = hooks or _NoHooks()
     train_set = load_split(
-        data.manifest, data.crop_report, crops_dir=data.crops_dir, split="train", params=params
+        data.manifest,
+        data.crop_report,
+        crops_dir=data.crops_dir,
+        split="train",
+        params=params,
+        augmentation_seed=params.seed,
     )
     validation_set = load_split(
         data.manifest, data.crop_report, crops_dir=data.crops_dir, split="validation", params=params
     )
+    random_steps = random_transform_names(validation_set.transform)
+    if random_steps:
+        raise ValueError(f"validation no debe tener transforms aleatorios: {random_steps}")
     if train_set.dataset_version != dataset_version:
         raise ValueError(
             f"dataset_version del job ({dataset_version}) distinto del manifiesto "
@@ -288,6 +338,7 @@ def run_training(
     manifest = load_manifest(data.manifest)
     provenance = manifest.provenance
 
+    # Semilla de inicialización de pesos (cabeza nueva) y de la secuencia de dropout.
     torch.manual_seed(params.seed)
     model = build_model(config)
     optimizer = build_optimizer(
@@ -321,12 +372,12 @@ def run_training(
             "class_map": json.dumps(CLASS_MAP),
             "weights_origin": json.dumps(WEIGHTS_ORIGIN if pretrained else None),
             "trainable_summary": json.dumps(model.trainable_summary()),
-            "torch_version": torch.__version__,
-            "torchvision_version": torchvision.__version__,
+            **environment_tags(),
         },
     )
     run_id = run.info.run_id
     history: list[EpochMetrics] = []
+    sample_order: dict[int, list[str]] = {}
     steps = 0
     try:
         client.log_batch(
@@ -334,7 +385,12 @@ def run_training(
             params=[
                 Param(key, value)
                 for key, value in _mlflow_params(
-                    params, config, len(train_set), len(validation_set), drop_last
+                    params,
+                    config,
+                    len(train_set),
+                    len(validation_set),
+                    drop_last,
+                    manifest.seed,
                 ).items()
             ],
         )
@@ -344,10 +400,12 @@ def run_training(
             f"validation, {params.max_epochs} épocas, batch_size={params.batch_size}"
         )
         for epoch in range(1, params.max_epochs + 1):
-            train_loss, train_accuracy, epoch_steps = _train_epoch(
+            train_set.set_epoch(epoch)
+            train_loss, train_accuracy, epoch_steps, order = _train_epoch(
                 model, train_loader, optimizer, criterion
             )
             steps += epoch_steps
+            sample_order[epoch] = order
             val_loss, val_accuracy = _evaluate(model, validation_loader, criterion)
             metrics = EpochMetrics(epoch, train_loss, train_accuracy, val_loss, val_accuracy)
             timestamp = int(time.time() * 1000)
@@ -365,7 +423,12 @@ def run_training(
                 f"train_acc={train_accuracy:.4f} val_loss={val_loss:.4f} "
                 f"val_acc={val_accuracy:.4f}"
             )
+        order_json = json.dumps({str(epoch): ids for epoch, ids in sample_order.items()})
+        client.set_tag(run_id, "train_order_sha256", sha256(order_json.encode()).hexdigest())
         with TemporaryDirectory() as tmp:
+            order_path = Path(tmp) / Path(SAMPLE_ORDER_ARTIFACT).name
+            order_path.write_text(order_json, encoding="utf-8")
+            client.log_artifact(run_id, str(order_path), str(Path(SAMPLE_ORDER_ARTIFACT).parent))
             checkpoint = save_checkpoint(
                 model,
                 Path(tmp) / Path(CHECKPOINT_ARTIFACT).name,
@@ -392,6 +455,7 @@ def run_training(
         checkpoint_uri=f"runs:/{run_id}/{CHECKPOINT_ARTIFACT}",
         history=history,
         optimizer_steps=steps,
+        sample_order=sample_order,
     )
 
 
@@ -399,6 +463,7 @@ __all__ = [
     "CHECKPOINT_ARTIFACT",
     "EXPERIMENT_NAME",
     "METRIC_NAMES",
+    "SAMPLE_ORDER_ARTIFACT",
     "DataPaths",
     "EpochMetrics",
     "JobQueue",
@@ -406,6 +471,7 @@ __all__ = [
     "TrainingHooks",
     "TrainingResult",
     "build_optimizer",
+    "environment_tags",
     "resolve_git_commit",
     "run_training",
 ]
