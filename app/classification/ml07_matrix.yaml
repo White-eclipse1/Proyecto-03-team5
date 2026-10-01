@@ -1,0 +1,56 @@
+# ML-07 — matriz de experimentos sobre el manifiesto P3 v0.1.1 (dog/cat).
+#
+# Diseño: una base razonable para fine-tuning de ResNet18 y cambios de uno o dos
+# parámetros a la vez, para poder atribuir cada diferencia; dos corridas combinan
+# cambios. Los siete parámetros de la rúbrica toman al menos dos valores.
+# Semilla, early stopping (val_loss, patience 3, min_delta 0) y manifiesto son
+# iguales en todas, así las corridas son comparables.
+#
+# La selección del candidato (ML-08) usa una métrica de validation predeclarada;
+# el conjunto de test no se usa en ninguna corrida.
+matrix_id: ml07-v1
+dataset_version: v0.1.1
+base:
+  optimizer: adam
+  batch_size: 32
+  max_epochs: 10
+  learning_rate: 0.001
+  image_size: 128
+  hidden_layers: [128]
+  dropout: 0.2
+  seed: 42
+  patience: 3
+  min_delta: 0.0
+runs:
+  - name: r01-base
+  - name: r02-adamw
+    optimizer: adamw
+  - name: r03-sgd
+    optimizer: sgd
+    learning_rate: 0.01
+  - name: r04-batch16
+    batch_size: 16
+  - name: r05-batch64
+    batch_size: 64
+  - name: r06-lr3e-4-ep15
+    learning_rate: 0.0003
+    max_epochs: 15
+  - name: r07-img224
+    image_size: 224
+  - name: r08-img96
+    image_size: 96
+  - name: r09-head256-64-drop0.3
+    hidden_layers: [256, 64]
+    dropout: 0.3
+  - name: r10-no-hidden-drop0
+    hidden_layers: []
+    dropout: 0.0
+  - name: r11-adamw-img160-head256-drop0.5
+    optimizer: adamw
+    learning_rate: 0.0003
+    max_epochs: 15
+    image_size: 160
+    hidden_layers: [256]
+    dropout: 0.5
+  - name: r12-ep6
+    max_epochs: 6
