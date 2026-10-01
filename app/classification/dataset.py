@@ -12,6 +12,13 @@ bytes que decodifica, así un archivo cambiado después tampoco entra.
 `load_split` además exige que `crops.json` sea exactamente el archivo del que
 salió el manifiesto (`provenance.crops_sha256`).
 
+Con `augmentation_seed`, la augmentation de train de cada muestra usa su propia
+semilla, derivada de `(augmentation_seed, epoch, índice)`, dentro de
+`torch.random.fork_rng`: no depende del orden de lectura, de los workers del
+DataLoader ni del estado global de torch, y no consume ese estado (el dropout
+sigue con su propia secuencia). `set_epoch(n)` cambia la augmentation por época.
+Validation y test no tienen pasos aleatorios, así que la semilla no los afecta.
+
 Cada muestra es un dict con `image` (tensor `3 x image_size x image_size`),
 `label` (índice de `crops.classes.CLASS_TO_INDEX`: dog=0, cat=1), `crop_id`,
 `source_image_id` y `class_name`, así el DataLoader conserva la trazabilidad de
@@ -104,6 +111,7 @@ class CropClassificationDataset(Dataset):
         crops_dir: Path,
         split: SplitName,
         image_size: int,
+        augmentation_seed: int | None = None,
     ) -> None:
         samples = []
         for record, crop in match_manifest_to_crops(manifest, crop_report, split):
@@ -128,7 +136,18 @@ class CropClassificationDataset(Dataset):
         self.manifest_hash = manifest.manifest_hash
         self.class_to_index = dict(CLASS_TO_INDEX)
         self.transform = transform_for(split, image_size)
+        self.augmentation_seed = augmentation_seed
+        self.epoch = 1
         self._samples = samples
+
+    def set_epoch(self, epoch: int) -> None:
+        """Época actual: con `augmentation_seed`, cada época aumenta distinto y reproducible."""
+        self.epoch = epoch
+
+    def sample_seed(self, index: int) -> int:
+        """Semilla de augmentation de la muestra `index` en la época actual."""
+        key = f"{self.augmentation_seed}:{self.epoch}:{index}".encode()
+        return int.from_bytes(sha256(key).digest()[:8], "big") & (2**63 - 1)
 
     def __len__(self) -> int:
         return len(self._samples)
@@ -141,7 +160,13 @@ class CropClassificationDataset(Dataset):
         sample = self._samples[index]
         data = _verified_bytes(sample.crop_id, sample.path, sample.sha256)
         with Image.open(BytesIO(data)) as stored:
-            image = self.transform(stored.convert("RGB"))
+            rgb = stored.convert("RGB")
+        if self.augmentation_seed is None:
+            image = self.transform(rgb)
+        else:
+            with torch.random.fork_rng(devices=[]):
+                torch.manual_seed(self.sample_seed(index))
+                image = self.transform(rgb)
         return {
             "image": image,
             "label": sample.label,
@@ -158,6 +183,7 @@ def load_split(
     crops_dir: Path,
     split: SplitName,
     params: TrainingParams,
+    augmentation_seed: int | None = None,
 ) -> CropClassificationDataset:
     """Dataset de una partición con el `image_size` de la configuración de entrenamiento."""
     manifest = load_manifest(manifest_path)
@@ -175,6 +201,7 @@ def load_split(
         crops_dir=crops_dir,
         split=split,
         image_size=params.image_size,
+        augmentation_seed=augmentation_seed,
     )
 
 
@@ -184,8 +211,13 @@ def build_dataloader(
     batch_size: int,
     seed: int,
     num_workers: int = 0,
+    drop_last: bool = False,
 ) -> DataLoader:
-    """Baraja solo train, con un generador sembrado: misma semilla, mismo orden."""
+    """Baraja solo train, con un generador sembrado: misma semilla, mismo orden.
+
+    `drop_last` descarta el último batch incompleto (ML-04 lo usa solo en train cuando
+    ese batch tendría una sola muestra).
+    """
     generator = torch.Generator()
     generator.manual_seed(seed)
     return DataLoader(
@@ -194,4 +226,5 @@ def build_dataloader(
         shuffle=dataset.split == "train",
         generator=generator,
         num_workers=num_workers,
+        drop_last=drop_last,
     )

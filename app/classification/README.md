@@ -145,3 +145,126 @@ reconstruye la red **sin descargar** pesos, rechaza otra arquitectura u otro
 
 Tests: `uv run pytest tests/test_classification_model.py`. Evidencia con pesos y
 crops reales: [`tests/evidence/ml-03-model.md`](../tests/evidence/ml-03-model.md).
+
+## ML-04 — Loop de entrenamiento y MLflow
+
+`classification/training.py` → `run_training(...)`, lo que ejecuta el worker de
+OPS-04 por cada job de la cola de APP-03.
+
+```python
+from classification.training import DataPaths, JobQueueHooks, run_training
+from tracking.client import tracking_client  # OPS-03, usa MLFLOW_TRACKING_URI
+
+result = run_training(
+    job.params,  # TrainingParams del job
+    dataset_version=job.dataset_version,
+    manifest_hash=job.manifest_hash,
+    data=DataPaths.for_release(job.dataset_version),
+    client=tracking_client(),
+    hooks=JobQueueHooks(queue, job.job_id),  # start / report_progress / log de la cola
+)
+queue.succeed(job.job_id, checkpoint=result.checkpoint_uri)  # runs:/<run_id>/checkpoints/last.pt
+```
+
+Si `run_training` lanza una excepción, el run ya quedó `FAILED` en MLflow (o no
+se creó, si el job no coincide con el manifiesto). El worker solo llama
+`queue.fail(job.job_id, ContractError(code="training_error", ...))`.
+
+### Qué hace
+
+1. Carga train y validation con el Dataset de ML-02. Falla **antes** de crear el
+   run si `dataset_version` o `manifest_hash` del job no son los del manifiesto.
+2. `torch.manual_seed(seed)` y construye el modelo de ML-03 (`image_size`,
+   `hidden_layers`, `dropout`) y el optimizador configurado sobre los parámetros
+   entrenables: `adam` → `Adam`, `adamw` → `AdamW`, `sgd` → `SGD(momentum=0.9)`,
+   con `learning_rate`.
+3. Por época, un `optimizer.step()` por minibatch del DataLoader de train
+   (`batch_size`), y luego la evaluación sin gradiente en validation.
+   - `batch_size=1` (lo aceptan el formulario y el API) se entrena con un paso por
+     crop y todas las BatchNorm usando sus estadísticas guardadas
+     (`batchnorm_statistics=frozen`; sus pesos gamma/beta se siguen entrenando):
+     las estadísticas de una sola imagen son ruido, y con `image_size=32` BatchNorm
+     no puede normalizar un único valor por canal.
+   - Con `batch_size > 1`, BatchNorm usa las estadísticas del batch
+     (`batchnorm_statistics=batch`) y, si el último batch de train tendría una sola
+     muestra, se descarta (`train_drop_last=True`) por la misma razón.
+4. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run `FINISHED`.
+   El mejor checkpoint y early stopping son ML-06.
+
+### Qué queda en MLflow (experimento `dogcat-classifier`)
+
+| Tipo | Claves |
+|------|--------|
+| Parámetros efectivos (texto, como `ExperimentRun.params`) | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers` (`"128,64"`), `dropout`, `seed`, `patience`, `min_delta`, `architecture`, `pretrained`, `trainable`, `train_samples`, `validation_samples`, `train_drop_last`, `batchnorm_statistics` |
+| Métricas por época (`step` = época) | `train_loss`, `train_accuracy`, `val_loss`, `val_accuracy` |
+| Etiquetas de procedencia | `mlflow.source.git.commit`, `git_commit`, `dataset_version`, `manifest_hash`, `manifest_version`, `dvc_images_hash`, `dvc_annotations_hash`, `quality_report`, `crops_sha256`, `classes` (`dog,cat`), `class_map`, `weights_origin`, `trainable_summary`, `torch_version`, `torchvision_version` |
+| Artefacto | `checkpoints/last.pt` (`save_checkpoint` de ML-03, con `run_id`, release, `manifest_hash`, commit y épocas en `metadata`) |
+| Fallo | estado `FAILED` (`KILLED` si se interrumpe) y etiqueta `error` |
+
+### Requisitos del proceso que entrena (worker)
+
+- `MLFLOW_TRACKING_URI`: en Compose, `http://mlflow:5000` (OPS-03).
+- `GIT_COMMIT` con el SHA de 40 caracteres si el contenedor no tiene `.git`
+  (por ejemplo, como argumento de build). Fuera de Docker se usa
+  `git rev-parse HEAD`. Sin commit válido, el job falla antes de crear el run.
+- `reports/releases/<version>/manifest.json`, `reports/crops.json` y `data/crops`
+  (de DVC) en las rutas de `DataPaths.for_release`, o rutas explícitas en
+  `DataPaths(...)`.
+- Red para descargar los pesos ImageNet de torchvision la primera vez (~45 MB),
+  o la caché de torch hub (`TORCH_HOME`) en un volumen.
+- CPU: 3 épocas con `image_size=128` y `batch_size=32` tardan ~25 s en un Mac M.
+
+Tests: `uv run pytest tests/test_classification_training.py` (dataset controlado
+y MLflow local, sin red). Evidencia con el servidor real:
+[`tests/evidence/ml-04-training.md`](../tests/evidence/ml-04-training.md).
+
+## ML-05 — Semillas y augmentation controlada
+
+### Semillas registradas en cada run (parámetros de MLflow)
+
+| Parámetro | Valor | Qué controla |
+|-----------|-------|--------------|
+| `seed_split` | `seed` del manifiesto de OPS-02 (42 en `p3-v1`) | Asignación de crops a train/validation/test (70/20/10) |
+| `seed_dataloader` | `TrainingParams.seed` | `torch.Generator` del DataLoader: orden de train en cada época |
+| `seed_augmentation` | `TrainingParams.seed` | Augmentation de train: cada muestra usa la semilla de `sha256(seed:época:índice)` |
+| `seed_weight_init` | `TrainingParams.seed` | `torch.manual_seed` antes de construir el modelo: pesos iniciales de la cabeza y secuencia de dropout |
+
+Cada semilla alimenta su propio generador, así que comparten valor sin compartir
+secuencia. La augmentation corre dentro de `torch.random.fork_rng`: no depende
+del orden de lectura ni de los workers, y no consume el generador global que usa
+el dropout.
+
+El orden real en que entró cada crop de train, por época, queda en el artefacto
+`reproducibility/sample_order.json` y en la etiqueta `train_order_sha256`: dos
+runs vieron el mismo orden si esa etiqueta coincide.
+
+Versiones y entorno (etiquetas, `environment_tags()`): `python_version`,
+`torch_version`, `torchvision_version`, `numpy_version`, `pillow_version`,
+`mlflow_version`, `platform`, `torch_num_threads`,
+`torch_deterministic_algorithms` y `cuda_available`. Las dependencias exactas
+están fijadas en `app/uv.lock`.
+
+### Validation, test e inferencia
+
+- Train: `RandomResizedCrop`, `RandomHorizontalFlip` y `ColorJitter`.
+- Validation, test e inferencia: `eval_transform`, sin pasos aleatorios
+  (`random_transform_names(...) == []`).
+- `run_training` solo carga train y validation (nunca test). Si validation tuviera
+  un transform aleatorio, se niega a entrenar antes de crear el run.
+
+### Operaciones no deterministas conocidas
+
+Comprobado el 2026-10-01 en macOS arm64, CPU, torch 2.14.0
+([evidencia](../tests/evidence/ml-05-reproducibility.md)):
+
+| Fuente | Estado en este proyecto |
+|--------|-------------------------|
+| Hilos de CPU (`torch_num_threads`) | 4 hilos y 1 hilo dieron métricas idénticas. Otro CPU o BLAS puede cambiar los últimos decimales: por eso se registra la plataforma |
+| Workers del DataLoader | Con `seed_augmentation`, `num_workers=0` y `2` dan el mismo orden y los mismos tensores. Sin semilla por muestra (como en ML-02) la augmentation cambiaba con los workers |
+| `torch.use_deterministic_algorithms(True)` | En CPU corre sin error y da las mismas métricas que el modo normal; no se activa por defecto |
+| GPU / cuDNN | No se usa GPU (`cuda_available=False`). En GPU, algunas convoluciones y `scatter_add` no son deterministas: habría que activar `torch.backends.cudnn.deterministic = True`, `benchmark = False` y `use_deterministic_algorithms(True)` |
+| Pesos ImageNet | Fijos: torchvision verifica el hash `f37072fd` al descargarlos |
+| Librerías | `uv.lock` fija versiones exactas; otra versión de torch/torchvision/Pillow puede cambiar el redimensionado o los kernels |
+| Tiempo y orden de logs | Los `timestamp` de MLflow y los `run_id` cambian en cada corrida; no afectan el entrenamiento |
+
+Tests: `uv run pytest tests/test_classification_reproducibility.py`.
