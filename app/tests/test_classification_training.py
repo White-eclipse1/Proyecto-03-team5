@@ -96,11 +96,29 @@ class RecordingHooks:
 # --- Minibatches y optimizer.step() por batch ------------------------------------------
 
 
-@pytest.mark.parametrize(("batch_size", "steps_per_epoch"), [(1, 8), (3, 3), (4, 2), (8, 1)])
+@pytest.mark.parametrize(("batch_size", "steps_per_epoch"), [(2, 4), (3, 3), (4, 2), (8, 1)])
 def test_optimizer_steps_once_per_minibatch(client, release, batch_size, steps_per_epoch):
     result = _train(client, release, _params(batch_size=batch_size, max_epochs=2))
 
     assert result.optimizer_steps == 2 * steps_per_epoch == 2 * math.ceil(8 / batch_size)
+
+
+def test_last_train_batch_of_one_sample_is_dropped(client, tmp_path):
+    release = write_controlled_release(
+        tmp_path / "nine", splits={"train": 9, "validation": 4, "test": 4}
+    )
+
+    result = _train(client, release, _params(batch_size=4, max_epochs=2))
+
+    assert result.optimizer_steps == 2 * 2
+    assert client.get_run(result.run_id).data.params["train_drop_last"] == "True"
+
+
+def test_batch_size_one_is_rejected_before_creating_a_run(client, release):
+    with pytest.raises(ValueError, match="batch_size=1"):
+        _train(client, release, _params(batch_size=1))
+
+    assert client.get_experiment_by_name(EXPERIMENT_NAME) is None
 
 
 def test_each_step_uses_one_batch_of_batch_size(client, release, monkeypatch):
@@ -251,6 +269,7 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
         "trainable": "layer4",
         "train_samples": "8",
         "validation_samples": "4",
+        "train_drop_last": "False",
     }
     tags = run.data.tags
     assert tags["mlflow.source.git.commit"] == COMMIT

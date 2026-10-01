@@ -184,8 +184,13 @@ def build_dataloader(
     batch_size: int,
     seed: int,
     num_workers: int = 0,
+    drop_last: bool = False,
 ) -> DataLoader:
-    """Baraja solo train, con un generador sembrado: misma semilla, mismo orden."""
+    """Baraja solo train, con un generador sembrado: misma semilla, mismo orden.
+
+    `drop_last` descarta el último batch incompleto (ML-04 lo usa solo en train cuando
+    ese batch tendría una sola muestra).
+    """
     generator = torch.Generator()
     generator.manual_seed(seed)
     return DataLoader(
@@ -194,4 +199,5 @@ def build_dataloader(
         shuffle=dataset.split == "train",
         generator=generator,
         num_workers=num_workers,
+        drop_last=drop_last,
     )
