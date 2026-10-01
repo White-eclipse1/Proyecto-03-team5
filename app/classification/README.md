@@ -40,7 +40,10 @@ Antes de entregar una sola muestra se comprueba que:
   (`load_split`);
 - el manifiesto y los crops son del mismo release, cada `crop_id` existe, no se
   repite, y su `class` y `source_image_id` coinciden con `crops.json`;
-- existe el PNG de cada crop.
+- existe el PNG de cada crop y su sha256 es el que `crops.json` registró al
+  extraerlo (`CropRecord.sha256`): un PNG alterado o sustituido se rechaza al
+  construir el Dataset, antes de entrenar. `dataset[i]` vuelve a verificar el
+  hash de los bytes que decodifica (los 668 PNG reales se verifican en ~0.2 s).
 
 ## Muestras
 
