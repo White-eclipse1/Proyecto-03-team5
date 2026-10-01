@@ -115,11 +115,26 @@ def test_last_train_batch_of_one_sample_is_dropped(client, tmp_path):
     assert client.get_run(result.run_id).data.params["train_drop_last"] == "True"
 
 
-def test_batch_size_one_is_rejected_before_creating_a_run(client, release):
-    with pytest.raises(ValueError, match="batch_size=1"):
-        _train(client, release, _params(batch_size=1))
+def test_batch_size_one_trains_with_frozen_batchnorm_statistics(client, release, tmp_path):
+    # El formulario y el API aceptan batch_size=1: el loop debe entrenarlo, no rechazar el job.
+    result = _train(client, release, _params(batch_size=1, max_epochs=2, image_size=32))
 
-    assert client.get_experiment_by_name(EXPERIMENT_NAME) is None
+    run = client.get_run(result.run_id)
+    assert run.info.status == "FINISHED"
+    assert result.optimizer_steps == 2 * 8  # un paso por crop de train
+    assert run.data.params["batchnorm_statistics"] == "frozen"
+    local = client.download_artifacts(result.run_id, "checkpoints/last.pt", str(tmp_path))
+    state = torch.load(local, weights_only=True)["state_dict"]
+    # Con una muestra por batch, BatchNorm usa sus estadísticas guardadas y no las cambia
+    # (pretrained=False: siguen en su valor inicial, media 0 y varianza 1).
+    assert torch.equal(state["backbone.layer4.1.bn2.running_mean"], torch.zeros(512))
+    assert torch.equal(state["backbone.layer4.1.bn2.running_var"], torch.ones(512))
+
+
+def test_larger_batches_keep_batchnorm_in_batch_statistics_mode(client, release):
+    result = _train(client, release, _params(batch_size=4, max_epochs=1))
+
+    assert client.get_run(result.run_id).data.params["batchnorm_statistics"] == "batch"
 
 
 def test_each_step_uses_one_batch_of_batch_size(client, release, monkeypatch):
@@ -298,6 +313,7 @@ def test_run_records_params_provenance_classes_and_checkpoint(client, release, t
         "train_samples": "8",
         "validation_samples": "4",
         "train_drop_last": "False",
+        "batchnorm_statistics": "batch",
         "seed_split": "42",
         "seed_dataloader": "7",
         "seed_augmentation": "7",

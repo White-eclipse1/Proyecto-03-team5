@@ -15,10 +15,11 @@
 4. Por época: un `optimizer.step()` por minibatch del DataLoader de train
    (`batch_size` de la configuración), evaluación sin gradiente en validation, y
    `train_loss`, `train_accuracy`, `val_loss`, `val_accuracy` en MLflow con
-   `step=epoch`. Si el último batch de train tendría una sola muestra se descarta
-   (`train_drop_last`): BatchNorm en modo train no puede normalizar un único valor
-   por canal (falla con `image_size=32`, donde layer4 queda en 1x1). Por lo mismo,
-   `batch_size=1` se rechaza cuando el modelo entrena capas con BatchNorm.
+   `step=epoch`. Con `batch_size=1`, todas las BatchNorm usan sus estadísticas
+   guardadas (`batchnorm_statistics=frozen`): las de una sola imagen son ruido, y
+   con `image_size=32` (layer4 en 1x1) BatchNorm no puede normalizar un único
+   valor. Con batches mayores, si el último de train tendría una sola muestra se
+   descarta (`train_drop_last`) por la misma razón.
 5. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run como
    `FINISHED`. Cualquier excepción después de crear el run lo deja `FAILED` (o
    `KILLED` si se interrumpe), guarda el error en la etiqueta `error` y se
@@ -268,6 +269,7 @@ def _mlflow_params(
     train_samples: int,
     validation_samples: int,
     drop_last: bool,
+    batchnorm_statistics: str,
     split_seed: int,
 ) -> dict[str, str]:
     """Parámetros efectivos como texto, igual que `ExperimentRun.params` del portal."""
@@ -281,6 +283,7 @@ def _mlflow_params(
         train_samples=str(train_samples),
         validation_samples=str(validation_samples),
         train_drop_last=str(drop_last),
+        batchnorm_statistics=batchnorm_statistics,
         seed_split=str(split_seed),
         seed_dataloader=str(params.seed),
         seed_augmentation=str(params.seed),
@@ -328,12 +331,7 @@ def run_training(
             f"({train_set.manifest_hash})"
         )
     config = ModelConfig.from_params(params, pretrained=pretrained)
-    if params.batch_size == 1 and config.trainable != "head":
-        raise ValueError(
-            f"batch_size=1 no es entrenable con trainable={config.trainable}: BatchNorm "
-            "necesita más de una muestra por batch"
-        )
-    drop_last = len(train_set) % params.batch_size == 1
+    drop_last = params.batch_size > 1 and len(train_set) % params.batch_size == 1
     commit = git_commit or resolve_git_commit()
     manifest = load_manifest(data.manifest)
     provenance = manifest.provenance
@@ -341,6 +339,8 @@ def run_training(
     # Semilla de inicialización de pesos (cabeza nueva) y de la secuencia de dropout.
     torch.manual_seed(params.seed)
     model = build_model(config)
+    if params.batch_size == 1:
+        model.freeze_batchnorm_statistics()
     optimizer = build_optimizer(
         params.optimizer,
         [parameter for parameter in model.parameters() if parameter.requires_grad],
@@ -390,6 +390,7 @@ def run_training(
                     len(train_set),
                     len(validation_set),
                     drop_last,
+                    model.batchnorm_statistics,
                     manifest.seed,
                 ).items()
             ],
