@@ -206,6 +206,15 @@ def _run_summary(client: MlflowClient, run) -> dict:
     }
 
 
+def identical_result_groups(runs: list[dict]) -> list[list[str]]:
+    """Entradas cuyo mejor resultado (época, val_loss, val_accuracy) es idéntico."""
+    groups: dict[tuple, list[str]] = {}
+    for run in runs:
+        key = (run["best_epoch"], run["best_val_loss"], run["best_val_accuracy"])
+        groups.setdefault(key, []).append(run["entry"])
+    return [sorted(entries) for entries in groups.values() if len(entries) > 1]
+
+
 def matrix_report(client: MlflowClient, matrix: ExperimentMatrix, *, min_runs: int = 10) -> dict:
     """Runs válidos de la matriz y criterios de ML-07, leídos solo de la API de MLflow."""
     valid, excluded = [], []
@@ -225,8 +234,11 @@ def matrix_report(client: MlflowClient, matrix: ExperimentMatrix, *, min_runs: i
 
     varied = {param: sorted({run["params"][param] for run in valid}) for param in VARIED_PARAMS}
     configs = [tuple(sorted(run["params"].items())) for run in valid]
+    identical = identical_result_groups(valid)
+    distinct_results = len(valid) - sum(len(group) - 1 for group in identical)
     checks = {
         "at_least_min_runs": len(valid) >= min_runs,
+        "at_least_min_distinct_results": distinct_results >= min_runs,
         "seven_params_vary": all(len(values) >= 2 for values in varied.values()),
         "no_duplicate_configs": len(configs) == len(set(configs)),
         "same_manifest_hash": len(distinct("manifest_hash")) == 1,
@@ -253,6 +265,8 @@ def matrix_report(client: MlflowClient, matrix: ExperimentMatrix, *, min_runs: i
         "min_runs": min_runs,
         "checks": checks,
         "varied_params": varied,
+        "distinct_results": distinct_results,
+        "identical_results": identical,
         "valid_runs": valid,
         "excluded_runs": excluded,
     }
