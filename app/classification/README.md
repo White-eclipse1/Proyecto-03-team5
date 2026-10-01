@@ -305,3 +305,50 @@ secuencias artificiales de `val_loss` prueban la lógica, y una secuencia
 inyectada en `run_training` comprueba que el checkpoint final son los pesos de
 la mejor época. Evidencia con datos reales:
 [`tests/evidence/ml-06-early-stopping.md`](../tests/evidence/ml-06-early-stopping.md).
+
+## ML-07 — Matriz de experimentos y 10+ corridas en MLflow
+
+`classification/ml07_matrix.yaml` define 12 corridas sobre el manifiesto `v0.1.1`.
+Todas usan una `base` común y cambian uno o dos parámetros a la vez. Los siete
+parámetros de la rúbrica toman al menos dos valores:
+
+| Parámetro | Valores en la matriz |
+|-----------|----------------------|
+| `optimizer` | `adam`, `adamw`, `sgd` |
+| `batch_size` | 16, 32, 64 |
+| `max_epochs` | 6, 10, 15 |
+| `learning_rate` | 0.0003, 0.001, 0.01 |
+| `image_size` | 96, 128, 160, 224 |
+| `hidden_layers` | `[]`, `[128]`, `[256]`, `[256, 64]` |
+| `dropout` | 0.0, 0.2, 0.3, 0.5 |
+
+`seed=42`, early stopping (`val_loss`, `patience=3`, `min_delta=0`), clases y
+manifiesto son iguales en todas, así las corridas son comparables.
+`load_matrix` rechaza una matriz donde algún parámetro no varíe, con
+configuraciones duplicadas o con valores fuera de `TrainingParams`.
+
+```bash
+docker compose up -d --wait mlflow            # MLflow de OPS-03
+cd app
+uv run python -m classification.experiments run --matrix classification/ml07_matrix.yaml
+uv run python -m classification.experiments report --matrix classification/ml07_matrix.yaml \
+  --out ../reports/experiments/ml07_runs.json
+```
+
+- `run` entrena cada entrada con `run_training` y etiqueta el run con
+  `experiment_matrix=ml07-v1` y `matrix_entry=<nombre>`. Si se interrumpe, al
+  volver a correrlo salta las entradas que ya tienen un run `FINISHED`. Se niega
+  a correr con cambios sin commit, porque el `git_commit` registrado debe ser el
+  código que entrenó.
+- `report` consulta solo la API de MLflow y comprueba sobre los runs `FINISHED`
+  de la matriz:
+  - al menos 10 corridas, los siete parámetros variando y sin configuraciones
+    duplicadas;
+  - mismo manifiesto, release y clases;
+  - semilla, commit, release DVC, métricas por época y `checkpoints/best.pt`.
+
+  Escribe la lista de run IDs y sus métricas de validation en
+  `reports/experiments/ml07_runs.json` y termina con código ≠ 0 si falla algún
+  criterio.
+
+Evidencia: [`tests/evidence/ml-07-experiments.md`](../tests/evidence/ml-07-experiments.md).
