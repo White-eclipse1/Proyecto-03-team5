@@ -276,8 +276,10 @@ Tests: `uv run pytest tests/test_classification_reproducibility.py`.
 | Elemento | Definición |
 |----------|------------|
 | Métrica vigilada (predeclarada) | `val_loss`, a minimizar (`MONITOR`, `MONITOR_MODE`) |
-| Mejora | `val_loss < mejor - min_delta`. Un valor igual, una mejora menor que `min_delta` o `NaN` no cuentan |
-| Parada | Tras `patience` épocas seguidas sin mejora; esa época es `stopped_epoch` |
+| Mejor época (`best_epoch`, pesos que se restauran) | La de **menor** `val_loss` finito, aunque haya bajado menos que `min_delta` |
+| Reinicio de la paciencia | Solo si `val_loss < menor anterior - min_delta`. Un valor igual o una mejora menor que `min_delta` no la reinicia |
+| Pérdidas no finitas | `NaN`, `+inf` y `-inf` nunca son la mejor época y cuentan como época sin mejora; si todas lo son, el run falla sin checkpoint |
+| Parada | Tras `patience` épocas seguidas sin una mejora mayor que `min_delta`; esa época es `stopped_epoch` |
 | `patience`, `min_delta` | Vienen de `TrainingParams` (formulario y API) |
 | Pesos finales | Los de `best_epoch`, copiados en memoria cuando mejoró y **restaurados** al terminar, no los de la última época |
 

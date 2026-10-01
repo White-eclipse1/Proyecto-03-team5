@@ -20,10 +20,10 @@
    con `image_size=32` (layer4 en 1x1) BatchNorm no puede normalizar un único
    valor. Con batches mayores, si el último de train tendría una sola muestra se
    descarta (`train_drop_last`) por la misma razón.
-5. Early stopping (ML-06) sobre `val_loss` con `patience` y `min_delta`: guarda
-   en memoria los pesos de la mejor época, se detiene tras `patience` épocas sin
-   mejora y, al final, **restaura los pesos de `best_epoch`** (no los de la última
-   época). Sube ese checkpoint a `checkpoints/best.pt`, las curvas de las métricas
+5. Early stopping (ML-06) sobre `val_loss`: guarda en memoria los pesos del menor
+   `val_loss` finito, se detiene tras `patience` épocas sin una mejora mayor que
+   `min_delta` y, al final, **restaura los pesos de `best_epoch`** (no los de la
+   última época). Sube ese checkpoint a `checkpoints/best.pt`, las curvas de las métricas
    reales a `curves/` y cierra el run como `FINISHED`. Cualquier excepción
    después de crear el run lo deja `FAILED` (o `KILLED` si se interrumpe),
    guarda el error en la etiqueta `error` y se propaga para que el worker marque
@@ -448,7 +448,7 @@ def run_training(
                 )
                 break
         if best_state is None:
-            raise RuntimeError(f"Ninguna época produjo un {MONITOR} válido (NaN en todas)")
+            raise RuntimeError(f"Ninguna época produjo un {MONITOR} finito (NaN o inf en todas)")
         # Pesos de la mejor época, no los de la última.
         model.load_state_dict(best_state)
         summary = {
