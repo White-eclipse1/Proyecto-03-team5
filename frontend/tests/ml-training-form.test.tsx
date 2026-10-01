@@ -57,10 +57,16 @@ function json(body: unknown, status = 200) {
 interface ServeOptions {
   manifest?: unknown;
   provenance?: unknown;
+  quality?: Record<string, unknown>;
   post?: () => Promise<Response>;
 }
 
-function serve({ manifest = MANIFEST, provenance = PROVENANCE, post }: ServeOptions = {}) {
+function serve({
+  manifest = MANIFEST,
+  provenance = PROVENANCE,
+  quality = QUALITY,
+  post,
+}: ServeOptions = {}) {
   const posts: unknown[] = [];
   const fetcher = vi.fn((url: string, init?: RequestInit) => {
     if (url === "/api/ml/training/jobs" && init?.method === "POST") {
@@ -74,7 +80,7 @@ function serve({ manifest = MANIFEST, provenance = PROVENANCE, post }: ServeOpti
     const release = /^\/reports\/releases\/(v[\d.]+)\/(\w+)\.json$/.exec(url);
     if (release) {
       const [, version = "", file] = release;
-      if (file === "quality") return json(QUALITY[version]);
+      if (file === "quality") return json(quality[version]);
       if (file === "provenance" && provenance !== null && version === "v0.1.1") {
         return json(provenance);
       }
@@ -238,6 +244,28 @@ describe("APP-02 release del Proyecto 2", () => {
       )
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Crear training job" })).toBeDisabled();
+    submit();
+    expect(postCalls(fetcher)).toHaveLength(0);
+  });
+
+  it("un quality.json de otra versión no deja entrenar (la API también lo rechaza)", async () => {
+    // useReleaseReport exige que el reporte sea de la versión del catálogo: si no, el
+    // gate queda sin verificar y el botón deshabilitado; la API responde 409 igual.
+    const { fetcher } = serve({
+      quality: {
+        ...QUALITY,
+        "v0.1.1": { ...qualityFixture, dataset_version: "v0.1.0", status: "passed" },
+      },
+    });
+    openTraining();
+    await selectRelease("v0.1.1");
+
+    expect(
+      await screen.findByText(
+        "No se pudo verificar el Quality Gate de este release; no se puede entrenar."
+      )
+    ).toBeVisible();
+    expect(trainButton()).toBeDisabled();
     submit();
     expect(postCalls(fetcher)).toHaveLength(0);
   });
