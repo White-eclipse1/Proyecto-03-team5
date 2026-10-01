@@ -123,6 +123,37 @@ class _NoHooks:
         pass
 
 
+class JobQueue(Protocol):
+    """Lo que el loop usa de `training.queue.TrainingJobQueue` (APP-03)."""
+
+    def start(self, job_id: str, *, experiment_id: str, run_id: str) -> object: ...
+
+    def report_progress(self, job_id: str, *, epoch: int, metrics: dict[str, float]) -> object: ...
+
+    def log(self, job_id: str, message: str, level: str = "info") -> object: ...
+
+
+class JobQueueHooks:
+    """Hooks de `run_training` para un job de la cola: start, progreso por época y logs.
+
+    `succeed`/`fail` quedan en el worker, que conoce el resultado (`checkpoint_uri`) o
+    la excepción que propaga `run_training`.
+    """
+
+    def __init__(self, queue: JobQueue, job_id: str) -> None:
+        self._queue = queue
+        self._job_id = job_id
+
+    def on_run_started(self, experiment_id: str, run_id: str) -> None:
+        self._queue.start(self._job_id, experiment_id=experiment_id, run_id=run_id)
+
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float]) -> None:
+        self._queue.report_progress(self._job_id, epoch=epoch, metrics=metrics)
+
+    def log(self, message: str, level: str = "info") -> None:
+        self._queue.log(self._job_id, message, level)
+
+
 def resolve_git_commit() -> str:
     """Commit del código que entrena: `GIT_COMMIT` (p. ej. en Docker) o `git rev-parse HEAD`."""
     commit = os.environ.get("GIT_COMMIT")
@@ -370,6 +401,8 @@ __all__ = [
     "METRIC_NAMES",
     "DataPaths",
     "EpochMetrics",
+    "JobQueue",
+    "JobQueueHooks",
     "TrainingHooks",
     "TrainingResult",
     "build_optimizer",
