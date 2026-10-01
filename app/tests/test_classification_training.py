@@ -402,7 +402,9 @@ class FakeQueue:
     def report_progress(self, job_id, *, epoch, metrics):
         self.calls.append(("progress", job_id, epoch, dict(metrics)))
 
-    def log(self, job_id, message, level="info"):
+    def log(self, job_id, message, *, level="info"):
+        # `level` es solo por nombre, como en la cola real.
+        assert level in ("info", "warning", "error")
         self.calls.append(("log", job_id, level, message))
 
 
