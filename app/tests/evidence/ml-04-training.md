@@ -110,6 +110,9 @@ job: status=succeeded run_id=283c1ec535b94d72a0a15f36b447eddf experiment_id=9281
 job inválido (batch_size=1): status=failed run_id=None error=training_error
 ```
 
+> Esa fue la primera versión. Tras la revisión del PR #39, `batch_size=1` ya no se
+> rechaza: ver la sección 6.
+
 Esta prueba encontró que `TrainingJobQueue.log` recibe `level` solo por nombre.
 `JobQueueHooks` lo pasaba por posición; se corrigió (`774d2c4`) y la cola falsa de
 los tests ahora usa la misma firma.
@@ -127,3 +130,25 @@ val_accuracy: [(1, 0.8828), (2, 0.9297)]
 
 Las dos primeras épocas coinciden con las de la corrida de la sección 1: con la
 misma semilla y el mismo entorno, el entrenamiento se repite.
+
+## 6. `batch_size=1` (ajuste de la revisión del PR #39)
+
+El formulario y el API aceptan `batch_size=1`, y la primera versión del loop
+rechazaba ese job ya creado. Ahora se entrena con un paso por crop y todas las
+BatchNorm con sus estadísticas guardadas (`batchnorm_statistics=frozen`).
+
+Corrida real contra el servidor MLflow (469 crops de train, pesos ImageNet,
+`sgd`, `image_size=64`, 1 época):
+
+```text
+batch_size=1 real: FINISHED en 8s, 469 pasos (469 crops), batchnorm_statistics=frozen, train_drop_last=False
+  métricas: {'train_loss': 0.5887, 'train_accuracy': 0.71, 'val_loss': 0.3929, 'val_accuracy': 0.7969}
+```
+
+Por la cola real de APP-03 (`training/queue.py` del PR #38, SQLite, dataset
+controlado), incluido el caso más difícil (`image_size=32`, layer4 en 1x1):
+
+```text
+job batch_size=1 image_size=32: succeeded | progreso época 2/2 | runs:/754c92a9252a4d138e031a0269805314/checkpoints/last.pt
+job batch_size=1 image_size=64: succeeded | progreso época 2/2 | runs:/d9a0320bc9544e1cbb3731dac0ad91d6/checkpoints/last.pt
+```

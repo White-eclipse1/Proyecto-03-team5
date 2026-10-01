@@ -173,16 +173,21 @@ se creó, si el job no coincide con el manifiesto). El worker solo llama
 ### Qué hace
 
 1. Carga train y validation con el Dataset de ML-02. Falla **antes** de crear el
-   run si `dataset_version` o `manifest_hash` del job no son los del manifiesto,
-   o si `batch_size=1` con BatchNorm entrenable.
+   run si `dataset_version` o `manifest_hash` del job no son los del manifiesto.
 2. `torch.manual_seed(seed)` y construye el modelo de ML-03 (`image_size`,
    `hidden_layers`, `dropout`) y el optimizador configurado sobre los parámetros
    entrenables: `adam` → `Adam`, `adamw` → `AdamW`, `sgd` → `SGD(momentum=0.9)`,
    con `learning_rate`.
 3. Por época, un `optimizer.step()` por minibatch del DataLoader de train
-   (`batch_size`), y luego la evaluación sin gradiente en validation. Si el último
-   batch de train tendría una sola muestra se descarta (`train_drop_last=True`):
-   BatchNorm no normaliza un único valor por canal.
+   (`batch_size`), y luego la evaluación sin gradiente en validation.
+   - `batch_size=1` (lo aceptan el formulario y el API) se entrena con un paso por
+     crop y todas las BatchNorm usando sus estadísticas guardadas
+     (`batchnorm_statistics=frozen`; sus pesos gamma/beta se siguen entrenando):
+     las estadísticas de una sola imagen son ruido, y con `image_size=32` BatchNorm
+     no puede normalizar un único valor por canal.
+   - Con `batch_size > 1`, BatchNorm usa las estadísticas del batch
+     (`batchnorm_statistics=batch`) y, si el último batch de train tendría una sola
+     muestra, se descarta (`train_drop_last=True`) por la misma razón.
 4. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run `FINISHED`.
    El mejor checkpoint y early stopping son ML-06.
 
@@ -190,7 +195,7 @@ se creó, si el job no coincide con el manifiesto). El worker solo llama
 
 | Tipo | Claves |
 |------|--------|
-| Parámetros efectivos (texto, como `ExperimentRun.params`) | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers` (`"128,64"`), `dropout`, `seed`, `patience`, `min_delta`, `architecture`, `pretrained`, `trainable`, `train_samples`, `validation_samples`, `train_drop_last` |
+| Parámetros efectivos (texto, como `ExperimentRun.params`) | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers` (`"128,64"`), `dropout`, `seed`, `patience`, `min_delta`, `architecture`, `pretrained`, `trainable`, `train_samples`, `validation_samples`, `train_drop_last`, `batchnorm_statistics` |
 | Métricas por época (`step` = época) | `train_loss`, `train_accuracy`, `val_loss`, `val_accuracy` |
 | Etiquetas de procedencia | `mlflow.source.git.commit`, `git_commit`, `dataset_version`, `manifest_hash`, `manifest_version`, `dvc_images_hash`, `dvc_annotations_hash`, `quality_report`, `crops_sha256`, `classes` (`dog,cat`), `class_map`, `weights_origin`, `trainable_summary`, `torch_version`, `torchvision_version` |
 | Artefacto | `checkpoints/last.pt` (`save_checkpoint` de ML-03, con `run_id`, release, `manifest_hash`, commit y épocas en `metadata`) |
