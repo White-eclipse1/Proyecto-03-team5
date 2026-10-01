@@ -381,3 +381,41 @@ stack nuevo o respalda antes. `--compose` permite apuntar a otro proyecto de
 Compose (por ejemplo, `--compose "docker compose -p otro"`).
 
 Evidencia: [`tests/evidence/ml-07-experiments.md`](../tests/evidence/ml-07-experiments.md).
+
+## ML-08 — Selección y congelamiento del candidato (solo validation)
+
+`classification/selection.py` con la política predeclarada en
+`classification/selection_policy.yaml`:
+
+| Regla | Valor |
+|-------|-------|
+| Candidatos | Runs `FINISHED` de la matriz `ml07-v1` (ML-07) |
+| Métrica de selección | **menor `best_val_loss`**, la de validation que vigila el early stopping (ML-06) y corresponde a `checkpoints/best.pt` |
+| Desempates | Mayor `val_accuracy` en la mejor época; después, el nombre de la entrada |
+| Test | No participa. La política rechaza cualquier métrica que no sea de validation, y la selección se niega si algún run de la matriz ya tiene una métrica de test |
+
+```bash
+uv run python -m classification.selection select   # ranking, sin congelar
+uv run python -m classification.selection freeze   # elige y congela
+uv run python -m classification.selection check    # congelamiento anterior a todo test
+```
+
+`freeze` escribe `reports/candidates/ml08_candidate.json` (contrato
+`CandidateSelection`) con `run_id`, `checkpoint` (`runs:/<run_id>/checkpoints/best.pt`)
+y su sha256, `dataset_version`, `manifest_hash`, el commit que entrenó y el que
+seleccionó, `frozen_at` (UTC) y el ranking completo. Además marca el run en
+MLflow con `candidate=true` y `candidate_frozen_at`. Son los datos que pueden
+leer Experiments (APP-04), Evaluation (APP-05) y ML-09.
+
+Reglas del congelamiento:
+
+- Congelar otra vez el mismo run no cambia nada (conserva `frozen_at`).
+- Cambiar a otro candidato exige `replace=True`.
+- Si existe **cualquier** evaluación de test (`reports/evaluations/**/*.json` con
+  `"split": "test"`), no se puede congelar por primera vez ni cambiar el candidato.
+
+ML-09 debe llamar `require_frozen_candidate()` antes de evaluar test y guardar
+sus evaluaciones en `reports/evaluations/` con `created_at`.
+`early_test_evaluations()` demuestra que todas son posteriores a `frozen_at`.
+
+Tests: `uv run pytest tests/test_classification_selection.py`.
