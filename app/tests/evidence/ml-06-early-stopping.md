@@ -93,3 +93,31 @@ métricas por época de MLflow (`test_curves_are_logged_from_the_real_epoch_metr
 
 > La `val_accuracy` de validation (0.9688 en la época 5) no es la métrica final de
 > test: esa evaluación es de otro issue.
+
+## 5. `min_delta > 0` y pérdidas no finitas (ajuste de la revisión del PR #42)
+
+La primera versión usaba `min_delta` tanto para reiniciar la paciencia como para
+elegir la mejor época. Con `min_delta > 0`, `best.pt` podía guardar una época con
+**mayor** `val_loss` que otra ya observada. Ahora:
+
+- `best_epoch` es la época del **menor** `val_loss` finito, aunque haya bajado
+  menos que `min_delta`;
+- `min_delta` solo decide cuándo se reinicia la paciencia;
+- `NaN`, `+inf` y `-inf` nunca son la mejor época y cuentan como época sin mejora.
+
+Commits: Red `fc750f5`, Green `77efd9d`.
+
+Corrida real con `min_delta=0.05` (misma configuración que la sección 2), y
+`best.pt` descargado por la API y re-evaluado en validation:
+
+```text
+min_delta=0.05, patience=2 | val_loss: {1: 0.2289, 2: 0.4095, 3: 0.2288}
+best_epoch=3 stopped_epoch=3 | época de menor val_loss = 3
+best.pt re-evaluado: val_loss=0.228770 | mínimo observado=0.228770 | coincide=True
+```
+
+Es el caso de la revisión: la época 3 (0.22877) mejora a la 1 (0.22889) en menos
+que `min_delta`. La paciencia no se reinicia, así que se detiene en la época 3, y
+aun así `best.pt` son los pesos de la época 3, la de menor pérdida. Con la versión
+anterior habría guardado la época 1. La corrida de la sección 2 (`min_delta=0`)
+se repitió con los mismos resultados.
