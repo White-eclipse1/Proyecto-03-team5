@@ -6,6 +6,7 @@ con un run que sobrevive al reinicio, vive en `test_mlflow_persistence.py`.
 """
 
 import importlib.util
+import os
 import re
 from pathlib import Path
 
@@ -126,8 +127,15 @@ def test_mlflow_ui_is_published_only_on_loopback():
 
 
 def test_compose_does_not_version_mlflow_credentials():
-    text = yaml.safe_dump(_mlflow_service())
-    assert not re.search(r"(?i)(secret|password)[^$\n]*:\s*[^$\s'\"][^\n]*$", text, re.M)
+    """Cada credencial sale de `.env` con `${VAR:?...}`; ninguna queda escrita en el YAML."""
+    env = _mlflow_service()["environment"]
+    required_var = r"\$\{[A-Z_]+:\?[^}]*\}"
+    assert re.fullmatch(required_var, env["AWS_ACCESS_KEY_ID"])
+    assert re.fullmatch(required_var, env["AWS_SECRET_ACCESS_KEY"])
+    assert re.fullmatch(
+        rf"mysql\+pymysql://root:{required_var}@mariadb:3306/mlflow",
+        env["MLFLOW_BACKEND_STORE_URI"],
+    )
 
 
 # --- mlflow-server/: versiones fijas y comando del servidor ------------------------
@@ -185,3 +193,41 @@ def test_server_logs_never_show_the_database_password():
     redacted = _load_entrypoint().redact(SERVER_ENV["MLFLOW_BACKEND_STORE_URI"])
     assert "s3cr3t" not in redacted
     assert redacted.endswith("@mariadb:3306/mlflow")
+
+
+# --- tracking_client: todo pasa por el servidor ------------------------------------
+
+PROXY_FLAGS = ("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD")
+
+
+def test_client_never_goes_straight_to_minio(monkeypatch):
+    """Las URLs prefirmadas apuntan a `minio:9000`, que fuera de Compose no resuelve."""
+    from tracking.client import tracking_client
+
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    for flag in PROXY_FLAGS:
+        # setenv + delenv: al terminar, monkeypatch restaura el valor original aunque
+        # tracking_client() haya escrito la variable.
+        monkeypatch.setenv(flag, "placeholder")
+        monkeypatch.delenv(flag)
+
+    client = tracking_client()
+
+    assert client.tracking_uri == "http://localhost:5000"
+    for flag in PROXY_FLAGS:
+        assert os.environ[flag] == "False"
+
+
+def test_client_respects_an_explicit_choice(monkeypatch):
+    from tracking.client import tracking_client
+
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    tracking_client()
+    assert os.environ["MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD"] == "true"
+
+
+def test_pipeline_containers_also_proxy_artifacts():
+    env = _compose()["x-pipeline-env"]
+    for flag in PROXY_FLAGS:
+        assert env[flag] == "false"

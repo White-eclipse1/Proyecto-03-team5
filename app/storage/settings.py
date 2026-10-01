@@ -16,6 +16,7 @@ rutas calculadas desde `__file__`, porque el Dockerfile aplana `app/` a
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 from pydantic import SecretStr, field_validator
@@ -113,3 +114,36 @@ class Settings(BaseSettings):
             ),
             file_secret_settings,
         )
+
+
+class TrackingSettings(BaseSettings):
+    """OPS-03 — dónde está el servidor MLflow.
+
+    Separado de `Settings` porque el worker de entrenamiento y los scripts de ML
+    solo necesitan esta variable, no MariaDB/MinIO ni la política de calidad.
+    Dentro de Compose vale `http://mlflow:5000` (ver docker-compose.yml); desde
+    el host, `http://localhost:5000`.
+
+    Solo se acepta un servidor HTTP(S): un `file:` o `sqlite:` local guardaría
+    los runs dentro del contenedor y se perderían al recrearlo.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=str(APP_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    mlflow_tracking_uri: str
+
+    @field_validator("mlflow_tracking_uri")
+    @classmethod
+    def must_be_tracking_server(cls, value: str) -> str:
+        uri = value.strip().rstrip("/")
+        parts = urlsplit(uri)
+        if parts.scheme not in {"http", "https"} or not parts.netloc:
+            raise ValueError(
+                "debe ser la URL del servidor MLflow (http:// o https://), "
+                f"no un almacenamiento local: {value!r}"
+            )
+        return uri
