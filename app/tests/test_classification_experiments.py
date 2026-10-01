@@ -281,3 +281,42 @@ def test_report_counts_only_distinct_results(client, release, tmp_path):
     groups = report["identical_results"]
     assert report["distinct_results"] == 7 - sum(len(group) - 1 for group in groups)
     assert report["checks"]["at_least_min_distinct_results"] is (report["distinct_results"] >= 7)
+
+
+def test_report_fails_when_identical_results_leave_fewer_distinct_runs(
+    client, release, tmp_path, monkeypatch
+):
+    matrix = load_matrix(_write(tmp_path, _matrix_doc()))
+    _run(client, release, matrix)
+    real_summary = experiments_module._run_summary
+
+    def same_best_result(client, run):
+        summary = real_summary(client, run)
+        if summary["entry"] in ("r01", "r04"):
+            summary.update(best_epoch=2, best_val_loss=0.5, best_val_accuracy=0.75)
+        return summary
+
+    monkeypatch.setattr(experiments_module, "_run_summary", same_best_result)
+
+    report = matrix_report(client, matrix, min_runs=7)
+
+    assert ["r01", "r04"] in report["identical_results"]
+    assert report["distinct_results"] < 7
+    assert report["checks"]["at_least_min_runs"] is True
+    assert report["checks"]["at_least_min_distinct_results"] is False
+
+
+def test_report_detects_a_run_without_checkpoint(client, release, tmp_path):
+    import shutil
+    from pathlib import Path
+
+    matrix = load_matrix(_write(tmp_path, _matrix_doc()))
+    runs = dict(_run(client, release, matrix))
+    artifacts = Path(client.get_run(runs["r02"]).info.artifact_uri.removeprefix("file://"))
+    shutil.rmtree(artifacts / "checkpoints")
+
+    report = matrix_report(client, matrix, min_runs=7)
+
+    by_entry = {run["entry"]: run for run in report["valid_runs"]}
+    assert by_entry["r02"]["checkpoint"] is None
+    assert report["checks"]["all_have_checkpoint"] is False
