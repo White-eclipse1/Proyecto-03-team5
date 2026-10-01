@@ -183,13 +183,30 @@ export const trainingStatusSchema = z.enum([
   "cancelled",
 ]);
 
+/** APP-03: última época reportada por el worker y sus métricas. */
+export const trainingProgressSchema = z
+  .strictObject({
+    epoch: countSchema,
+    max_epochs: z.number().int().min(1),
+    metrics: z.record(labelSchema, z.number()),
+    updated_at: timestampSchema,
+  })
+  .refine((progress) => progress.epoch <= progress.max_epochs, {
+    message: "epoch no puede pasar de max_epochs",
+  });
+export type TrainingProgress = z.infer<typeof trainingProgressSchema>;
+
+/**
+ * El worker (OPS-04) asigna experiment_id y run_id al crear el run de MLflow, así
+ * que un job queued todavía no tiene ninguno de los dos.
+ */
 export const trainingJobSchema = z
   .strictObject({
     job_id: identifierSchema,
     status: trainingStatusSchema,
     dataset_version: identifierSchema,
     manifest_hash: manifestHashSchema,
-    experiment_id: experimentIdSchema,
+    experiment_id: experimentIdSchema.nullable(),
     run_id: runIdSchema.nullable(),
     checkpoint: checkpointSchema.nullable(),
     params: trainingParamsSchema,
@@ -197,12 +214,22 @@ export const trainingJobSchema = z
     started_at: timestampSchema.nullable(),
     finished_at: timestampSchema.nullable(),
     error: contractErrorSchema.nullable(),
+    progress: trainingProgressSchema.nullable(),
   })
   .superRefine((job, context) => {
     const issue = (message: string) => context.addIssue({ code: "custom", message });
     const terminal = ["succeeded", "failed", "cancelled"].includes(job.status);
     if (job.status === "queued" && (job.run_id !== null || job.started_at !== null)) {
       issue("Un job queued todavía no tiene run_id ni started_at");
+    }
+    if (job.status === "queued" && job.progress !== null) {
+      issue("Un job queued todavía no reporta progreso");
+    }
+    if (job.run_id !== null && job.experiment_id === null) {
+      issue("Un job con run_id pertenece a un experimento de MLflow");
+    }
+    if (job.progress !== null && job.progress.max_epochs !== job.params.max_epochs) {
+      issue("progress.max_epochs debe coincidir con params.max_epochs");
     }
     if (
       (job.status === "running" || job.status === "succeeded") &&
@@ -232,6 +259,30 @@ export const trainingJobsResponseSchema = z
     "job_id debe ser único"
   );
 export type TrainingJobsResponse = z.infer<typeof trainingJobsResponseSchema>;
+
+const trainingLogEntrySchema = z.strictObject({
+  seq: z.number().int().min(1),
+  timestamp: timestampSchema,
+  level: z.enum(["info", "warning", "error"]),
+  message: labelSchema,
+});
+export type TrainingLogEntry = z.infer<typeof trainingLogEntrySchema>;
+
+/** APP-03: `GET /api/ml/training/jobs/{job_id}/logs`, de la línea más vieja a la más nueva. */
+export const trainingLogsResponseSchema = z
+  .strictObject({
+    schema_version: schemaVersionSchema,
+    job_id: identifierSchema,
+    entries: z.array(trainingLogEntrySchema),
+  })
+  .refine(
+    (response) =>
+      response.entries
+        .slice(1)
+        .every((entry, index) => entry.seq > (response.entries[index]?.seq ?? 0)),
+    { message: "seq debe ser estrictamente creciente" }
+  );
+export type TrainingLogsResponse = z.infer<typeof trainingLogsResponseSchema>;
 
 export const experimentRunSchema = z
   .strictObject({
@@ -570,6 +621,9 @@ export type TrainingManifest = z.infer<typeof trainingManifestSchema>;
  * también falta o invalidez de la procedencia DVC o del manifiesto 70/20/10: pasa
  * `null` en cualquiera de los dos si el archivo falta o no valida.
  */
+/** Igual que QUALITY_GATE_OPEN en Python: solo estos estados permiten entrenar. */
+export const QUALITY_GATE_OPEN = ["passed", "warning"] as const;
+
 export function trainingBlockedReason(
   qualityStatus: string,
   provenance: ReleaseProvenance | null,
@@ -577,6 +631,9 @@ export function trainingBlockedReason(
 ): string | null {
   if (qualityStatus === "failed") {
     return "El release no pasó el Quality Gate (failed); no se puede entrenar con él.";
+  }
+  if (!(QUALITY_GATE_OPEN as readonly string[]).includes(qualityStatus)) {
+    return `El Quality Gate del release tiene un estado inválido (${JSON.stringify(qualityStatus)}); solo passed o warning permiten entrenar.`;
   }
   if (provenance === null) {
     return "El release no tiene un provenance.json de DVC válido; no se puede entrenar de forma reproducible.";
@@ -611,6 +668,7 @@ export function trainingRequestRejection(
 /** Mismo mapa que `CONTRACTS` en ml_contracts.py; los tests exigen que coincidan. */
 export const ML_CONTRACTS = {
   training_jobs: trainingJobsResponseSchema,
+  training_logs: trainingLogsResponseSchema,
   runs: runsResponseSchema,
   evaluations: evaluationsResponseSchema,
   models: modelsResponseSchema,

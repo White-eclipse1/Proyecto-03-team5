@@ -25,6 +25,7 @@ rule (`training_blocked_reason`), and the per-release files
 """
 
 from collections import Counter
+from itertools import pairwise
 from math import isclose
 from typing import Annotated, Literal, Self
 
@@ -160,12 +161,30 @@ class TrainingJobRequest(ContractModel):
 TrainingStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
+class TrainingProgress(ContractModel):
+    """APP-03: last epoch the worker reported; `metrics` are that epoch's values."""
+
+    epoch: Count
+    max_epochs: int = Field(ge=1)
+    metrics: dict[Label, float]
+    updated_at: Timestamp
+
+    @model_validator(mode="after")
+    def epoch_within_max_epochs(self) -> Self:
+        if self.epoch > self.max_epochs:
+            raise ValueError("epoch cannot exceed max_epochs")
+        return self
+
+
 class TrainingJob(ContractModel):
+    """A training job. The worker (OPS-04) sets `experiment_id`/`run_id` when it
+    starts the MLflow run, so a queued job has neither yet."""
+
     job_id: Identifier
     status: TrainingStatus
     dataset_version: Identifier
     manifest_hash: ManifestHash
-    experiment_id: ExperimentId
+    experiment_id: ExperimentId | None
     run_id: RunId | None
     checkpoint: Checkpoint | None
     params: TrainingParams
@@ -173,11 +192,18 @@ class TrainingJob(ContractModel):
     started_at: Timestamp | None
     finished_at: Timestamp | None
     error: ContractError | None
+    progress: TrainingProgress | None
 
     @model_validator(mode="after")
     def status_matches_lifecycle(self) -> Self:
         if self.status == "queued" and (self.run_id is not None or self.started_at is not None):
             raise ValueError("a queued job has no run_id or started_at yet")
+        if self.status == "queued" and self.progress is not None:
+            raise ValueError("a queued job has no progress yet")
+        if self.run_id is not None and self.experiment_id is None:
+            raise ValueError("a job with run_id belongs to an MLflow experiment")
+        if self.progress is not None and self.progress.max_epochs != self.params.max_epochs:
+            raise ValueError("progress.max_epochs must match params.max_epochs")
         if self.status in ("running", "succeeded") and (
             self.run_id is None or self.started_at is None
         ):
@@ -199,6 +225,28 @@ class TrainingJobsResponse(ContractModel):
     @model_validator(mode="after")
     def unique_jobs(self) -> Self:
         require_unique([job.job_id for job in self.jobs], "job_id must be unique")
+        return self
+
+
+class TrainingLogEntry(ContractModel):
+    seq: int = Field(ge=1)
+    timestamp: Timestamp
+    level: Literal["info", "warning", "error"]
+    message: Label
+
+
+class TrainingLogsResponse(ContractModel):
+    """APP-03: `GET /api/ml/training/jobs/{job_id}/logs`, oldest line first."""
+
+    schema_version: Literal["1.0"]
+    job_id: Identifier
+    entries: list[TrainingLogEntry]
+
+    @model_validator(mode="after")
+    def seq_strictly_increasing(self) -> Self:
+        seqs = [entry.seq for entry in self.entries]
+        if any(later <= earlier for earlier, later in pairwise(seqs)):
+            raise ValueError("seq must be strictly increasing")
         return self
 
 
@@ -549,6 +597,10 @@ class TrainingManifest(ContractModel):
         return self
 
 
+QUALITY_GATE_OPEN = ("passed", "warning")
+"""Quality Gate statuses that allow training (P2: warn does not block)."""
+
+
 def training_blocked_reason(
     quality_status: str,
     provenance: ReleaseProvenance | None,
@@ -556,12 +608,18 @@ def training_blocked_reason(
 ) -> str | None:
     """Whether a release can be trained reproducibly; `None` means it can.
 
-    A `failed` Quality Gate blocks (warn does not), and so does a missing or
-    invalid DVC provenance or 70/20/10 manifest: pass `None` for either when the
-    file is missing or does not validate.
+    Only `passed` and `warning` open the Quality Gate: `failed` blocks, and so does
+    any other value (an unknown or malformed status must never pass). A missing or
+    invalid DVC provenance or 70/20/10 manifest blocks too: pass `None` for either
+    when the file is missing or does not validate.
     """
     if quality_status == "failed":
         return "El release no pasó el Quality Gate (failed); no se puede entrenar con él."
+    if quality_status not in QUALITY_GATE_OPEN:
+        return (
+            f"El Quality Gate del release tiene un estado inválido ({quality_status!r}); "
+            "solo passed o warning permiten entrenar."
+        )
     if provenance is None:
         return (
             "El release no tiene un provenance.json de DVC válido; "
@@ -596,6 +654,7 @@ def training_request_rejection(
 
 CONTRACTS: dict[str, type[ContractModel]] = {
     "training_jobs": TrainingJobsResponse,
+    "training_logs": TrainingLogsResponse,
     "runs": RunsResponse,
     "evaluations": EvaluationsResponse,
     "models": ModelsResponse,

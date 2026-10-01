@@ -316,7 +316,8 @@ válida del release es un recorte (ML-01), identificado por `image_id` +
 
 | Contrato | Endpoint previsto | Contenido |
 |---|---|---|
-| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled` y sus `TrainingParams` |
+| `TrainingJobsResponse` | `GET /api/ml/training/jobs` | Jobs con estado `queued/running/succeeded/failed/cancelled`, sus `TrainingParams` y su `progress` (APP-03) |
+| `TrainingLogsResponse` | `GET /api/ml/training/jobs/{job_id}/logs` | Líneas de log del job (`seq`, `timestamp`, `level`, `message`), de la más vieja a la más nueva (APP-03) |
 | `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) |
 | `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas de clasificación por checkpoint en `validation`/`test` |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
@@ -342,7 +343,8 @@ recorte sumen exactamente la matriz.
 La respuesta trae una `predicted_class` y `probabilities` con al menos dos clases,
 que suman ~1 (misma tolerancia), y `predicted_class` es la de mayor probabilidad.
 
-Ningún servicio implementa todavía estos endpoints: los conectan APP-02…APP-07.
+Los endpoints de jobs de entrenamiento los implementa el servicio `ml-api` (APP-03,
+ver `app/training/README.md`); los demás los conectan APP-04…APP-07.
 Mientras tanto, las pantallas muestran "fuente no conectada" (404) y nunca datos
 de ejemplo.
 
@@ -358,6 +360,12 @@ IDs obligatorios y con formato fijo:
 
 El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
 `checkpoint`, uno `failed` exige `error` y uno `queued` todavía no tiene `run_id`.
+
+**APP-03.** `experiment_id` es `null` mientras el job está `queued`: lo asigna el
+worker al crear el run de MLflow, y es obligatorio en cuanto existe `run_id`.
+`progress` (`epoch`, `max_epochs`, `metrics`, `updated_at`) es la última época
+reportada: `null` en `queued`, `epoch <= max_epochs` y `max_epochs` igual al de
+`params`.
 
 **Corpus compartido.** `examples/ml/` tiene un ejemplo válido por contrato e
 `invalid_cases.json`, con casos que ambos lados deben rechazar. Los validan

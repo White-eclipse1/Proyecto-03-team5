@@ -49,44 +49,54 @@ export async function errorFromResponse(res: Response): Promise<ContractError> {
  * Fetch + validación Zod contra `API_BASE_URL` (proxy `/api`). Las fuentes
  * reales las conectan APP-02…APP-07; mientras el backend no exponga la ruta,
  * el 404 se muestra como "fuente no conectada", nunca con datos inventados.
+ *
+ * `reload` vuelve a mostrar "Cargando" (lo usa "Reintentar"). `refresh` es para
+ * sondear (APP-03): actualiza los datos sin parpadeo y, si esa consulta falla,
+ * conserva lo que ya se veía en vez de reemplazarlo por un error.
  */
 export function useMlResource<T>(path: string, schema: ZodType<T>, isEmpty: (data: T) => boolean) {
   const [state, setState] = useState<MlResourceState<T>>({ status: "loading" });
 
-  const load = useCallback(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
+  const load = useCallback(
+    (silent: boolean) => {
+      let cancelled = false;
+      if (!silent) setState({ status: "loading" });
 
-    fetch(`${API_BASE_URL}${path}`)
-      .then(async (res) => {
-        if (!res.ok) throw new ResourceError(await errorFromResponse(res));
-        const parsed = schema.safeParse(await res.json());
-        if (!parsed.success) throw new ResourceError(CONTRACT_MISMATCH);
-        if (!cancelled) {
-          setState(
-            isEmpty(parsed.data) ? { status: "empty" } : { status: "success", data: parsed.data }
-          );
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const error: ContractError =
-          err instanceof ResourceError
-            ? err.contractError
-            : {
-                code: "network_error",
-                message: "No se pudo contactar al servidor.",
-                retryable: true,
-              };
-        setState({ status: "error", error });
-      });
+      fetch(`${API_BASE_URL}${path}`)
+        .then(async (res) => {
+          if (!res.ok) throw new ResourceError(await errorFromResponse(res));
+          const parsed = schema.safeParse(await res.json());
+          if (!parsed.success) throw new ResourceError(CONTRACT_MISMATCH);
+          if (!cancelled) {
+            setState(
+              isEmpty(parsed.data) ? { status: "empty" } : { status: "success", data: parsed.data }
+            );
+          }
+        })
+        .catch((err: unknown) => {
+          if (cancelled || silent) return;
+          const error: ContractError =
+            err instanceof ResourceError
+              ? err.contractError
+              : {
+                  code: "network_error",
+                  message: "No se pudo contactar al servidor.",
+                  retryable: true,
+                };
+          setState({ status: "error", error });
+        });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [path, schema, isEmpty]);
+      return () => {
+        cancelled = true;
+      };
+    },
+    [path, schema, isEmpty]
+  );
 
-  useEffect(() => load(), [load]);
+  useEffect(() => load(false), [load]);
 
-  return { ...state, reload: load };
+  const reload = useCallback(() => load(false), [load]);
+  const refresh = useCallback(() => load(true), [load]);
+
+  return { ...state, reload, refresh };
 }
