@@ -77,6 +77,7 @@ services:
     depends_on:
       - backend
       - copilot
+      - ml-api
     ports:
       - "8080:80"
     volumes:
@@ -100,6 +101,22 @@ services:
       - ./reports:/app/reports
       - ./app/policies:/app/policies:ro
       - ./app/splits:/app/splits:ro
+    restart: on-failure:5
+
+  # APP-03: API de jobs de entrenamiento (/api/ml/ en nginx). Solo encola jobs en
+  # MariaDB; el entrenamiento lo corre el worker de OPS-04 en otro proceso. Lee los
+  # archivos del release (gate, procedencia, manifest) para validar cada POST.
+  ml-api:
+    build: ./app
+    command: ["python", "-m", "training.server"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      <<: *pipeline-env
+      ML_API_HOST: 0.0.0.0
+    volumes:
+      - ./reports:/app/reports:ro
     restart: on-failure:5
 
   # P2-52: agente del Copilot (LLM + herramientas MCP de solo lectura). Misma
