@@ -25,6 +25,7 @@ rule (`training_blocked_reason`), and the per-release files
 """
 
 from collections import Counter
+from itertools import pairwise
 from math import isclose
 from typing import Annotated, Literal, Self
 
@@ -244,7 +245,7 @@ class TrainingLogsResponse(ContractModel):
     @model_validator(mode="after")
     def seq_strictly_increasing(self) -> Self:
         seqs = [entry.seq for entry in self.entries]
-        if any(later <= earlier for earlier, later in zip(seqs, seqs[1:], strict=False)):
+        if any(later <= earlier for earlier, later in pairwise(seqs)):
             raise ValueError("seq must be strictly increasing")
         return self
 

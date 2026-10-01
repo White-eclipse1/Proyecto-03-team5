@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # Escucha solo en loopback por defecto; docker-compose lo abre con COPILOT_HOST.
     copilot_host: str = "127.0.0.1"
     copilot_port: int = 8000
+    # APP-03: API de jobs de entrenamiento; docker-compose la abre con ML_API_HOST.
+    ml_api_host: str = "127.0.0.1"
+    ml_api_port: int = 8001
 
     quality: QualityPolicy
 
