@@ -643,6 +643,9 @@ export type TrainingManifest = z.infer<typeof trainingManifestSchema>;
  * también falta o invalidez de la procedencia DVC o del manifiesto 70/20/10: pasa
  * `null` en cualquiera de los dos si el archivo falta o no valida.
  */
+/** Igual que QUALITY_GATE_OPEN en Python: solo estos estados permiten entrenar. */
+export const QUALITY_GATE_OPEN = ["passed", "warning"] as const;
+
 export function trainingBlockedReason(
   qualityStatus: string,
   provenance: ReleaseProvenance | null,
@@ -650,6 +653,9 @@ export function trainingBlockedReason(
 ): string | null {
   if (qualityStatus === "failed") {
     return "El release no pasó el Quality Gate (failed); no se puede entrenar con él.";
+  }
+  if (!(QUALITY_GATE_OPEN as readonly string[]).includes(qualityStatus)) {
+    return `El Quality Gate del release tiene un estado inválido (${JSON.stringify(qualityStatus)}); solo passed o warning permiten entrenar.`;
   }
   if (provenance === null) {
     return "El release no tiene un provenance.json de DVC válido; no se puede entrenar de forma reproducible.";

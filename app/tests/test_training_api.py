@@ -25,6 +25,10 @@ from training.queue import TrainingJobQueue
 from training.server import create_app
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "presentation" / "examples" / "ml"
+# QualityReport real de P2 (v0.1.1): los fixtures solo cambian versión y estado.
+REAL_QUALITY = (
+    Path(__file__).resolve().parents[2] / "reports" / "releases" / "v0.1.1" / "quality.json"
+)
 RELEASE = "demo-v1.0.0"
 RUN_ID = "0a1b2c3d4e5f60718293a4b5c6d7e8f9"
 
@@ -51,10 +55,9 @@ def write_release(reports: Path, *, status="warning", provenance=True, manifest=
         ),
         encoding="utf-8",
     )
-    (release_dir / "quality.json").write_text(
-        json.dumps({"schema_version": "1.0", "dataset_version": RELEASE, "status": status}),
-        encoding="utf-8",
-    )
+    quality = json.loads(REAL_QUALITY.read_text(encoding="utf-8"))
+    quality.update(dataset_version=RELEASE, status=status)
+    (release_dir / "quality.json").write_text(json.dumps(quality), encoding="utf-8")
     if provenance:
         shutil.copy(EXAMPLES / "provenance.json", release_dir / "provenance.json")
     if manifest:
@@ -159,6 +162,59 @@ def test_untrainable_release_blocks_the_job(database_url, tmp_path, release_file
     error = assert_error(post_job(client), 409, "training_blocked")
 
     assert fragment in error.error.message
+    assert client.get("/training/jobs").json()["jobs"] == []
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["FAILED", "unknown", "", "passed ", None],
+    ids=["uppercase", "unknown", "empty", "trailing-space", "null"],
+)
+def test_quality_gate_with_an_invalid_status_blocks_the_job(database_url, tmp_path, status):
+    """Solo `passed` y `warning` aprueban la compuerta; cualquier otro estado bloquea."""
+    reports = tmp_path / "invalid-status"
+    write_release(reports, status=status)
+    client = client_for(database_url, reports)
+
+    error = assert_error(post_job(client), 409, "training_blocked")
+
+    assert "Quality Gate" in error.error.message
+    assert client.get("/training/jobs").json()["jobs"] == []
+
+
+def test_quality_report_of_another_version_blocks_the_job(database_url, tmp_path):
+    reports = tmp_path / "other-version"
+    write_release(reports, status="passed")
+    quality_path = reports / "releases" / RELEASE / "quality.json"
+    quality = json.loads(quality_path.read_text(encoding="utf-8"))
+    quality["dataset_version"] = "v0.1.0"
+    quality_path.write_text(json.dumps(quality), encoding="utf-8")
+    client = client_for(database_url, reports)
+
+    error = assert_error(post_job(client), 409, "training_blocked")
+
+    assert "v0.1.0" in error.error.message
+    assert client.get("/training/jobs").json()["jobs"] == []
+
+
+@pytest.mark.parametrize(
+    "content",
+    [None, "{no es json", '{"status": "passed"}'],
+    ids=["missing", "not-json", "not-a-quality-report"],
+)
+def test_unreadable_quality_report_blocks_the_job(database_url, tmp_path, content):
+    reports = tmp_path / "unreadable"
+    write_release(reports, status="passed")
+    quality_path = reports / "releases" / RELEASE / "quality.json"
+    if content is None:
+        quality_path.unlink()
+    else:
+        quality_path.write_text(content, encoding="utf-8")
+    client = client_for(database_url, reports)
+
+    error = assert_error(post_job(client), 409, "training_blocked")
+
+    assert "quality.json" in error.error.message
     assert client.get("/training/jobs").json()["jobs"] == []
 
 
