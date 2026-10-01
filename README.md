@@ -276,6 +276,11 @@ aplicación local también se necesitan Docker y Docker Compose.
 
 ## Despliegue con un solo comando
 
+> **¿Ya tenías el proyecto levantado antes del issue #36?** La imagen de MinIO
+> cambió y tu volumen sigue funcionando. Si quieres un respaldo, hazlo después del
+> `git pull` y antes del primer `docker compose up`: ver
+> [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
+
 Antes del primer arranque, crea el `.env` local para Compose y completa los
 dos valores de MinIO con credenciales locales:
 
@@ -317,6 +322,72 @@ Las credenciales de MariaDB/MinIO usadas en `docker-compose.yml` son las de
 desarrollo del proyecto; para un despliegue real, cámbialas ahí antes de
 publicar los puertos a una red no confiable.
 
+## Cambio de imagen de MinIO (issue #36)
+
+Desde 2026, la imagen oficial de MinIO (`quay.io/minio/minio`, y `minio/minio` en
+Docker Hub) ya no se puede descargar sin autenticación. Por eso un clon nuevo no
+podía hacer `docker compose up`. `docker-compose.yml` ahora usa la build pública de
+Chainguard, `cgr.dev/chainguard/minio:latest` (misma CLI `minio server`), con
+`user: "0:0"`.
+
+**Tus datos locales no cambian de lugar.** La imagen nueva lee el volumen
+`minio_data` creado con la anterior: buckets y objetos siguen ahí. No hace falta
+migrar ni borrar nada; basta con:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+El dataset oficial (600 imágenes + COCO del release `v0.1.1`) tampoco depende de
+MinIO: vive en el remote DVC `prod` (AWS S3) y se recupera con `dvc pull -r prod`.
+
+### Respaldo opcional antes de actualizar
+
+La imagen nueva trae una versión más reciente de MinIO, que podría actualizar el
+formato del volumen al arrancar. Si quieres una copia por si acaso, haz el respaldo
+**después del `git pull` y antes del primer `up`**. `git pull` solo cambia archivos
+del repo (y trae el script); tu volumen no lo toca nadie hasta que arranca MinIO.
+
+```bash
+docker compose down                      # sin -v: quita los contenedores, conserva los volúmenes
+git pull                                 # trae la imagen nueva y scripts/minio-backup.sh
+bash scripts/minio-backup.sh inventory   # solo lectura: qué buckets y objetos tienes
+bash scripts/minio-backup.sh backup      # copia exacta → volumen <proyecto>_minio_backup
+docker compose up -d --build             # recién aquí la imagen nueva abre tu volumen
+```
+
+`backup` no arranca ningún MinIO: copia los archivos del volumen con un contenedor
+`alpine` que monta el original **en solo lectura**, y compara el sha256 de cada
+archivo del original y de la copia. Así la copia queda en el formato anterior (sirve
+incluso para volver a la imagen vieja). Si algo no coincide, termina con error y
+borra la copia incompleta.
+
+Qué suele aparecer en `inventory`:
+
+| Bucket | Qué es |
+|--------|--------|
+| `dvc-cache` | Remote DVC `dev`: copia del dataset que ya está en `prod` (S3). |
+| `image-annotations` | Imágenes subidas al portal en local. `seed/sample-red.png` y `seed/sample-blue.png` son de prueba (las creaba una versión vieja del seeder). |
+| `mlflow` | Artefactos de MLflow (OPS-03), si ya corriste experimentos. |
+
+### Si algo salió mal: restaurar el respaldo
+
+```bash
+docker compose down                         # sin -v: el volumen debe quedar libre
+docker volume rm <proyecto>_minio_data      # restore solo escribe en un volumen vacío
+bash scripts/minio-backup.sh restore        # copia exacta del respaldo, verificada con sha256
+docker compose up -d
+```
+
+Cuando todo esté bien: `docker volume rm <proyecto>_minio_backup`.
+
+Usa `docker compose down` y no `stop`: un contenedor detenido sigue asociado al
+volumen, y entonces `docker volume rm` falla. El script se niega a correr mientras
+algún contenedor use el volumen. `<proyecto>` es el nombre de la carpeta del repo en
+minúsculas (`docker volume ls | grep minio_data` te lo muestra), o
+`COMPOSE_PROJECT_NAME` si lo defines.
+
 ## Desarrollo local sin Docker para las apps
 
 Para iterar con hot reload en backend y frontend, puedes levantar solo la
@@ -331,11 +402,11 @@ docker run --name proyecto1-mariadb \
   -e MARIADB_DATABASE=image_repo \
   -p 3306:3306 -d mariadb:11
 
-docker run --name proyecto1-minio \
+docker run --name proyecto1-minio --user 0:0 \
   -p 9000:9000 -p 9001:9001 \
   -e MINIO_ROOT_USER=minioadmin \
   -e MINIO_ROOT_PASSWORD=minioadmin \
-  -d quay.io/minio/minio server /data --console-address ":9001"
+  -d cgr.dev/chainguard/minio:latest server /data --console-address ":9001"
 ```
 
 El bucket se crea automáticamente al arrancar el backend.

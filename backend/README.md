@@ -137,11 +137,12 @@ docker run --name proyecto1-mariadb \
 
 ```bash
 docker run --name proyecto1-minio \
+  --user 0:0 \
   -p 9000:9000 \
   -p 9001:9001 \
   -e MINIO_ROOT_USER=minioadmin \
   -e MINIO_ROOT_PASSWORD=minioadmin \
-  -d quay.io/minio/minio server /data --console-address ":9001"
+  -d cgr.dev/chainguard/minio:latest server /data --console-address ":9001"
 ```
 
 MinIO utiliza:
