@@ -36,6 +36,7 @@ function withExtraFinishedRun(runs: Runs): Runs {
   extra.run_id = EXTRA;
   extra.run_name = "resnet18-sgd";
   (extra.params as Record<string, string>).optimizer = "sgd";
+  (extra.metrics as Record<string, number>).val_accuracy_top1 = 0.91;
   runs.runs.push(extra);
   return runs;
 }
@@ -74,7 +75,9 @@ function openAt(path: string) {
   );
 }
 
-const rowOf = async (text: string) => (await screen.findByText(text)).closest("tr")!;
+const runsTable = async () => screen.findByRole("table", { name: "Runs de MLflow" });
+const rowOf = async (text: string) =>
+  (await within(await runsTable()).findByText(text)).closest("tr")!;
 const runNames = () =>
   within(screen.getByRole("table", { name: "Runs de MLflow" }))
     .getAllByRole("row")

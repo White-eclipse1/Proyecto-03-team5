@@ -3,10 +3,13 @@ import { API_BASE_URL } from "@/lib/api/client";
 import {
   type ContractError,
   type EvaluationsResponse,
+  type ExperimentRun,
   evaluationsResponseSchema,
   type ModelsResponse,
   modelsResponseSchema,
+  type RunCurvesResponse,
   type RunsResponse,
+  runCurvesResponseSchema,
   runsResponseSchema,
   type TrainingJob,
   type TrainingJobRequest,
@@ -177,6 +180,73 @@ export function useTrainingJobLogs(jobId: string, active: boolean, pollMs: numbe
     const timer = setInterval(() => void fetchNew(), pollMs);
     return () => clearInterval(timer);
   }, [active, fetchNew, pollMs]);
+
+  return state;
+}
+
+/** APP-04: UI de MLflow (solo loopback en el host, ver docker-compose.yml). */
+const MLFLOW_UI_URL = (import.meta.env.VITE_MLFLOW_UI_URL ?? "http://localhost:5000").replace(
+  /\/$/,
+  ""
+);
+
+/** El mismo run (mismo experiment_id y run_id) en la UI de MLflow. */
+export function mlflowRunUrl(run: Pick<ExperimentRun, "experiment_id" | "run_id">): string {
+  return `${MLFLOW_UI_URL}/#/experiments/${run.experiment_id}/runs/${run.run_id}`;
+}
+
+export type RunCurvesState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error"; error: ContractError }
+  | { status: "success"; data: RunCurvesResponse };
+
+/**
+ * APP-04: `GET /api/ml/runs/{run_id}/curves`. Con `runId` null no pide nada (un hueco
+ * de la comparación). Vuelve a pedir cuando cambia `version`, para seguir un run activo.
+ */
+export function useRunCurves(runId: string | null, version = 0): RunCurvesState {
+  const [state, setState] = useState<RunCurvesState>({ status: "idle" });
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `version` no se lee; es el disparador para volver a pedir las curvas de un run en curso.
+  useEffect(() => {
+    if (runId === null) {
+      setState({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState((prev) =>
+      prev.status === "success" && prev.data.run_id === runId ? prev : { status: "loading" }
+    );
+    fetch(`${API_BASE_URL}${ML_ENDPOINTS.runs}/${encodeURIComponent(runId)}/curves`)
+      .then(async (res) => {
+        if (!res.ok) throw await errorFromResponse(res);
+        const parsed = runCurvesResponseSchema.safeParse(await res.json().catch(() => null));
+        if (!parsed.success || parsed.data.run_id !== runId) {
+          throw {
+            code: "contract_mismatch",
+            message: "La respuesta no cumple el contrato esperado.",
+            retryable: false,
+          } satisfies ContractError;
+        }
+        if (!cancelled) setState({ status: "success", data: parsed.data });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const contractError =
+          typeof error === "object" && error !== null && "code" in error
+            ? (error as ContractError)
+            : {
+                code: "network_error",
+                message: "No se pudo contactar al servidor.",
+                retryable: true,
+              };
+        setState({ status: "error", error: contractError });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, version]);
 
   return state;
 }

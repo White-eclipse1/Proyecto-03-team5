@@ -194,7 +194,10 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     const row = (await screen.findByText("mlp-512-256-adam")).closest("tr")!;
     expect(within(row).getByText("0a1b2c3d4e5f60718293a4b5c6d7e8f9")).toBeInTheDocument();
     expect(within(row).getByText("FINISHED")).toBeInTheDocument();
-    expect(within(row).getByText("val_accuracy_top1: 0.875")).toBeInTheDocument();
+    // APP-04: cada métrica de validación tiene su propia columna (ordenable).
+    const headers = screen.getAllByRole("columnheader").map((th) => th.textContent ?? "");
+    const column = headers.findIndex((text) => text.includes("val_accuracy_top1"));
+    expect(within(row).getAllByRole("cell")[column]).toHaveTextContent("0.875");
   });
 
   it("Evaluation muestra métricas de clasificación y separa model_version de dataset_version", async () => {
