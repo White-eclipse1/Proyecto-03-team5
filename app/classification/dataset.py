@@ -5,9 +5,12 @@ manifiesto P3 (OPS-02, `reports/releases/<version>/manifest.json`) con
 `reports/crops.json` (ML-01) por `crop_id` y abre solo `crops_dir/<crop_path>`
 de esos crops. Rechaza al construirse cualquier desacuerdo entre ambos
 (release, fuga entre particiones, crop repetido o inexistente, clase o imagen
-de origen distinta) y cualquier PNG faltante, antes de que empiece un
-entrenamiento. `load_split` además exige que `crops.json` sea exactamente el
-archivo del que salió el manifiesto (`provenance.crops_sha256`).
+de origen distinta), cualquier PNG faltante y cualquier PNG cuyo sha256 no sea
+el registrado para ese crop en `crops.json` (alterado o sustituido), antes de
+que empiece un entrenamiento. Cada lectura vuelve a verificar el hash de los
+bytes que decodifica, así un archivo cambiado después tampoco entra.
+`load_split` además exige que `crops.json` sea exactamente el archivo del que
+salió el manifiesto (`provenance.crops_sha256`).
 
 Cada muestra es un dict con `image` (tensor `3 x image_size x image_size`),
 `label` (índice de `crops.classes.CLASS_TO_INDEX`: dog=0, cat=1), `crop_id`,
@@ -17,6 +20,7 @@ cada predicción hasta la bbox COCO original.
 
 from dataclasses import dataclass
 from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 
 import torch
@@ -40,6 +44,19 @@ class ClassificationSample:
     label: int
     split: SplitName
     path: Path
+    sha256: str
+
+
+def _verified_bytes(crop_id: str, path: Path, expected: str) -> bytes:
+    """Bytes del PNG, solo si su sha256 es el que `crops.json` registró al extraerlo."""
+    data = path.read_bytes()
+    actual = sha256(data).hexdigest()
+    if actual != expected:
+        raise ValueError(
+            f"{crop_id}: el sha256 de {path.name} ({actual}) no coincide con el de "
+            f"crops.json ({expected}); el crop fue alterado o sustituido"
+        )
+    return data
 
 
 def match_manifest_to_crops(
@@ -93,6 +110,7 @@ class CropClassificationDataset(Dataset):
             path = crops_dir / crop.crop_path
             if not path.is_file():
                 raise FileNotFoundError(f"Falta el crop {record.crop_id}: {path}")
+            _verified_bytes(record.crop_id, path, crop.sha256)
             samples.append(
                 ClassificationSample(
                     crop_id=record.crop_id,
@@ -101,6 +119,7 @@ class CropClassificationDataset(Dataset):
                     label=CLASS_TO_INDEX[record.class_name],
                     split=split,
                     path=path,
+                    sha256=crop.sha256,
                 )
             )
 
@@ -120,7 +139,8 @@ class CropClassificationDataset(Dataset):
 
     def __getitem__(self, index: int) -> dict:
         sample = self._samples[index]
-        with Image.open(sample.path) as stored:
+        data = _verified_bytes(sample.crop_id, sample.path, sample.sha256)
+        with Image.open(BytesIO(data)) as stored:
             image = self.transform(stored.convert("RGB"))
         return {
             "image": image,

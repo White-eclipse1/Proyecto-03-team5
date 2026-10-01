@@ -442,6 +442,15 @@ def test_modified_crop_is_rejected_by_load_split_before_training(tmp_path):
         )
 
 
+def test_crop_modified_after_building_the_dataset_is_rejected_on_read(tmp_path):
+    report = _crops(tmp_path)
+    dataset = _dataset(tmp_path, "train", report=report)
+    _tamper(dataset.sample(0).path)
+
+    with pytest.raises(ValueError, match="sha256"):
+        dataset[0]
+
+
 def test_intact_crops_pass_the_sha256_check(tmp_path):
     report = _crops(tmp_path)
 
