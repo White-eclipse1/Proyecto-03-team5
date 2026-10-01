@@ -20,14 +20,18 @@
    con `image_size=32` (layer4 en 1x1) BatchNorm no puede normalizar un único
    valor. Con batches mayores, si el último de train tendría una sola muestra se
    descarta (`train_drop_last`) por la misma razón.
-5. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run como
-   `FINISHED`. Cualquier excepción después de crear el run lo deja `FAILED` (o
-   `KILLED` si se interrumpe), guarda el error en la etiqueta `error` y se
-   propaga para que el worker marque el job como `failed`.
+5. Early stopping (ML-06) sobre `val_loss` con `patience` y `min_delta`: guarda
+   en memoria los pesos de la mejor época, se detiene tras `patience` épocas sin
+   mejora y, al final, **restaura los pesos de `best_epoch`** (no los de la última
+   época). Sube ese checkpoint a `checkpoints/best.pt`, las curvas de las métricas
+   reales a `curves/` y cierra el run como `FINISHED`. Cualquier excepción
+   después de crear el run lo deja `FAILED` (o `KILLED` si se interrumpe),
+   guarda el error en la etiqueta `error` y se propaga para que el worker marque
+   el job como `failed`.
 
 Los `hooks` conectan el loop con la cola sin que este módulo dependa de ella:
 `on_run_started` -> `queue.start`, `on_epoch_end` -> `queue.report_progress`,
-`log` -> `queue.log`. Early stopping y mejor checkpoint son ML-06.
+`log` -> `queue.log`.
 
 Reproducibilidad (ML-05): cada run registra la semilla del split (la del
 manifiesto de OPS-02) y las del DataLoader, la augmentation y la inicialización
@@ -39,6 +43,7 @@ tuviera transforms aleatorios. Operaciones no deterministas conocidas:
 `classification/README.md`, sección ML-05.
 """
 
+import copy
 import json
 import os
 import platform
@@ -61,7 +66,9 @@ from mlflow.tracking import MlflowClient
 from torch import nn
 from torch.utils.data import DataLoader
 
+from classification.curves import history_payload, training_curves_png
 from classification.dataset import build_dataloader, load_split
+from classification.early_stopping import MONITOR, MONITOR_MODE, EarlyStopping
 from classification.manifest import load_manifest
 from classification.model import (
     ARCHITECTURE,
@@ -77,7 +84,9 @@ from presentation.ml_contracts import TrainingParams
 
 EXPERIMENT_NAME = "dogcat-classifier"
 METRIC_NAMES = ("train_loss", "train_accuracy", "val_loss", "val_accuracy")
-CHECKPOINT_ARTIFACT = "checkpoints/last.pt"
+CHECKPOINT_ARTIFACT = "checkpoints/best.pt"
+CURVES_ARTIFACT = "curves/training_curves.png"
+HISTORY_ARTIFACT = "curves/history.json"
 SAMPLE_ORDER_ARTIFACT = "reproducibility/sample_order.json"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -119,6 +128,8 @@ class TrainingResult:
     history: list[EpochMetrics]
     optimizer_steps: int
     sample_order: dict[int, list[str]]
+    best_epoch: int
+    stopped_epoch: int | None
 
 
 class TrainingHooks(Protocol):
@@ -288,6 +299,8 @@ def _mlflow_params(
         seed_dataloader=str(params.seed),
         seed_augmentation=str(params.seed),
         seed_weight_init=str(params.seed),
+        early_stopping_monitor=MONITOR,
+        early_stopping_mode=MONITOR_MODE,
     )
     return effective
 
@@ -379,6 +392,8 @@ def run_training(
     history: list[EpochMetrics] = []
     sample_order: dict[int, list[str]] = {}
     steps = 0
+    stopper = EarlyStopping(patience=params.patience, min_delta=params.min_delta)
+    best_state: dict[str, torch.Tensor] | None = None
     try:
         client.log_batch(
             run_id,
@@ -424,6 +439,30 @@ def run_training(
                 f"train_acc={train_accuracy:.4f} val_loss={val_loss:.4f} "
                 f"val_acc={val_accuracy:.4f}"
             )
+            if stopper.update(epoch, metrics.val_loss):
+                best_state = copy.deepcopy(model.state_dict())
+            if stopper.should_stop:
+                hooks.log(
+                    f"Early stopping en la época {epoch}: {params.patience} épocas sin mejorar "
+                    f"{MONITOR} (min_delta={params.min_delta}); mejor época {stopper.best_epoch}"
+                )
+                break
+        if best_state is None:
+            raise RuntimeError(f"Ninguna época produjo un {MONITOR} válido (NaN en todas)")
+        # Pesos de la mejor época, no los de la última.
+        model.load_state_dict(best_state)
+        summary = {
+            "best_epoch": float(stopper.best_epoch),
+            "best_val_loss": stopper.best_value,
+            "epochs_completed": float(len(history)),
+        }
+        if stopper.stopped_epoch is not None:
+            summary["stopped_epoch"] = float(stopper.stopped_epoch)
+        timestamp = int(time.time() * 1000)
+        client.log_batch(
+            run_id, metrics=[Metric(name, value, timestamp, 0) for name, value in summary.items()]
+        )
+        client.set_tag(run_id, "early_stopped", str(stopper.should_stop))
         order_json = json.dumps({str(epoch): ids for epoch, ids in sample_order.items()})
         client.set_tag(run_id, "train_order_sha256", sha256(order_json.encode()).hexdigest())
         with TemporaryDirectory() as tmp:
@@ -438,10 +477,33 @@ def run_training(
                     "dataset_version": dataset_version,
                     "manifest_hash": manifest_hash,
                     "git_commit": commit,
-                    "epochs": params.max_epochs,
+                    "best_epoch": stopper.best_epoch,
+                    "best_val_loss": stopper.best_value,
+                    "stopped_epoch": stopper.stopped_epoch,
+                    "epochs_completed": len(history),
                 },
             )
             client.log_artifact(run_id, str(checkpoint), str(Path(CHECKPOINT_ARTIFACT).parent))
+            curves_dir = Path(tmp) / "curves"
+            curves_dir.mkdir()
+            (curves_dir / Path(HISTORY_ARTIFACT).name).write_text(
+                json.dumps(
+                    history_payload(
+                        history,
+                        best_epoch=stopper.best_epoch,
+                        stopped_epoch=stopper.stopped_epoch,
+                        monitor=MONITOR,
+                    )
+                ),
+                encoding="utf-8",
+            )
+            training_curves_png(
+                history,
+                curves_dir / Path(CURVES_ARTIFACT).name,
+                best_epoch=stopper.best_epoch,
+                stopped_epoch=stopper.stopped_epoch,
+            )
+            client.log_artifacts(run_id, str(curves_dir), "curves")
         client.set_terminated(run_id, "FINISHED")
     except BaseException as exc:
         status = "KILLED" if isinstance(exc, KeyboardInterrupt) else "FAILED"
@@ -449,7 +511,10 @@ def run_training(
         client.set_terminated(run_id, status)
         hooks.log(f"Run {run_id} terminó en {status}: {exc}", "error")
         raise
-    hooks.log(f"Run {run_id} FINISHED; checkpoint en {CHECKPOINT_ARTIFACT}")
+    hooks.log(
+        f"Run {run_id} FINISHED; checkpoint de la época {stopper.best_epoch} en "
+        f"{CHECKPOINT_ARTIFACT}"
+    )
     return TrainingResult(
         experiment_id=experiment_id,
         run_id=run_id,
@@ -457,12 +522,16 @@ def run_training(
         history=history,
         optimizer_steps=steps,
         sample_order=sample_order,
+        best_epoch=stopper.best_epoch,
+        stopped_epoch=stopper.stopped_epoch,
     )
 
 
 __all__ = [
     "CHECKPOINT_ARTIFACT",
+    "CURVES_ARTIFACT",
     "EXPERIMENT_NAME",
+    "HISTORY_ARTIFACT",
     "METRIC_NAMES",
     "SAMPLE_ORDER_ARTIFACT",
     "DataPaths",
