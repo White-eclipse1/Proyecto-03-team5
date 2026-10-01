@@ -84,6 +84,9 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
     expect(trainingBlockedReason("failed", provenance, manifest)).not.toBeNull();
     expect(trainingBlockedReason("warning", provenance, manifest)).toBeNull();
     expect(trainingBlockedReason("passed", provenance, manifest)).toBeNull();
+    for (const status of ["FAILED", "unknown", "", "passed "]) {
+      expect(trainingBlockedReason(status, provenance, manifest)).toContain("Quality Gate");
+    }
     expect(trainingBlockedReason("passed", null, manifest)).toContain("provenance.json");
     expect(trainingBlockedReason("passed", provenance, null)).toContain("manifest.json");
     expect(

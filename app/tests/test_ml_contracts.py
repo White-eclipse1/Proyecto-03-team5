@@ -167,6 +167,14 @@ class TrainingRequestTests(unittest.TestCase):
         self.assertIsNone(training_blocked_reason("warning", provenance, manifest))
         self.assertIsNone(training_blocked_reason("passed", provenance, manifest))
 
+    def test_only_passed_or_warning_open_the_quality_gate(self):
+        provenance, manifest = self.release_files()
+        for status in ("FAILED", "unknown", "", "passed "):
+            with self.subTest(status=status):
+                reason = training_blocked_reason(status, provenance, manifest)
+                self.assertIsNotNone(reason)
+                self.assertIn("Quality Gate", reason)
+
     def test_missing_provenance_or_manifest_blocks_training(self):
         provenance, manifest = self.release_files()
         self.assertIn("provenance.json", training_blocked_reason("passed", None, manifest))
