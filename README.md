@@ -277,8 +277,8 @@ aplicación local también se necesitan Docker y Docker Compose.
 ## Despliegue con un solo comando
 
 > **¿Ya tenías el proyecto levantado antes del issue #36?** La imagen de MinIO
-> cambió y no lee tu volumen anterior: revisa primero
-> [Migración de MinIO (issue #36)](#migración-de-minio-issue-36).
+> cambió; tu volumen sigue funcionando, pero si quieres un respaldo antes de
+> actualizar, revisa [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
 
 Antes del primer arranque, crea el `.env` local para Compose y completa los
 dos valores de MinIO con credenciales locales:
@@ -319,7 +319,7 @@ Las credenciales de MariaDB/MinIO usadas en `docker-compose.yml` son las de
 desarrollo del proyecto; para un despliegue real, cámbialas ahí antes de
 publicar los puertos a una red no confiable.
 
-## Migración de MinIO (issue #36)
+## Cambio de imagen de MinIO (issue #36)
 
 Desde 2026, la imagen oficial de MinIO (`quay.io/minio/minio`, y `minio/minio` en
 Docker Hub) ya no se puede descargar sin autenticación. Por eso un clon nuevo no
@@ -327,72 +327,61 @@ podía hacer `docker compose up`. `docker-compose.yml` ahora usa la build públi
 Chainguard, `cgr.dev/chainguard/minio:latest` (misma CLI `minio server`), con
 `user: "0:0"`.
 
-**Lo que hay que saber antes de actualizar:** la imagen nueva **no muestra los
-buckets** de un volumen `minio_data` creado con la imagen anterior. Arranca bien,
-pero el MinIO aparece vacío. Si tienes algo que conservar, respáldalo antes con el
-script de abajo.
-
-### Qué se afecta y qué no
-
-| Dato | ¿Dónde vive? | ¿Se pierde al cambiar la imagen? |
-|------|--------------|----------------------------------|
-| Dataset oficial (600 imágenes + COCO del release `v0.1.1`) | Remote DVC `prod` en AWS S3 | **No.** No depende de MinIO; se recupera con `dvc pull -r prod`. |
-| Bucket `dvc-cache` | Remote DVC `dev` en tu MinIO | Es una copia de lo mismo. Se migra con el script o se vuelve a subir con `dvc push -r dev`. |
-| Bucket `image-annotations`, objetos `seed/sample-red.png` y `seed/sample-blue.png` | Tu MinIO | Son imágenes de prueba que creaba una versión vieja del seeder (el actual ya no las crea). No hace falta conservarlas. |
-| Bucket `image-annotations`, cualquier otro objeto | Tu MinIO | **Sí**, si no lo migras: son imágenes que subiste al portal en local. |
-| Bucket `mlflow` (después de OPS-03, #35) | Tu MinIO | **Sí**, si no lo migras: checkpoints y curvas. Los runs siguen en MariaDB, pero sin sus artefactos. |
-| Registros del portal y runs de MLflow | MariaDB | No cambia la imagen de MariaDB. Pero si borras MinIO y conservas MariaDB, los registros de imágenes quedan apuntando a archivos que ya no existen. |
-
-**Cuándo hacerlo:** todo el equipo el mismo día y **antes de correr los
-experimentos de ML-07**, para que ningún artefacto de MLflow quede en el volumen
-viejo.
-
-### Paso 1 — Revisa qué tienes (solo lectura)
-
-Desde la raíz del repo:
+**Tus datos locales no cambian de lugar.** La imagen nueva lee el volumen
+`minio_data` creado con la anterior: buckets y objetos siguen ahí. No hace falta
+migrar ni borrar nada; basta con:
 
 ```bash
-bash scripts/minio-migrate.sh inventory
-```
-
-Lista los buckets de tu volumen `<proyecto>_minio_data` y hasta 20 objetos por
-bucket. No modifica nada.
-
-### Paso 2a — No tienes nada que conservar
-
-Si solo aparecen `dvc-cache` y los dos `seed/sample-*.png`, reinicia MinIO y
-MariaDB juntos, para que el portal no quede con registros rotos:
-
-```bash
-docker compose down -v
 git pull
-docker compose up --build
-```
-
-El backend vuelve a crear las categorías `dog` y `cat` al arrancar. Si usas el remote
-`dev`, vuelve a poblarlo con `dvc push -r dev`.
-
-### Paso 2b — Quieres conservarlo
-
-Necesitas la imagen vieja en caché (`docker image ls quay.io/minio/minio`). Ya no se
-puede descargar, pero si tienes datos creados con ella, la tienes.
-
-```bash
-docker compose stop
-bash scripts/minio-migrate.sh backup        # buckets → volumen <proyecto>_minio_backup
-docker volume rm <proyecto>_minio_data      # p. ej. proyecto-fase2-mlops_minio_data
-git pull                                    # trae la imagen nueva
-docker compose up -d minio
-bash scripts/minio-migrate.sh restore       # backup → MinIO nuevo
 docker compose up -d --build
 ```
 
-Comprueba el portal y, cuando todo esté bien, borra el respaldo:
-`docker volume rm <proyecto>_minio_backup`.
+El dataset oficial (600 imágenes + COCO del release `v0.1.1`) tampoco depende de
+MinIO: vive en el remote DVC `prod` (AWS S3) y se recupera con `dvc pull -r prod`.
 
-El script lee `MINIO_ROOT_USER` y `MINIO_ROOT_PASSWORD` de tu `.env`. `<proyecto>` es
-el nombre de la carpeta del repo en minúsculas (`docker volume ls | grep minio_data`
-te lo muestra), o `COMPOSE_PROJECT_NAME` si lo defines.
+### Respaldo opcional antes de actualizar
+
+La imagen nueva trae una versión más reciente de MinIO, que puede actualizar el
+formato del volumen. Si quieres una copia por si acaso, haz esto **antes** del
+`git pull`:
+
+```bash
+bash scripts/minio-backup.sh inventory   # solo lectura: qué buckets y objetos tienes
+docker compose down                      # sin -v: quita los contenedores, conserva los volúmenes
+bash scripts/minio-backup.sh backup      # copia los buckets al volumen <proyecto>_minio_backup
+git pull
+docker compose up -d --build
+```
+
+Qué suele aparecer en `inventory`:
+
+| Bucket | Qué es |
+|--------|--------|
+| `dvc-cache` | Remote DVC `dev`: copia del dataset que ya está en `prod` (S3). |
+| `image-annotations` | Imágenes subidas al portal en local. `seed/sample-red.png` y `seed/sample-blue.png` son de prueba (las creaba una versión vieja del seeder). |
+| `mlflow` | Artefactos de MLflow (OPS-03), si ya corriste experimentos. |
+
+`backup` compara la lista de objetos (ruta y tamaño) del original y de la copia, y
+termina con error, sin dejar un respaldo a medias, si algo no coincide. Solo usa
+imágenes públicas.
+
+### Si algo salió mal: restaurar el respaldo
+
+```bash
+docker compose down                         # sin -v: el volumen debe quedar libre
+docker volume rm <proyecto>_minio_data      # opcional: empezar de un volumen vacío
+bash scripts/minio-backup.sh restore        # respaldo → <proyecto>_minio_data, verificado
+docker compose up -d
+```
+
+Cuando todo esté bien: `docker volume rm <proyecto>_minio_backup`.
+
+Usa `docker compose down` y no `stop`: un contenedor detenido sigue asociado al
+volumen, y entonces `docker volume rm` falla. El script se niega a correr mientras
+algún contenedor use el volumen. Lee `MINIO_ROOT_USER` y `MINIO_ROOT_PASSWORD` de tu
+`.env`. `<proyecto>` es el nombre de la carpeta del repo en minúsculas
+(`docker volume ls | grep minio_data` te lo muestra), o `COMPOSE_PROJECT_NAME` si
+lo defines.
 
 ## Desarrollo local sin Docker para las apps
 

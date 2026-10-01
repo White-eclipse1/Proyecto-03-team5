@@ -29,10 +29,11 @@ services:
   minio:
     # Issue #36: quay.io/minio/minio y minio/minio ya no se pueden descargar sin
     # autenticación. Esta es la build pública de Chainguard (misma CLI). Solo
-    # publica `latest`. No lee volúmenes creados con la imagen anterior: ver
-    # "Migración de MinIO (issue #36)" en el README.
+    # publica `latest`. Lee los volúmenes `minio_data` creados con la imagen
+    # anterior; respaldo opcional en "Cambio de imagen de MinIO (issue #36)" del README.
     image: cgr.dev/chainguard/minio:latest
-    # Corre como 65532 por defecto y no puede escribir en un volumen nuevo en /data.
+    # Corre como 65532 por defecto: no podría escribir ni un volumen nuevo en /data
+    # ni los existentes, que creó como root la imagen anterior.
     user: "0:0"
     command: server /data --console-address ":9001"
     environment:
