@@ -18,3 +18,11 @@
 
 # Marcador interno de la compuerta DVC; se recrea en cada repro aprobado.
 reports/.quality_gate.passed
+
+# Pesos y checkpoints del clasificador (ML-03+): se publican en S3/MLflow, nunca en Git.
+*.pt
+*.pth
+*.ckpt
+# Tracking local de MLflow (runs y artefactos) cuando no hay servidor remoto.
+mlruns/
+mlartifacts/
