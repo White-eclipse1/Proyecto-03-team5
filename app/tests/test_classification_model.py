@@ -212,6 +212,38 @@ def test_optimizer_steps_change_trainable_weights_and_keep_frozen_ones():
     assert not [name for name in changed if name.startswith(("backbone.layer1.", "backbone.bn1."))]
 
 
+@pytest.mark.parametrize("trainable", ["layer4", "all"])
+def test_frozen_batchnorm_statistics_allow_single_sample_batches(trainable):
+    model = build_model(_config(image_size=32, trainable=trainable))
+    model.freeze_batchnorm_statistics()
+    before = _snapshot(model)
+    images, labels = _batch(size=1, image_size=32)
+    optimizer = torch.optim.SGD([p for p in model.parameters() if p.requires_grad], lr=0.1)
+
+    model.train()
+    optimizer.zero_grad()
+    nn.functional.cross_entropy(model(images), labels[:1]).backward()  # a 32 px, layer4 es 1x1
+    optimizer.step()
+
+    batchnorms = [m for m in model.modules() if isinstance(m, nn.BatchNorm2d)]
+    assert batchnorms and not any(m.training for m in batchnorms)
+    after = model.state_dict()
+    running = [k for k in before if k.endswith(("running_mean", "running_var"))]
+    assert all(torch.equal(before[k], after[k]) for k in running)
+    # Los pesos entrenables (incluidos gamma/beta de BatchNorm en layer4) sí cambian.
+    assert not torch.equal(
+        before["backbone.layer4.1.bn2.weight"], after["backbone.layer4.1.bn2.weight"]
+    )
+    assert model.batchnorm_statistics == "frozen"
+
+
+def test_batchnorm_uses_batch_statistics_by_default():
+    model = build_model(_config()).train()
+
+    assert model.batchnorm_statistics == "batch"
+    assert model.backbone.layer4[1].bn2.training
+
+
 def test_inference_before_and_after_training_differs():
     model = build_model(_config())
     images, _ = _batch(seed=1)
