@@ -145,3 +145,70 @@ reconstruye la red **sin descargar** pesos, rechaza otra arquitectura u otro
 
 Tests: `uv run pytest tests/test_classification_model.py`. Evidencia con pesos y
 crops reales: [`tests/evidence/ml-03-model.md`](../tests/evidence/ml-03-model.md).
+
+## ML-04 — Loop de entrenamiento y MLflow
+
+`classification/training.py` → `run_training(...)`, lo que ejecuta el worker de
+OPS-04 por cada job de la cola de APP-03.
+
+```python
+from classification.training import DataPaths, JobQueueHooks, run_training
+from tracking.client import tracking_client  # OPS-03, usa MLFLOW_TRACKING_URI
+
+result = run_training(
+    job.params,                          # TrainingParams del job
+    dataset_version=job.dataset_version,
+    manifest_hash=job.manifest_hash,
+    data=DataPaths.for_release(job.dataset_version),
+    client=tracking_client(),
+    hooks=JobQueueHooks(queue, job.job_id),  # start / report_progress / log de la cola
+)
+queue.succeed(job.job_id, checkpoint=result.checkpoint_uri)  # runs:/<run_id>/checkpoints/last.pt
+```
+
+Si `run_training` lanza una excepción, el run ya quedó `FAILED` en MLflow (o no
+se creó, si el job no coincide con el manifiesto). El worker solo llama
+`queue.fail(job.job_id, ContractError(code="training_error", ...))`.
+
+### Qué hace
+
+1. Carga train y validation con el Dataset de ML-02. Falla **antes** de crear el
+   run si `dataset_version` o `manifest_hash` del job no son los del manifiesto,
+   o si `batch_size=1` con BatchNorm entrenable.
+2. `torch.manual_seed(seed)` y construye el modelo de ML-03 (`image_size`,
+   `hidden_layers`, `dropout`) y el optimizador configurado sobre los parámetros
+   entrenables: `adam` → `Adam`, `adamw` → `AdamW`, `sgd` → `SGD(momentum=0.9)`,
+   con `learning_rate`.
+3. Por época, un `optimizer.step()` por minibatch del DataLoader de train
+   (`batch_size`), y luego la evaluación sin gradiente en validation. Si el último
+   batch de train tendría una sola muestra se descarta (`train_drop_last=True`):
+   BatchNorm no normaliza un único valor por canal.
+4. Sube el checkpoint final a `checkpoints/last.pt` y cierra el run `FINISHED`.
+   El mejor checkpoint y early stopping son ML-06.
+
+### Qué queda en MLflow (experimento `dogcat-classifier`)
+
+| Tipo | Claves |
+|------|--------|
+| Parámetros efectivos (texto, como `ExperimentRun.params`) | `optimizer`, `batch_size`, `max_epochs`, `learning_rate`, `image_size`, `hidden_layers` (`"128,64"`), `dropout`, `seed`, `patience`, `min_delta`, `architecture`, `pretrained`, `trainable`, `train_samples`, `validation_samples`, `train_drop_last` |
+| Métricas por época (`step` = época) | `train_loss`, `train_accuracy`, `val_loss`, `val_accuracy` |
+| Etiquetas de procedencia | `mlflow.source.git.commit`, `git_commit`, `dataset_version`, `manifest_hash`, `manifest_version`, `dvc_images_hash`, `dvc_annotations_hash`, `quality_report`, `crops_sha256`, `classes` (`dog,cat`), `class_map`, `weights_origin`, `trainable_summary`, `torch_version`, `torchvision_version` |
+| Artefacto | `checkpoints/last.pt` (`save_checkpoint` de ML-03, con `run_id`, release, `manifest_hash`, commit y épocas en `metadata`) |
+| Fallo | estado `FAILED` (`KILLED` si se interrumpe) y etiqueta `error` |
+
+### Requisitos del proceso que entrena (worker)
+
+- `MLFLOW_TRACKING_URI`: en Compose, `http://mlflow:5000` (OPS-03).
+- `GIT_COMMIT` con el SHA de 40 caracteres si el contenedor no tiene `.git`
+  (por ejemplo, como argumento de build). Fuera de Docker se usa
+  `git rev-parse HEAD`. Sin commit válido, el job falla antes de crear el run.
+- `reports/releases/<version>/manifest.json`, `reports/crops.json` y `data/crops`
+  (de DVC) en las rutas de `DataPaths.for_release`, o rutas explícitas en
+  `DataPaths(...)`.
+- Red para descargar los pesos ImageNet de torchvision la primera vez (~45 MB),
+  o la caché de torch hub (`TORCH_HOME`) en un volumen.
+- CPU: 3 épocas con `image_size=128` y `batch_size=32` tardan ~25 s en un Mac M.
+
+Tests: `uv run pytest tests/test_classification_training.py` (dataset controlado
+y MLflow local, sin red). Evidencia con el servidor real:
+[`tests/evidence/ml-04-training.md`](../tests/evidence/ml-04-training.md).
