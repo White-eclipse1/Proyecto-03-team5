@@ -130,7 +130,7 @@ class JobQueue(Protocol):
 
     def report_progress(self, job_id: str, *, epoch: int, metrics: dict[str, float]) -> object: ...
 
-    def log(self, job_id: str, message: str, level: str = "info") -> object: ...
+    def log(self, job_id: str, message: str, *, level: str = "info") -> object: ...
 
 
 class JobQueueHooks:
@@ -151,7 +151,7 @@ class JobQueueHooks:
         self._queue.report_progress(self._job_id, epoch=epoch, metrics=metrics)
 
     def log(self, message: str, level: str = "info") -> None:
-        self._queue.log(self._job_id, message, level)
+        self._queue.log(self._job_id, message, level=level)
 
 
 def resolve_git_commit() -> str:
