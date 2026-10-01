@@ -277,8 +277,9 @@ aplicación local también se necesitan Docker y Docker Compose.
 ## Despliegue con un solo comando
 
 > **¿Ya tenías el proyecto levantado antes del issue #36?** La imagen de MinIO
-> cambió; tu volumen sigue funcionando, pero si quieres un respaldo antes de
-> actualizar, revisa [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
+> cambió y tu volumen sigue funcionando. Si quieres un respaldo, hazlo después del
+> `git pull` y antes del primer `docker compose up`: ver
+> [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
 
 Antes del primer arranque, crea el `.env` local para Compose y completa los
 dos valores de MinIO con credenciales locales:
@@ -341,17 +342,24 @@ MinIO: vive en el remote DVC `prod` (AWS S3) y se recupera con `dvc pull -r prod
 
 ### Respaldo opcional antes de actualizar
 
-La imagen nueva trae una versión más reciente de MinIO, que puede actualizar el
-formato del volumen. Si quieres una copia por si acaso, haz esto **antes** del
-`git pull`:
+La imagen nueva trae una versión más reciente de MinIO, que podría actualizar el
+formato del volumen al arrancar. Si quieres una copia por si acaso, haz el respaldo
+**después del `git pull` y antes del primer `up`**. `git pull` solo cambia archivos
+del repo (y trae el script); tu volumen no lo toca nadie hasta que arranca MinIO.
 
 ```bash
-bash scripts/minio-backup.sh inventory   # solo lectura: qué buckets y objetos tienes
 docker compose down                      # sin -v: quita los contenedores, conserva los volúmenes
-bash scripts/minio-backup.sh backup      # copia los buckets al volumen <proyecto>_minio_backup
-git pull
-docker compose up -d --build
+git pull                                 # trae la imagen nueva y scripts/minio-backup.sh
+bash scripts/minio-backup.sh inventory   # solo lectura: qué buckets y objetos tienes
+bash scripts/minio-backup.sh backup      # copia exacta → volumen <proyecto>_minio_backup
+docker compose up -d --build             # recién aquí la imagen nueva abre tu volumen
 ```
+
+`backup` no arranca ningún MinIO: copia los archivos del volumen con un contenedor
+`alpine` que monta el original **en solo lectura**, y compara el sha256 de cada
+archivo del original y de la copia. Así la copia queda en el formato anterior (sirve
+incluso para volver a la imagen vieja). Si algo no coincide, termina con error y
+borra la copia incompleta.
 
 Qué suele aparecer en `inventory`:
 
@@ -361,16 +369,12 @@ Qué suele aparecer en `inventory`:
 | `image-annotations` | Imágenes subidas al portal en local. `seed/sample-red.png` y `seed/sample-blue.png` son de prueba (las creaba una versión vieja del seeder). |
 | `mlflow` | Artefactos de MLflow (OPS-03), si ya corriste experimentos. |
 
-`backup` compara la lista de objetos (ruta y tamaño) del original y de la copia, y
-termina con error, sin dejar un respaldo a medias, si algo no coincide. Solo usa
-imágenes públicas.
-
 ### Si algo salió mal: restaurar el respaldo
 
 ```bash
 docker compose down                         # sin -v: el volumen debe quedar libre
-docker volume rm <proyecto>_minio_data      # opcional: empezar de un volumen vacío
-bash scripts/minio-backup.sh restore        # respaldo → <proyecto>_minio_data, verificado
+docker volume rm <proyecto>_minio_data      # restore solo escribe en un volumen vacío
+bash scripts/minio-backup.sh restore        # copia exacta del respaldo, verificada con sha256
 docker compose up -d
 ```
 
@@ -378,10 +382,9 @@ Cuando todo esté bien: `docker volume rm <proyecto>_minio_backup`.
 
 Usa `docker compose down` y no `stop`: un contenedor detenido sigue asociado al
 volumen, y entonces `docker volume rm` falla. El script se niega a correr mientras
-algún contenedor use el volumen. Lee `MINIO_ROOT_USER` y `MINIO_ROOT_PASSWORD` de tu
-`.env`. `<proyecto>` es el nombre de la carpeta del repo en minúsculas
-(`docker volume ls | grep minio_data` te lo muestra), o `COMPOSE_PROJECT_NAME` si
-lo defines.
+algún contenedor use el volumen. `<proyecto>` es el nombre de la carpeta del repo en
+minúsculas (`docker volume ls | grep minio_data` te lo muestra), o
+`COMPOSE_PROJECT_NAME` si lo defines.
 
 ## Desarrollo local sin Docker para las apps
 

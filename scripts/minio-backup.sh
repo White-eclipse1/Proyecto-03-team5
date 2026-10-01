@@ -3,25 +3,24 @@
 #
 # La imagen nueva (cgr.dev/chainguard/minio) lee los volúmenes `minio_data` creados
 # con la anterior: actualizar no requiere migrar nada. Este script es una precaución
-# por si quieres una copia antes de que la versión nueva de MinIO toque tu volumen.
-# Ver README, sección "Cambio de imagen de MinIO (issue #36)".
+# por si la versión nueva de MinIO actualiza el formato del volumen. Ver README,
+# sección "Cambio de imagen de MinIO (issue #36)".
 #
-# Uso, desde la raíz del repo, con el .env del proyecto y el stack apagado
-# (`docker compose down`, sin -v):
+# El respaldo es una copia exacta de los archivos del volumen, hecha con un
+# contenedor `alpine` que monta el original en SOLO LECTURA: ningún servidor MinIO
+# lo toca, y la copia conserva el formato anterior (sirve incluso para volver a la
+# imagen vieja). Cada copia se verifica con el sha256 de todos los archivos.
+#
+# Uso, desde la raíz del repo y con el stack apagado (`docker compose down`, sin -v):
 #   bash scripts/minio-backup.sh inventory   # solo lectura: qué hay en tu MinIO
-#   bash scripts/minio-backup.sh backup      # copia los buckets a <proyecto>_minio_backup
-#   bash scripts/minio-backup.sh restore     # devuelve el respaldo a <proyecto>_minio_data
-#
-# Solo usa imágenes públicas. Cada paso compara la lista de objetos (ruta y tamaño)
-# de origen y destino, y termina con error si no coinciden.
+#   bash scripts/minio-backup.sh backup      # copia <proyecto>_minio_data → <proyecto>_minio_backup
+#   bash scripts/minio-backup.sh restore     # copia el respaldo a un <proyecto>_minio_data vacío
 set -euo pipefail
 
-SERVER_IMAGE="cgr.dev/chainguard/minio:latest"
-CLIENT_IMAGE="cgr.dev/chainguard/minio-client:latest"
+TOOL_IMAGE="alpine:3"
 PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')}"
 DATA_VOLUME="${PROJECT}_minio_data"
 BACKUP_VOLUME="${PROJECT}_minio_backup"
-TEMP_NAME="${PROJECT}-minio-backup-tmp"
 
 # Git Bash convierte rutas como /data en rutas de Windows; aquí son rutas del contenedor.
 export MSYS_NO_PATHCONV=1
@@ -30,18 +29,8 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 
 volume_exists() { docker volume inspect "$1" >/dev/null 2>&1; }
 
-load_credentials() {
-  [[ -f .env ]] || die "falta .env en $(pwd); ejecuta el script desde la raíz del repo"
-  set -a
-  # shellcheck disable=SC1091
-  . ./.env
-  set +a
-  [[ -n "${MINIO_ROOT_USER:-}" && -n "${MINIO_ROOT_PASSWORD:-}" ]] ||
-    die "MINIO_ROOT_USER y MINIO_ROOT_PASSWORD deben estar definidos en .env"
-}
-
-# Dos servidores MinIO sobre el mismo volumen lo corrompen: el del proyecto debe
-# estar apagado (y sin contenedor, para poder borrar el volumen después).
+# Copiar los archivos de un MinIO en marcha da una copia inconsistente, y un
+# contenedor detenido sigue asociado al volumen (docker volume rm fallaría después).
 require_volume_unused() {
   local users
   users=$(docker ps -a --filter "volume=$1" --format '{{.Names}}')
@@ -49,62 +38,27 @@ require_volume_unused() {
     die "el volumen $1 lo usa: $users. Primero: docker compose down (sin -v)"
 }
 
-# Buckets = carpetas de primer nivel del volumen (sin la de sistema de MinIO).
-list_buckets() {
-  docker run --rm -v "$1":/data:ro alpine sh -c '
-    for dir in /data/*/; do
-      [ -d "$dir" ] || continue
-      name=$(basename "$dir")
-      [ "$name" = ".minio.sys" ] || echo "$name"
-    done'
+volume_is_empty() {
+  [[ -z "$(docker run --rm -v "$1":/data:ro "$TOOL_IMAGE" ls -A /data)" ]]
 }
 
-# Servidor MinIO temporal sobre DATA_VOLUME, en una red propia.
-start_temp_server() {
-  docker network create "$TEMP_NAME" >/dev/null
-  docker run -d --name "$TEMP_NAME" --network "$TEMP_NAME" --user 0:0 \
-    -v "$DATA_VOLUME":/data -e MINIO_ROOT_USER -e MINIO_ROOT_PASSWORD \
-    "$SERVER_IMAGE" server /data >/dev/null
-  for _ in $(seq 60); do
-    mc ls minio >/dev/null 2>&1 && return 0
-    sleep 1
-  done
-  docker logs "$TEMP_NAME" >&2 || true
-  die "el MinIO temporal no respondió en 60 s"
-}
-
-BACKUP_INCOMPLETE=0
-
-cleanup() {
-  docker rm -f "$TEMP_NAME" >/dev/null 2>&1 || true
-  docker network rm "$TEMP_NAME" >/dev/null 2>&1 || true
-  # Un respaldo que falló a medias no debe pasar por bueno ni bloquear el siguiente intento.
-  if [[ "$BACKUP_INCOMPLETE" == 1 ]]; then
-    docker volume rm "$BACKUP_VOLUME" >/dev/null 2>&1 || true
-    echo "El respaldo falló; se borró el volumen incompleto $BACKUP_VOLUME." >&2
-  fi
-}
-
-mc() {
-  docker run --rm -i --network "$TEMP_NAME" --user 0:0 \
-    -e MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@${TEMP_NAME}:9000" \
-    -v "$BACKUP_VOLUME":/backup "$CLIENT_IMAGE" "$@"
-}
-
-# "ruta<TAB>tamaño" de cada objeto, ordenado: lo que se compara entre origen y destino.
-object_list() {
-  mc ls --recursive --json "$1" |
-    sed -nE 's/.*"size":([0-9]+),"key":"(([^"\\]|\\.)*)".*/\2	\1/p' | LC_ALL=C sort
-}
-
-count_lines() {
-  if [[ -z "$1" ]]; then echo 0; else printf '%s\n' "$1" | wc -l | tr -d ' '; fi
+# Copia SRC (solo lectura) a DST y compara el sha256 de cada archivo de ambos lados.
+# Imprime la cantidad de archivos verificados; termina con error si algo no coincide.
+copy_and_verify() {
+  docker run --rm -v "$1":/src:ro -v "$2":/dst "$TOOL_IMAGE" sh -euc '
+    cp -a /src/. /dst/
+    cd /src && find . -type f -exec sha256sum {} + > /tmp/src.list
+    cd /dst && find . -type f -exec sha256sum {} + > /tmp/dst.list
+    sort -k 2 /tmp/src.list > /tmp/src.sorted
+    sort -k 2 /tmp/dst.list > /tmp/dst.sorted
+    cmp -s /tmp/src.sorted /tmp/dst.sorted || { echo "las sumas sha256 no coinciden" >&2; exit 1; }
+    wc -l < /tmp/src.sorted'
 }
 
 cmd_inventory() {
   volume_exists "$DATA_VOLUME" || { echo "No existe $DATA_VOLUME: no hay nada que respaldar."; return; }
   echo "Contenido de $DATA_VOLUME (máximo 20 objetos por bucket):"
-  docker run --rm -v "$DATA_VOLUME":/data:ro alpine sh -c '
+  docker run --rm -v "$DATA_VOLUME":/data:ro "$TOOL_IMAGE" sh -c '
     found=0
     for bucket in /data/*/; do
       name=$(basename "$bucket")
@@ -124,63 +78,39 @@ EOF
 }
 
 cmd_backup() {
-  load_credentials
-  volume_exists "$DATA_VOLUME" || die "no existe $DATA_VOLUME"
+  volume_exists "$DATA_VOLUME" || die "no existe $DATA_VOLUME: no hay nada que respaldar"
   require_volume_unused "$DATA_VOLUME"
   if volume_exists "$BACKUP_VOLUME"; then
     die "ya existe $BACKUP_VOLUME; restáuralo o bórralo (docker volume rm $BACKUP_VOLUME) antes de otro respaldo"
   fi
-  local buckets
-  buckets=$(list_buckets "$DATA_VOLUME")
-  [[ -n "$buckets" ]] || { echo "$DATA_VOLUME no tiene buckets: no hay nada que respaldar."; return; }
 
   docker volume create "$BACKUP_VOLUME" >/dev/null
-  BACKUP_INCOMPLETE=1
-  trap cleanup EXIT
-  start_temp_server
-
-  echo "Respaldando $DATA_VOLUME → $BACKUP_VOLUME..."
-  local bucket source copy
-  for bucket in $buckets; do
-    mc mirror --overwrite --preserve "minio/$bucket" "/backup/$bucket" >/dev/null
-    # En variables y no con <(...): así un `mc ls` fallido detiene el script (set -e)
-    # en vez de producir dos listas vacías que "coinciden".
-    source=$(object_list "minio/$bucket")
-    copy=$(object_list "/backup/$bucket")
-    [[ "$source" == "$copy" ]] ||
-      die "el respaldo de $bucket no coincide con el original; $BACKUP_VOLUME está incompleto"
-    echo "  $bucket: $(count_lines "$copy") objetos verificados"
-  done
-  BACKUP_INCOMPLETE=0
-  echo "Respaldo verificado en el volumen $BACKUP_VOLUME."
+  echo "Copiando $DATA_VOLUME → $BACKUP_VOLUME (el original se monta de solo lectura)..."
+  local files
+  if ! files=$(copy_and_verify "$DATA_VOLUME" "$BACKUP_VOLUME"); then
+    # Un respaldo a medias no debe pasar por bueno ni bloquear el siguiente intento.
+    docker volume rm "$BACKUP_VOLUME" >/dev/null 2>&1 || true
+    die "el respaldo falló; se borró el volumen incompleto $BACKUP_VOLUME"
+  fi
+  echo "Respaldo verificado: $files archivos con el mismo sha256 en $BACKUP_VOLUME."
 }
 
 cmd_restore() {
-  load_credentials
   volume_exists "$BACKUP_VOLUME" || die "no existe $BACKUP_VOLUME; corre primero: backup"
-  volume_exists "$DATA_VOLUME" && require_volume_unused "$DATA_VOLUME"
-  local buckets
-  buckets=$(list_buckets "$BACKUP_VOLUME")
-  [[ -n "$buckets" ]] || die "$BACKUP_VOLUME está vacío"
+  if volume_exists "$DATA_VOLUME"; then
+    require_volume_unused "$DATA_VOLUME"
+    # Mezclar el respaldo con los archivos actuales dejaría un volumen inconsistente.
+    volume_is_empty "$DATA_VOLUME" ||
+      die "$DATA_VOLUME no está vacío; si quieres reemplazarlo: docker volume rm $DATA_VOLUME"
+  fi
 
   docker volume create "$DATA_VOLUME" >/dev/null
-  trap cleanup EXIT
-  start_temp_server
-
-  echo "Restaurando $BACKUP_VOLUME → $DATA_VOLUME..."
-  local bucket saved restored missing
-  for bucket in $buckets; do
-    mc mb --ignore-existing "minio/$bucket" >/dev/null
-    mc mirror --overwrite "/backup/$bucket" "minio/$bucket" >/dev/null
-    saved=$(object_list "/backup/$bucket")
-    restored=$(object_list "minio/$bucket")
-    # Todo lo respaldado debe estar en el destino (puede haber objetos extra nuevos).
-    missing=$(LC_ALL=C comm -23 <(printf '%s\n' "$saved") <(printf '%s\n' "$restored"))
-    [[ -z "$missing" ]] || die "faltan objetos de $bucket en el destino:"$'\n'"$missing"
-    echo "  $bucket: $(count_lines "$saved") objetos verificados"
-  done
-  echo "Restauración verificada. Levanta el stack (docker compose up -d) y revisa el portal;"
-  echo "cuando todo esté bien: docker volume rm $BACKUP_VOLUME"
+  echo "Copiando $BACKUP_VOLUME → $DATA_VOLUME..."
+  local files
+  files=$(copy_and_verify "$BACKUP_VOLUME" "$DATA_VOLUME") ||
+    die "la restauración falló; $DATA_VOLUME puede estar incompleto (bórralo y vuelve a intentar)"
+  echo "Restauración verificada: $files archivos con el mismo sha256."
+  echo "Levanta el stack (docker compose up -d) y, cuando todo esté bien: docker volume rm $BACKUP_VOLUME"
 }
 
 case "${1:-}" in
