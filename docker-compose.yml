@@ -159,6 +159,10 @@ services:
     environment:
       <<: *pipeline-env
       ML_API_HOST: 0.0.0.0
+      # APP-04: /api/ml/runs lee MLflow. Si no responde, mejor un 503 en segundos que
+      # los minutos de reintentos por defecto del cliente.
+      MLFLOW_HTTP_REQUEST_MAX_RETRIES: "2"
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "10"
     volumes:
       - ./reports:/app/reports:ro
     restart: on-failure:5
