@@ -19,6 +19,9 @@ dependencies = [
     "anthropic>=1.7,<2",
     "starlette>=1.6,<2",
     "uvicorn>=0.53,<1",
+    # ML-02+: clasificador de crops dog/cat. CPU-only (ver tool.uv.sources).
+    "torch>=2.5,<3",
+    "torchvision>=0.20,<1",
 ]
 
 [dependency-groups]
@@ -27,9 +30,20 @@ dev = [
     "pytest>=8.3,<9",
 ]
 
+[tool.uv.sources]
+# En Linux/Windows (CI, Docker) PyPI trae torch con CUDA (~2.5 GB); el índice CPU de
+# PyTorch evita esa descarga. En macOS PyPI ya publica la build CPU.
+torch = [{ index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.ruff]
 line-length = 100
-src = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot", "crops", "tests"]
+src = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot", "crops", "classification", "tests"]
 
 [tool.ruff.lint]
 # E/F: errores y pyflakes. I: orden de imports. B: bugbear (bugs probables).
@@ -38,7 +52,7 @@ src = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation"
 select = ["E", "F", "I", "B", "SIM", "C4", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot", "crops"]
+known-first-party = ["ingestion", "analyzers", "policies", "splits", "storage", "presentation", "copilot", "crops", "classification"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
