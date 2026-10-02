@@ -428,8 +428,10 @@ def _portal_dom(metrics: dict, **overrides) -> str:
       <button>Incorrectos ({f["errors_shown"]})</button>
       <button>Correctos ({f["hits_shown"]})</button>
       <a>Descargar predicciones (CSV)</a>
-      <figure><span>Real: dog</span><span>Predicha: cat</span><span>img3-ann3</span></figure>
+      <figure><span>Real: dog</span><span>Predicha: cat</span><span>p = 0.700</span>
+      <span>img3-ann3</span></figure>
       <figure><span>Real: cat</span><span>Predicha: dog</span>
+      <span>p = {f["error_confidences"].split(", ")[-1]}</span>
       <span>{f["error_examples"].split(", ")[-1]}</span></figure>
     </main>
     """
@@ -444,12 +446,19 @@ def test_portal_figures_are_read_from_the_rendered_page(known):
     assert figures["matrix_total"] == "6"
     assert figures["low_recall_classes"] == "dog, cat"
     assert figures["error_examples"] == "img3-ann3, img5-ann5"
+    assert figures["error_confidences"] == "0.700, 0.600"
     rows = compare_figures("Portal", expected_portal_figures(known), figures)
     assert all(row["equal"] for row in rows), [row for row in rows if not row["equal"]]
 
 
 def test_a_different_figure_on_the_portal_is_detected(known):
-    dom = _portal_dom(known, recall_cat="0.5500", errors_shown="1", error_examples="img4-ann4")
+    dom = _portal_dom(
+        known,
+        recall_cat="0.5500",
+        errors_shown="1",
+        error_examples="img4-ann4",
+        error_confidences="0.700, 0.900",
+    )
     figures = portal_figures(dom)
 
     rows = compare_figures("Portal", expected_portal_figures(known), figures)
@@ -458,6 +467,7 @@ def test_a_different_figure_on_the_portal_is_detected(known):
         "recall_cat",
         "errors_shown",
         "error_examples",
+        "error_confidences",
     }
 
 
@@ -645,3 +655,18 @@ def test_a_discrepancy_in_any_source_fails_the_audit(audit_inputs):
 
     assert report["verified"] is False
     assert "MLflow: f1_macro distinto" in report["problems"]
+
+
+def test_the_audit_writes_nothing_and_leaves_the_candidate_unchanged(audit_inputs):
+    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    files = [inputs["candidate_path"], *inputs["predictions_path"].parent.iterdir()]
+    before = {path: path.read_bytes() for path in files}
+    run_id = json.loads(inputs["candidate_path"].read_text())["run_id"]
+    run_before = inputs["client"].get_run(run_id).data
+
+    quality_audit.run_audit(**inputs)
+
+    assert {path: path.read_bytes() for path in files} == before
+    assert sorted(inputs["predictions_path"].parent.iterdir()) == sorted(before)
+    run_after = inputs["client"].get_run(run_id).data
+    assert (run_after.metrics, run_after.tags) == (run_before.metrics, run_before.tags)
