@@ -462,7 +462,8 @@ export const frozenCandidateSchema = z
     checkpoint_sha256: z.string().regex(/^[0-9a-f]{64}$/),
     dataset_version: identifierSchema,
     manifest_hash: manifestHashSchema,
-    selection_metric: labelSchema,
+    /** Igual que SelectionMetric en Python: la política de ML-08, solo validation. */
+    selection_metric: z.enum(["best_val_loss", "best_val_accuracy"]),
     selection_value: z.number(),
     frozen_at: timestampSchema,
   })
@@ -471,12 +472,6 @@ export const frozenCandidateSchema = z
       context.addIssue({
         code: "custom",
         message: "El checkpoint debe pertenecer al mismo run_id",
-      });
-    }
-    if (candidate.selection_metric.startsWith("test")) {
-      context.addIssue({
-        code: "custom",
-        message: "El candidato se elige con una métrica de validation, nunca de test",
       });
     }
   });

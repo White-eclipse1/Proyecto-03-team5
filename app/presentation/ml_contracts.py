@@ -419,6 +419,9 @@ class Evaluation(ContractModel):
 
 Sha256Hex = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 EvaluationState = Literal["candidate_not_frozen", "candidate_frozen", "evaluated"]
+# Métricas de validation con las que ML-08 puede elegir el candidato
+# (`classification.selection.VALIDATION_METRICS`; lo comprueba un test).
+SelectionMetric = Literal["best_val_loss", "best_val_accuracy"]
 
 
 def _instant(timestamp: str) -> datetime:
@@ -434,15 +437,13 @@ class FrozenCandidate(ContractModel):
     checkpoint_sha256: Sha256Hex
     dataset_version: Identifier
     manifest_hash: ManifestHash
-    selection_metric: Label
+    selection_metric: SelectionMetric
     selection_value: float
     frozen_at: Timestamp
 
     @model_validator(mode="after")
-    def selected_with_validation(self) -> Self:
+    def checkpoint_of_run(self) -> Self:
         require_checkpoint_of_run(self.checkpoint, self.run_id)
-        if self.selection_metric.startswith("test"):
-            raise ValueError("the candidate is selected with a validation metric, never test")
         return self
 
 
