@@ -57,6 +57,13 @@ def test_metrics_from_known_predictions():
     assert metrics["f1_macro"] == pytest.approx((2 / 3 + 0.5) / 2)
 
 
+def test_accuracy_is_the_exact_fraction_without_rounding():
+    metrics = compute_metrics(["dog", "cat", "cat"], ["dog", "cat", "dog"], ["dog", "cat"])
+
+    assert (metrics["correct"], metrics["total"]) == (2, 3)
+    assert metrics["accuracy"] == 2 / 3  # no 0.67 ni 0.667
+
+
 def test_a_class_that_is_never_predicted_has_zero_precision_without_error():
     metrics = compute_metrics(["dog", "cat", "cat"], ["dog", "dog", "dog"], ["dog", "cat"])
 
@@ -332,6 +339,27 @@ def test_audit_recomputes_identical_predictions_without_writing(client, data, fr
     assert differences == []
     assert sorted((tmp_path / "evaluations").rglob("*")) == before
     assert client.get_run(record.evaluation.run_id).data.metrics == metrics_before
+
+
+def test_audit_detects_a_stored_prediction_that_was_altered(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
+    first = stored["predictions"][0]
+    winner = first["predicted_class"]
+    loser = next(name for name in first["probabilities"] if name != winner)
+    # Sigue siendo válida para el contrato (suma 1, mismo argmax), pero ya no es la real.
+    first["probabilities"][winner] = min(1.0, first["probabilities"][winner] + 1e-4)
+    first["probabilities"][loser] = 1.0 - first["probabilities"][winner]
+    record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+
+    differences = audit_evaluation(
+        client=client,
+        data=data,
+        candidate_path=frozen,
+        evaluations_dir=tmp_path / "evaluations",
+    )
+
+    assert differences == [f"annotation_id {first['annotation_id']}: predicción distinta"]
 
 
 def test_candidate_stays_locked_and_frozen_before_the_test(client, data, frozen, tmp_path):
