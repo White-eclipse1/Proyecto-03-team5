@@ -529,3 +529,44 @@ predicciones), portal 32/32, recortes 7/7.
 Evidencia: [`tests/evidence/ml-10-quality-audit.md`](../tests/evidence/ml-10-quality-audit.md).
 
 Tests: `uv run pytest tests/test_classification_quality_audit.py`.
+
+## OPS-06 — Paquete semántico y registro de modelos
+
+`classification/registry.py`. Una **model version** SemVer (`1.0.0`), independiente
+del release del dataset, se resuelve a un checkpoint inequívoco y verificado.
+
+`publish` arma el paquete desde el candidato congelado (ML-08) y su evaluación final
+(ML-09):
+1. Descarga `checkpoints/best.pt` **del run de MLflow** y exige que su sha256 sea el
+   `checkpoint_sha256` congelado.
+2. Escribe el paquete en `data/models/<modelo>/<versión>/`:
+   - `checkpoint/best.pt`;
+   - `package.json`: arquitectura, class map, preprocesamiento, métricas y
+     trazabilidad;
+   - `dependencies.json`: versiones instaladas y el sha256 de `uv.lock`;
+   - `model-card.md`: propósito, release P2, manifest hash, run_id, métricas de
+     test, limitaciones y origen de los pesos preentrenados.
+3. Lo registra en `reports/models/registry.json`, con la ruta del paquete y el
+   sha256 de cada archivo.
+
+`materialize_model_package` no copia un checkpoint cuyo sha256 no coincida con el
+registrado. Una versión registrada no se reescribe con otro contenido, y las
+anteriores siguen resolubles.
+
+El paquete pesa ~45 MB, así que se versiona con DVC (`data/models.dvc`, remote
+`prod`). En un clon limpio:
+
+```bash
+dvc pull -r prod data/models.dvc
+cd app && uv run python -m classification.registry resolve 1.0.0   # checkpoint verificado
+uv run python -m classification.registry verify 1.0.0              # Agent Test (con MLflow)
+uv run python -m classification.registry publish 1.1.0             # nueva versión
+```
+
+`verify` resuelve model_version → run de MLflow (tags `dataset_version` y
+`manifest_hash`, y sha256 de su checkpoint) → paquete (sha256 de cada archivo,
+class map y arquitectura del checkpoint) → manifiesto del release. Termina con
+exit 1 si algo no cuadra.
+
+Evidencia: [`tests/evidence/ops-06-model-registry.md`](../tests/evidence/ops-06-model-registry.md).
+Tests: `uv run pytest tests/test_model_registry.py`.

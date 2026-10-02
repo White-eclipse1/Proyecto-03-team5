@@ -11,6 +11,7 @@ import torch
 from mlflow.tracking import MlflowClient
 from pydantic import ValidationError
 
+import classification.registry as registry_module
 from classification.model import load_checkpoint
 from classification.registry import (
     ModelPackage,
@@ -614,3 +615,37 @@ def test_committed_registry_points_to_a_verifiable_package():
     assert entry.package_path == "data/models/dog-cat-resnet18/1.0.0"
     # El paquete (45 MB) se versiona con DVC; el .dvc está en git.
     assert (repo_root / "data" / "models.dvc").is_file()
+
+
+def test_a_registered_version_is_never_rewritten_with_other_content(
+    client, frozen, published, tmp_path, monkeypatch
+):
+    registry_path = tmp_path / "reports" / "models" / "registry.json"
+    before = registry_path.read_bytes()
+    real = registry_module.runtime_dependencies
+    monkeypatch.setattr(
+        registry_module, "runtime_dependencies", lambda: {**real(), "torch": "9.9.9"}
+    )
+
+    with pytest.raises(ValueError, match="otro contenido"):
+        _publish(client, frozen, tmp_path)
+
+    assert registry_path.read_bytes() == before
+
+
+def test_a_metadata_only_entry_does_not_resolve_to_a_checkpoint(tmp_path):
+    # Como el registry.json original: metadata sin paquete materializado.
+    registry_path = tmp_path / "registry.json"
+    register_model(ModelPackage.model_validate(package_payload()), registry_path)
+
+    with pytest.raises(ValueError, match="solo tiene metadata"):
+        resolve_checkpoint("1.0.0", registry_path=registry_path, repo_root=tmp_path)
+
+
+def test_card_limitations_come_from_the_real_test_results(published):
+    limitations = " ".join(published.model_card.limitations)
+    total = int(published.model_card.test_metrics["total"])
+
+    assert f"({total} recortes)" in limitations
+    assert "Clase más débil en test:" in limitations
+    assert "Errores de test:" in limitations
