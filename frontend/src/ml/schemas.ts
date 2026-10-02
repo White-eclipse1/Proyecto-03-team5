@@ -31,7 +31,8 @@ const runIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
 const gitCommitSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const experimentIdSchema = z.string().regex(/^[0-9]+$/);
 const checkpointSchema = z.string().regex(/^runs:\/[0-9a-f]{32}\/[^\s]+$/);
-const modelVersionSchema = z.string().regex(/^[1-9][0-9]*$/);
+/** Versión semántica del modelo (rúbrica 5.1), igual que ModelVersion en Python y OPS-06. */
+const modelVersionSchema = z.string().regex(/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/);
 const errorCodeSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
 const timestampSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/);
 const labelSchema = z.string().min(1);

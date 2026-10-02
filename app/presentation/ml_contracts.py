@@ -50,7 +50,11 @@ RunId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 GitCommit = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
 ExperimentId = Annotated[str, StringConstraints(pattern=r"^[0-9]+$")]
 Checkpoint = Annotated[str, StringConstraints(pattern=r"^runs:/[0-9a-f]{32}/[^\s]+$")]
-ModelVersion = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]*$")]
+# Versión semántica propia del modelo (rúbrica 5.1), igual que `classification.registry`
+# de OPS-06; no es el número de versión del Model Registry de MLflow.
+ModelVersion = Annotated[
+    str, StringConstraints(pattern=r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+]
 ErrorCode = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")]
 Timestamp = Annotated[
     str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$")
