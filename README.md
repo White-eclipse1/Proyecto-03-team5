@@ -292,9 +292,24 @@ chmod 600 .env
 `ANTHROPIC_API_KEY` puede permanecer vacío si no vas a usar el chat Copilot.
 No pongas credenciales AWS en este archivo.
 
-```bash
-docker compose up --build
-```
+
+Antes de levantar el stack, define `GIT_COMMIT` con el SHA real del commit
+actual. El worker de entrenamiento lo usa para registrar la procedencia de
+cada run y Compose rechaza valores ausentes.
+
+En macOS/Linux:
+
+    export GIT_COMMIT="$(git rev-parse HEAD)"
+    docker compose config --quiet
+    docker compose up --build
+
+En PowerShell:
+
+    $env:GIT_COMMIT = git rev-parse HEAD
+    docker compose config --quiet
+    docker compose up --build
+
+`GIT_COMMIT` debe corresponder al SHA real mostrado por `git rev-parse HEAD`.
 
 Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las

@@ -184,3 +184,42 @@ de APP-04: cambiar un tag y una métrica en MLflow y ver el cambio en la API.
 `TRAINING_QUEUE_DATABASE_URL=mysql+pymysql://root:<clave>@127.0.0.1:3306/image_repo`
 (y `docker compose up -d --wait mariadb`) corre sobre MariaDB, incluida la prueba de
 `SKIP LOCKED`; así lo hace el job de CI "Cola de entrenamiento en MariaDB (APP-03)".
+
+
+## OPS-04 - training worker
+
+El entrenamiento corre en un proceso independiente del API:
+
+```text
+ml-api -> MariaDB queue -> training-worker -> run_training() -> MLflow
+```
+
+El servicio `training-worker`:
+
+- reclama jobs con `claim_next`;
+- ejecuta `run_training`;
+- persiste progreso y logs mediante `JobQueueHooks`;
+- marca `succeeded` con el checkpoint de MLflow;
+- marca `failed` si el trainer lanza una excepcion;
+- al reiniciar recupera jobs no terminales reclamados por el mismo `TRAINING_WORKER_ID`.
+
+Variables relevantes:
+
+- `DATABASE_URL`: cola persistente en MariaDB.
+- `MLFLOW_TRACKING_URI`: servidor MLflow persistente.
+- `TRAINING_WORKER_ID`: identidad estable del worker entre reinicios.
+- `GIT_COMMIT`: SHA Git de 40 caracteres del codigo que ejecuta el entrenamiento.
+
+Para una ejecucion real desde Compose, define el commit actual antes de levantar el worker:
+
+```powershell
+$env:GIT_COMMIT = git rev-parse HEAD
+```
+
+Despues, el servicio puede arrancarse con:
+
+```text
+docker compose up --build training-worker
+```
+
+No se debe usar un SHA inventado: el valor queda registrado en MLflow como procedencia del entrenamiento.
