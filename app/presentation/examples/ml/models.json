@@ -4,26 +4,119 @@
     {
       "model_name": "dog-cat-resnet18",
       "model_version": "1.0.0",
-      "status": "READY",
-      "aliases": [
-        "champion"
-      ],
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
       "dataset_version": "demo-v1.0.0",
       "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
-      "created_at": "2026-01-14T14:00:00Z"
+      "architecture": "resnet18",
+      "image_size": 128,
+      "test_metrics": {
+        "accuracy_top1": 0.8,
+        "f1_macro": 0.7917
+      },
+      "model_card": {
+        "purpose": "Clasificar recortes de cajas COCO en dog o cat.",
+        "limitations": [
+          "Solo distingue dog y cat.",
+          "Clasifica el recorte de una caja; no imágenes completas con varios objetos."
+        ],
+        "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1"
+      },
+      "files": [
+        {
+          "name": "checkpoint/best.pt",
+          "sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+          "available": true
+        },
+        {
+          "name": "model-card.md",
+          "sha256": "b3dd3e51a9e0adb70c1d94b48cbba8a08eff8fe105bfaebb5a352f5f5e7a8703",
+          "available": true
+        },
+        {
+          "name": "dependencies.json",
+          "sha256": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504",
+          "available": true
+        }
+      ],
+      "servable": true,
+      "publication": {
+        "status": "published",
+        "bucket": "mlops-p2-dvc-cache-280764207006",
+        "region": "us-east-1",
+        "published_at": "2026-01-14T15:00:00Z",
+        "objects": [
+          {
+            "name": "checkpoint/best.pt",
+            "key": "models/dog-cat-resnet18/1.0.0/checkpoint/best.pt",
+            "version_id": null,
+            "sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52"
+          },
+          {
+            "name": "model-card.md",
+            "key": "models/dog-cat-resnet18/1.0.0/model-card.md",
+            "version_id": null,
+            "sha256": "b3dd3e51a9e0adb70c1d94b48cbba8a08eff8fe105bfaebb5a352f5f5e7a8703"
+          },
+          {
+            "name": "dependencies.json",
+            "key": "models/dog-cat-resnet18/1.0.0/dependencies.json",
+            "version_id": null,
+            "sha256": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504"
+          }
+        ],
+        "problem": null
+      }
     },
     {
       "model_name": "dog-cat-resnet18",
       "model_version": "0.9.0",
-      "status": "READY",
-      "aliases": [],
       "run_id": "1234567890abcdef1234567890abcdef",
       "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+      "checkpoint_sha256": "5940f4ee0c1f2a63d4c8e1b7a9f6d2e3c4b5a69788f9e0d1c2b3a4f5e6d7c8b9",
       "dataset_version": "demo-v0.9.0",
       "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-      "created_at": "2026-01-10T08:20:00Z"
+      "architecture": "resnet18",
+      "image_size": 224,
+      "test_metrics": {
+        "accuracy_top1": 0.71,
+        "f1_macro": 0.7
+      },
+      "model_card": {
+        "purpose": "Clasificar recortes de cajas COCO en dog o cat.",
+        "limitations": [
+          "Solo distingue dog y cat.",
+          "Clasifica el recorte de una caja; no imágenes completas con varios objetos."
+        ],
+        "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1"
+      },
+      "files": [
+        {
+          "name": "checkpoint/best.pt",
+          "sha256": "5940f4ee0c1f2a63d4c8e1b7a9f6d2e3c4b5a69788f9e0d1c2b3a4f5e6d7c8b9",
+          "available": false
+        },
+        {
+          "name": "model-card.md",
+          "sha256": "0d1c2b3a4f5e6d7c8b9a69788f9e0d1c2b3a4f5e6d7c8b95940f4ee0c1f2a63d",
+          "available": false
+        },
+        {
+          "name": "dependencies.json",
+          "sha256": "9788f9e0d1c2b3a4f5e6d7c8b95940f4ee0c1f2a63d4c8e1b7a9f6d2e3c4b5a6",
+          "available": false
+        }
+      ],
+      "servable": false,
+      "publication": {
+        "status": "not_published",
+        "bucket": null,
+        "region": null,
+        "published_at": null,
+        "objects": [],
+        "problem": null
+      }
     }
   ]
 }
