@@ -6,6 +6,9 @@
     GET  /training/jobs/{job_id}/logs    TrainingLogsResponse (?after=<seq>)
     GET  /runs                           RunsResponse: runs de MLflow (APP-04)
     GET  /runs/{run_id}/curves           RunCurvesResponse: historial por época (APP-04)
+    GET  /evaluation                     EvaluationOverview: candidato y test (APP-05)
+    GET  /evaluation/predictions.csv     predicciones por recorte de ML-09 (APP-05)
+    GET  /crops/{crop_id}                imagen del recorte (APP-05)
     GET  /health
 
 El POST valida el contrato y las reglas del release (`training_request_rejection`) y
@@ -33,7 +36,7 @@ from mlflow.exceptions import MlflowException
 from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
 from starlette.routing import Route
 
 from presentation.ml_contracts import (
@@ -48,6 +51,7 @@ from presentation.ml_contracts import (
 from storage.db import get_engine
 from storage.settings import Settings, TrackingSettings
 from tracking.client import tracking_client
+from training.evaluation_view import crop_path, load_evaluation_view
 from training.experiments import TrackingClient, list_runs, run_curves
 from training.queue import TrainingJobQueue
 from training.releases import load_release, published_releases
@@ -56,6 +60,7 @@ logger = logging.getLogger("ml-api")
 
 PUBLIC_PREFIX = "/api/ml"
 RUN_ID = re.compile(r"^[0-9a-f]{32}$")
+CROP_ID = re.compile(r"^img[0-9]+-ann[0-9]+$")
 
 
 def _error(status_code: int, code: str, message: str, *, retryable: bool = False) -> JSONResponse:
@@ -79,6 +84,7 @@ def create_app(
     queue: TrainingJobQueue,
     reports_dir: Path,
     tracking: TrackingClient | None = None,
+    crops_dir: Path | None = None,
 ) -> Starlette:
     async def list_jobs(_request: Request) -> JSONResponse:
         response = TrainingJobsResponse(schema_version="1.0", jobs=queue.list_jobs())
@@ -170,6 +176,35 @@ def create_app(
             return _error(404, "run_not_found", "No existe ese run de entrenamiento en MLflow.")
         return JSONResponse(curves.model_dump())
 
+    async def get_evaluation(_request: Request) -> JSONResponse:
+        return JSONResponse(load_evaluation_view(reports_dir).overview.model_dump())
+
+    async def get_predictions_csv(_request: Request):
+        view = load_evaluation_view(reports_dir)
+        if view.overview.state != "evaluated" or view.predictions_csv is None:
+            return _error(
+                404,
+                "predictions_not_available",
+                "Las predicciones de test se publican solo con la evaluación final del "
+                "candidato congelado.",
+            )
+        return FileResponse(
+            view.predictions_csv,
+            media_type="text/csv",
+            filename=view.predictions_csv.name,
+        )
+
+    async def get_crop(request: Request):
+        crop_id = request.path_params["crop_id"]
+        if not CROP_ID.fullmatch(crop_id):
+            return _error(400, "invalid_request", "crop_id tiene la forma img<id>-ann<id>.")
+        if crops_dir is None:
+            return _error(503, "crops_not_configured", "El servicio no tiene CROPS_DIR.")
+        path = crop_path(reports_dir, crops_dir, crop_id)
+        if path is None:
+            return _error(404, "crop_not_found", "No existe ese recorte.")
+        return FileResponse(path, media_type="image/png")
+
     async def health(_request: Request) -> JSONResponse:
         try:
             queue.ping()
@@ -187,6 +222,9 @@ def create_app(
             Route("/training/jobs/{job_id}/logs", get_logs, methods=["GET"]),
             Route("/runs", get_runs, methods=["GET"]),
             Route("/runs/{run_id}/curves", get_run_curves, methods=["GET"]),
+            Route("/evaluation", get_evaluation, methods=["GET"]),
+            Route("/evaluation/predictions.csv", get_predictions_csv, methods=["GET"]),
+            Route("/crops/{crop_id:path}", get_crop, methods=["GET"]),
         ]
     )
 
@@ -205,7 +243,12 @@ def main() -> None:
     settings = Settings()
     queue = TrainingJobQueue(get_engine())
     queue.create_tables()
-    app = create_app(queue=queue, reports_dir=settings.reports_dir, tracking=_tracking_or_none())
+    app = create_app(
+        queue=queue,
+        reports_dir=settings.reports_dir,
+        tracking=_tracking_or_none(),
+        crops_dir=settings.crops_dir,
+    )
     uvicorn.run(app, host=settings.ml_api_host, port=settings.ml_api_port)
 
 

@@ -62,7 +62,9 @@ def write_evaluation(reports: Path, document: dict | None = None, *, csv: bool =
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{document['evaluation_id']}.json").write_text(json.dumps(document), "utf-8")
     if csv:
-        (folder / f"{document['evaluation_id']}.predictions.csv").write_text(CSV, "utf-8")
+        (folder / f"{document['evaluation_id']}.predictions.csv").write_text(
+            CSV, "utf-8", newline=""
+        )
     return document["evaluation_id"]
 
 
