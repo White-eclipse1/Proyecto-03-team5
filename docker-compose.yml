@@ -176,6 +176,9 @@ services:
     volumes:
       - ./reports:/app/reports:ro
       - ./data/crops:/app/data/crops:ro
+      # APP-07: paquetes del modelo de OPS-06 (`dvc pull data/models.dvc`), listados en
+      # reports/models/registry.json. Sin ellos, Inference responde model_package_missing.
+      - ./data/models:/app/data/models:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=4)"]
       interval: 5s

@@ -5,10 +5,11 @@
   tipo que declara el navegador no deciden nada.
 - `read_crop` toma un recorte de ML-01 por `image_id` + `annotation_id` del release,
   y verifica su sha256 contra `reports/crops.json`.
-- `MlflowRegistryResolver` resuelve `model_name` + `model_version` en el Model
-  Registry de MLflow → run → checkpoint (`runs:/<run_id>/...`) → release, descarga
-  el checkpoint y verifica su sha256 si la versión lo registra. Guarda en memoria
-  los últimos modelos cargados.
+- `PackageRegistryResolver` resuelve `model_name` + `model_version` (SemVer) en el
+  registro de OPS-06 (`reports/models/registry.json`, `classification.registry`): el
+  paquete de `data/models/` con el sha256 de cada archivo verificado, y la
+  arquitectura y el preprocesamiento del checkpoint iguales a los registrados.
+  Guarda en memoria los últimos modelos cargados.
 - `classify` aplica `preprocess_image` (el preprocesamiento de validation/test de
   ML-02) y `predict_proba` (modo eval, sin gradiente).
 
@@ -19,27 +20,23 @@ devuelve como `ErrorResponse`.
 import hashlib
 import io
 import json
-import re
-import tempfile
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
-from mlflow.exceptions import MlflowException
 from PIL import Image, UnidentifiedImageError
+from pydantic import ValidationError
 
 from classification.model import DogCatResNet18, load_checkpoint, predict_proba
+from classification.registry import resolve_checkpoint, resolve_model
 from classification.transforms import preprocess_image
 from presentation.ml_contracts import CropSelection, UploadedImage
-from tracking.run_schema import TAG_DATASET_VERSION
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 FORMATS = {"PNG": "image/png", "JPEG": "image/jpeg"}
-CHECKPOINT_SHA256_TAG = "checkpoint_sha256"
-_RUN_ARTIFACT = re.compile(r"^runs:/(?P<run_id>[0-9a-f]{32})/(?P<path>\S+)$")
 
 
 class InferenceRejected(Exception):
@@ -172,11 +169,16 @@ def classify(model: DogCatResNet18, image: Image.Image) -> tuple[str, dict[str, 
     return max(probabilities, key=probabilities.__getitem__), probabilities
 
 
-class MlflowRegistryResolver:
-    """`model_version` del Model Registry de MLflow → checkpoint verificado y cargado."""
+class PackageRegistryResolver:
+    """`model_version` del registro de OPS-06 → paquete verificado → modelo cargado.
 
-    def __init__(self, client, *, cache_size: int = 4):
-        self._client = client
+    `registry_path` es `reports/models/registry.json` y `repo_root` la carpeta contra
+    la que se resuelve `package_path` (`data/models/<modelo>/<versión>`).
+    """
+
+    def __init__(self, registry_path: Path, *, repo_root: Path, cache_size: int = 4):
+        self._registry_path = registry_path
+        self._repo_root = repo_root
         self._cache: OrderedDict[tuple[str, str], LoadedModel] = OrderedDict()
         self._cache_size = cache_size
         self._lock = threading.Lock()
@@ -194,64 +196,56 @@ class MlflowRegistryResolver:
             return loaded
 
     def _load(self, model_name: str, model_version: str) -> LoadedModel:
-        label = f"{model_name} v{model_version}"
+        label = f"{model_name} {model_version}"
         try:
-            version = self._client.get_model_version(model_name, model_version)
-            if version.status != "READY":
-                raise InferenceRejected(
-                    409, "model_not_ready", f"{label} está en {version.status}, no en READY."
-                )
-            match = _RUN_ARTIFACT.match(version.source or "")
-            if match is None or match["run_id"] != version.run_id:
-                raise InferenceRejected(
-                    409,
-                    "model_not_servable",
-                    f"{label} no apunta a un checkpoint de su run ({version.source}).",
-                )
-            run = self._client.get_run(version.run_id)
-            dataset_version = run.data.tags.get(TAG_DATASET_VERSION)
-            with tempfile.TemporaryDirectory() as tmp:
-                local = Path(self._client.download_artifacts(version.run_id, match["path"], tmp))
-                digest = hashlib.sha256(local.read_bytes()).hexdigest()
-                expected = (version.tags or {}).get(CHECKPOINT_SHA256_TAG)
-                if expected is not None and expected != digest:
-                    raise InferenceRejected(
-                        409,
-                        "model_not_servable",
-                        f"El checkpoint de {label} tiene sha256 {digest}, no el registrado "
-                        f"{expected}.",
-                    )
-                model = load_checkpoint(local)
-        except InferenceRejected:
-            raise
-        except MlflowException as exc:
-            if exc.error_code == "RESOURCE_DOES_NOT_EXIST":
-                raise InferenceRejected(
-                    422, "model_not_found", f"No existe {label} en el Model Registry."
-                ) from exc
-            raise _unavailable() from exc
-        except (ConnectionError, OSError, TimeoutError) as exc:
-            raise _unavailable() from exc
+            package = resolve_model(model_version, self._registry_path)
+            if package.model_name != model_name:
+                raise KeyError(model_version)
+            checkpoint = resolve_checkpoint(
+                model_version, registry_path=self._registry_path, repo_root=self._repo_root
+            )
+            model = load_checkpoint(checkpoint)
+        except KeyError as exc:
+            raise InferenceRejected(
+                422, "model_not_found", f"No existe {label} en el registro de modelos."
+            ) from exc
+        except FileNotFoundError as exc:
+            raise InferenceRejected(
+                503,
+                "model_package_missing",
+                f"Falta el paquete de {label} en este servidor; ejecuta "
+                "`dvc pull data/models.dvc`.",
+            ) from exc
+        except (OSError, ValidationError) as exc:
+            raise InferenceRejected(
+                503, "registry_unavailable", "No se pudo leer el registro de modelos."
+            ) from exc
         except ValueError as exc:
             raise InferenceRejected(
-                409, "model_not_servable", f"El checkpoint de {label} no se pudo cargar: {exc}"
+                409, "model_not_servable", f"{label} no se puede servir: {exc}"
             ) from exc
-        if not dataset_version:
+        config = model.config
+        expected = package.architecture
+        mismatched = [
+            name
+            for name, served, registered in (
+                ("image_size", config.image_size, package.preprocessing.image_size),
+                ("hidden_layers", config.hidden_layers, expected.hidden_layers),
+            )
+            if served != registered
+        ]
+        if mismatched:
             raise InferenceRejected(
-                409, "model_not_servable", f"El run de {label} no registra dataset_version."
+                409,
+                "model_not_servable",
+                f"El checkpoint de {label} no coincide con lo registrado: {', '.join(mismatched)}.",
             )
         return LoadedModel(
-            model_name=model_name,
-            model_version=model_version,
-            run_id=version.run_id,
-            checkpoint=version.source,
-            checkpoint_sha256=digest,
-            dataset_version=dataset_version,
+            model_name=package.model_name,
+            model_version=str(package.model_version),
+            run_id=package.run_id,
+            checkpoint=package.checkpoint,
+            checkpoint_sha256=package.checkpoint_sha256,
+            dataset_version=package.dataset_version,
             model=model,
         )
-
-
-def _unavailable() -> InferenceRejected:
-    return InferenceRejected(
-        503, "registry_unavailable", "El Model Registry de MLflow no respondió.", retryable=True
-    )

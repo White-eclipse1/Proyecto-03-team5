@@ -169,9 +169,6 @@ jobs:
       - name: Experiments lee runs reales de MLflow (APP-04, Agent Test del issue #16)
         working-directory: app
         run: uv run --locked --no-build pytest -v tests/test_experiments_mlflow_integration.py
-      - name: Inference carga la versión elegida del Model Registry (APP-07, Agent Test del issue #24)
-        working-directory: app
-        run: uv run --locked --no-build pytest -v tests/test_inference_mlflow_integration.py
       - name: Logs del servidor MLflow
         if: failure()
         run: docker compose logs mlflow mariadb minio

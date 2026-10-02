@@ -69,8 +69,8 @@ from training.inference import (
     MAX_IMAGE_PIXELS,
     MAX_UPLOAD_BYTES,
     InferenceRejected,
-    MlflowRegistryResolver,
     ModelResolver,
+    PackageRegistryResolver,
     classify,
     read_crop,
     read_upload,
@@ -371,8 +371,11 @@ def main() -> None:
         reports_dir=settings.reports_dir,
         tracking=tracking,
         crops_dir=settings.crops_dir,
-        # APP-07: model_version del Model Registry de MLflow → checkpoint del run.
-        models=MlflowRegistryResolver(tracking) if tracking is not None else None,
+        # APP-07: model_version (SemVer) del registro de OPS-06 → paquete de data/models.
+        models=PackageRegistryResolver(
+            settings.reports_dir / "models" / "registry.json",
+            repo_root=settings.reports_dir.parent,
+        ),
     )
     uvicorn.run(app, host=settings.ml_api_host, port=settings.ml_api_port)
 
