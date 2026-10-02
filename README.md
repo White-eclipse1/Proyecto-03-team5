@@ -319,13 +319,20 @@ arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 
 ### Smoke training corto de OPS-05
 
-Con el stack levantado mediante:
+Antes del smoke, el checkout debe tener materializados los datos del release
+y los crops de clasificación. En un clon limpio, después de completar la
+configuración de DVC/AWS descrita arriba, ejecuta desde la raíz:
+
+```bash
+dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
+dvc repro crops manifest
+```
+Después levanta el stack completo:
 
 ```bash
 docker compose up --build
 ```
-
-puedes ejecutar una prueba corta del flujo real de entrenamiento desde otra terminal:
+Desde otra terminal ejecuta:
 
 ```bash
 cd app

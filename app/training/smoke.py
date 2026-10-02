@@ -8,16 +8,26 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+from tracking.client import tracking_client
+
 API_BASE = os.environ.get("OPS05_API_BASE", "http://localhost:8080/api/ml").rstrip("/")
 DATASET_VERSION = os.environ.get("OPS05_DATASET_VERSION", "v0.1.1")
 TIMEOUT_SECONDS = int(os.environ.get("OPS05_TIMEOUT_SECONDS", "900"))
 
+os.environ.setdefault(
+    "MLFLOW_TRACKING_URI",
+    f"http://localhost:{os.environ.get('MLFLOW_PORT', '5000')}",
+)
+
 ROOT = Path(__file__).resolve().parents[2]
+CROPS_DIR = ROOT / "data" / "crops"
+CROPS_REPORT = ROOT / "reports" / "crops.json"
 
 
 def _request_json(
@@ -51,6 +61,57 @@ def _request_json(
         ) from exc
 
 
+def _require_crops(manifest: dict) -> None:
+    if not CROPS_REPORT.is_file():
+        raise SystemExit(
+            "Falta reports/crops.json. Ejecuta primero `dvc repro crops manifest` desde la raiz."
+        )
+
+    missing = []
+    for record in manifest["records"]:
+        crop_id = record["crop_id"]
+        class_name = record["class"]
+        path = CROPS_DIR / class_name / f"{crop_id}.png"
+        if not path.is_file():
+            missing.append(path)
+            if len(missing) >= 5:
+                break
+
+    if missing:
+        examples = "\n".join(f"- {path}" for path in missing)
+        raise SystemExit(
+            "Faltan crops requeridos por el manifest. "
+            "Ejecuta `dvc repro crops manifest` antes del smoke.\n"
+            f"Ejemplos:\n{examples}"
+        )
+
+
+def _verify_mlflow_artifact(run_id: str) -> Path:
+    client = tracking_client()
+
+    run = client.get_run(run_id)
+    if run.info.status != "FINISHED":
+        raise SystemExit(f"El run {run_id} existe en MLflow pero su estado es {run.info.status!r}.")
+
+    with tempfile.TemporaryDirectory(prefix="ops05-smoke-") as directory:
+        checkpoint = Path(
+            client.download_artifacts(
+                run_id,
+                "checkpoints/best.pt",
+                directory,
+            )
+        )
+
+        if not checkpoint.is_file() or checkpoint.stat().st_size <= 0:
+            raise SystemExit(f"MLflow no devolvio un best.pt valido para el run {run_id}.")
+
+        size = checkpoint.stat().st_size
+
+    print(f"MLflow run verificado: {run_id}")
+    print(f"best.pt verificado: {size} bytes")
+    return Path("checkpoints/best.pt")
+
+
 def main() -> None:
     manifest_path = ROOT / "reports" / "releases" / DATASET_VERSION / "manifest.json"
 
@@ -58,6 +119,8 @@ def main() -> None:
         raise SystemExit(f"No existe {manifest_path}. Recupera/genera el release antes del smoke.")
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    _require_crops(manifest)
 
     print(f"API: {API_BASE}")
     print(f"Dataset: {DATASET_VERSION}")
@@ -113,8 +176,12 @@ def main() -> None:
 
             if not run_id:
                 raise SystemExit("Job succeeded pero no tiene run_id.")
-            if checkpoint != f"runs:/{run_id}/checkpoints/best.pt":
+
+            expected_checkpoint = f"runs:/{run_id}/checkpoints/best.pt"
+            if checkpoint != expected_checkpoint:
                 raise SystemExit(f"Checkpoint inesperado: {checkpoint!r}")
+
+            _verify_mlflow_artifact(run_id)
 
             print("")
             print("OPS-05 SMOKE OK")
