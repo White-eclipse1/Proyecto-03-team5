@@ -1,0 +1,757 @@
+{
+  "evaluation_id": "test-r03-sgd-20261002T012633Z",
+  "run_id": "bb448230424146349a969253d30db43b",
+  "checkpoint": "runs:/bb448230424146349a969253d30db43b/checkpoints/best.pt",
+  "model_name": null,
+  "model_version": null,
+  "dataset_version": "v0.1.1",
+  "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+  "split": "test",
+  "class_names": [
+    "dog",
+    "cat"
+  ],
+  "metrics": {
+    "accuracy_top1": 0.9577464788732394,
+    "f1_macro": 0.9548441806232775
+  },
+  "per_class": [
+    {
+      "class_name": "dog",
+      "precision": 0.9347826086956522,
+      "recall": 1.0,
+      "f1": 0.9662921348314606,
+      "support": 43
+    },
+    {
+      "class_name": "cat",
+      "precision": 1.0,
+      "recall": 0.8928571428571429,
+      "f1": 0.9433962264150945,
+      "support": 28
+    }
+  ],
+  "confusion_matrix": [
+    [
+      43,
+      0
+    ],
+    [
+      3,
+      25
+    ]
+  ],
+  "predictions": [
+    {
+      "image_id": 107,
+      "annotation_id": 135,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999502897262573,
+        "cat": 0.00004964882100466639
+      }
+    },
+    {
+      "image_id": 12,
+      "annotation_id": 11,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0031012578401714563,
+        "cat": 0.9968987703323364
+      }
+    },
+    {
+      "image_id": 146,
+      "annotation_id": 165,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.025603128597140312,
+        "cat": 0.9743968844413757
+      }
+    },
+    {
+      "image_id": 149,
+      "annotation_id": 168,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 1.8060698039334966e-6,
+        "cat": 0.9999982118606567
+      }
+    },
+    {
+      "image_id": 154,
+      "annotation_id": 173,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9990963935852051,
+        "cat": 0.0009036693954840302
+      }
+    },
+    {
+      "image_id": 154,
+      "annotation_id": 174,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9984679818153381,
+        "cat": 0.0015320386737585068
+      }
+    },
+    {
+      "image_id": 154,
+      "annotation_id": 175,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9953822493553162,
+        "cat": 0.004617696162313223
+      }
+    },
+    {
+      "image_id": 157,
+      "annotation_id": 180,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999998807907104,
+        "cat": 8.347429059085698e-8
+      }
+    },
+    {
+      "image_id": 163,
+      "annotation_id": 185,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.999819815158844,
+        "cat": 0.00018019629351329058
+      }
+    },
+    {
+      "image_id": 167,
+      "annotation_id": 189,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9982172846794128,
+        "cat": 0.0017827232368290424
+      }
+    },
+    {
+      "image_id": 168,
+      "annotation_id": 190,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999998807907104,
+        "cat": 1.4643434553818224e-7
+      }
+    },
+    {
+      "image_id": 168,
+      "annotation_id": 191,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9993588328361511,
+        "cat": 0.0006411982467398047
+      }
+    },
+    {
+      "image_id": 168,
+      "annotation_id": 192,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9965914487838745,
+        "cat": 0.0034086022060364485
+      }
+    },
+    {
+      "image_id": 168,
+      "annotation_id": 193,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9058943390846252,
+        "cat": 0.09410561621189117
+      }
+    },
+    {
+      "image_id": 18,
+      "annotation_id": 16,
+      "true_class": "cat",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.76905357837677,
+        "cat": 0.23094645142555237
+      }
+    },
+    {
+      "image_id": 186,
+      "annotation_id": 212,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.00002433943700452801,
+        "cat": 0.9999756813049316
+      }
+    },
+    {
+      "image_id": 191,
+      "annotation_id": 217,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.07224128395318985,
+        "cat": 0.9277587532997131
+      }
+    },
+    {
+      "image_id": 20,
+      "annotation_id": 14,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.002844094065949321,
+        "cat": 0.9971559047698975
+      }
+    },
+    {
+      "image_id": 208,
+      "annotation_id": 239,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0034858982544392347,
+        "cat": 0.9965141415596008
+      }
+    },
+    {
+      "image_id": 218,
+      "annotation_id": 249,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 1.1501894547905067e-8
+      }
+    },
+    {
+      "image_id": 219,
+      "annotation_id": 250,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999997615814209,
+        "cat": 2.1153370255433401e-7
+      }
+    },
+    {
+      "image_id": 223,
+      "annotation_id": 254,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 7.921954203737869e-10
+      }
+    },
+    {
+      "image_id": 233,
+      "annotation_id": 264,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 1.6042171757657542e-10
+      }
+    },
+    {
+      "image_id": 233,
+      "annotation_id": 265,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9942927360534668,
+        "cat": 0.005707260221242905
+      }
+    },
+    {
+      "image_id": 252,
+      "annotation_id": 286,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.00010681195999495685,
+        "cat": 0.9998931884765625
+      }
+    },
+    {
+      "image_id": 256,
+      "annotation_id": 290,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.000022736721803084947,
+        "cat": 0.9999772310256958
+      }
+    },
+    {
+      "image_id": 260,
+      "annotation_id": 296,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.01612471416592598,
+        "cat": 0.9838752746582031
+      }
+    },
+    {
+      "image_id": 261,
+      "annotation_id": 297,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0008575418614782393,
+        "cat": 0.9991424083709717
+      }
+    },
+    {
+      "image_id": 27,
+      "annotation_id": 42,
+      "true_class": "cat",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.5348254442214966,
+        "cat": 0.4651745855808258
+      }
+    },
+    {
+      "image_id": 274,
+      "annotation_id": 315,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 5.567570227071883e-8
+      }
+    },
+    {
+      "image_id": 275,
+      "annotation_id": 320,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9587370753288269,
+        "cat": 0.0412629060447216
+      }
+    },
+    {
+      "image_id": 288,
+      "annotation_id": 332,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 8.538682649827933e-9
+      }
+    },
+    {
+      "image_id": 292,
+      "annotation_id": 335,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 6.138343167094718e-10
+      }
+    },
+    {
+      "image_id": 294,
+      "annotation_id": 337,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999960660934448,
+        "cat": 3.874994490615791e-6
+      }
+    },
+    {
+      "image_id": 296,
+      "annotation_id": 339,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.8621968626976013,
+        "cat": 0.13780316710472107
+      }
+    },
+    {
+      "image_id": 296,
+      "annotation_id": 340,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9362463355064392,
+        "cat": 0.06375369429588318
+      }
+    },
+    {
+      "image_id": 366,
+      "annotation_id": 349,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.003739235457032919,
+        "cat": 0.9962607026100159
+      }
+    },
+    {
+      "image_id": 366,
+      "annotation_id": 350,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0027905444148927927,
+        "cat": 0.9972094893455505
+      }
+    },
+    {
+      "image_id": 366,
+      "annotation_id": 351,
+      "true_class": "cat",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.7945454120635986,
+        "cat": 0.20545457303524017
+      }
+    },
+    {
+      "image_id": 369,
+      "annotation_id": 355,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.3679072856903076,
+        "cat": 0.6320927143096924
+      }
+    },
+    {
+      "image_id": 397,
+      "annotation_id": 382,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999998807907104,
+        "cat": 1.0966650876298445e-7
+      }
+    },
+    {
+      "image_id": 408,
+      "annotation_id": 393,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.995789110660553,
+        "cat": 0.004210890736430883
+      }
+    },
+    {
+      "image_id": 421,
+      "annotation_id": 406,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9965156316757202,
+        "cat": 0.003484364366158843
+      }
+    },
+    {
+      "image_id": 421,
+      "annotation_id": 407,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9997499585151672,
+        "cat": 0.00025005440693348646
+      }
+    },
+    {
+      "image_id": 449,
+      "annotation_id": 438,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.005671873223036528,
+        "cat": 0.9943280816078186
+      }
+    },
+    {
+      "image_id": 450,
+      "annotation_id": 439,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0025405599735677242,
+        "cat": 0.9974594712257385
+      }
+    },
+    {
+      "image_id": 452,
+      "annotation_id": 441,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.00343244057148695,
+        "cat": 0.9965674877166748
+      }
+    },
+    {
+      "image_id": 453,
+      "annotation_id": 442,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.000752449908759445,
+        "cat": 0.9992475509643555
+      }
+    },
+    {
+      "image_id": 49,
+      "annotation_id": 59,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9893871545791626,
+        "cat": 0.010612843558192253
+      }
+    },
+    {
+      "image_id": 499,
+      "annotation_id": 494,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999992847442627,
+        "cat": 7.018240353318106e-7
+      }
+    },
+    {
+      "image_id": 534,
+      "annotation_id": 531,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.00012992102710995823,
+        "cat": 0.9998700618743896
+      }
+    },
+    {
+      "image_id": 552,
+      "annotation_id": 553,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.004013353027403355,
+        "cat": 0.9959866404533386
+      }
+    },
+    {
+      "image_id": 557,
+      "annotation_id": 559,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.0027545164339244366,
+        "cat": 0.9972455501556396
+      }
+    },
+    {
+      "image_id": 563,
+      "annotation_id": 565,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 9.397998823601483e-9
+      }
+    },
+    {
+      "image_id": 573,
+      "annotation_id": 575,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999992847442627,
+        "cat": 7.446110998898803e-7
+      }
+    },
+    {
+      "image_id": 581,
+      "annotation_id": 583,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 4.586250934579539e-9
+      }
+    },
+    {
+      "image_id": 583,
+      "annotation_id": 585,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 1.0,
+        "cat": 4.2312922610143744e-10
+      }
+    },
+    {
+      "image_id": 589,
+      "annotation_id": 592,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9995139837265015,
+        "cat": 0.0004860461922362447
+      }
+    },
+    {
+      "image_id": 602,
+      "annotation_id": 605,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9929284453392029,
+        "cat": 0.007071548141539097
+      }
+    },
+    {
+      "image_id": 62,
+      "annotation_id": 44,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999990463256836,
+        "cat": 9.522855748400616e-7
+      }
+    },
+    {
+      "image_id": 643,
+      "annotation_id": 647,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999977350234985,
+        "cat": 2.205476448580157e-6
+      }
+    },
+    {
+      "image_id": 65,
+      "annotation_id": 79,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.000034678407246246934,
+        "cat": 0.9999653100967407
+      }
+    },
+    {
+      "image_id": 661,
+      "annotation_id": 665,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999600648880005,
+        "cat": 0.00003998376996605657
+      }
+    },
+    {
+      "image_id": 662,
+      "annotation_id": 666,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999998807907104,
+        "cat": 1.0010038664631793e-7
+      }
+    },
+    {
+      "image_id": 663,
+      "annotation_id": 667,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999856948852539,
+        "cat": 0.000014286961231846362
+      }
+    },
+    {
+      "image_id": 67,
+      "annotation_id": 80,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.00018054422980640084,
+        "cat": 0.9998194575309753
+      }
+    },
+    {
+      "image_id": 80,
+      "annotation_id": 93,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.000012326061550993472,
+        "cat": 0.9999877214431763
+      }
+    },
+    {
+      "image_id": 80,
+      "annotation_id": 94,
+      "true_class": "cat",
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 1.5002449345047353e-6,
+        "cat": 0.9999984502792358
+      }
+    },
+    {
+      "image_id": 94,
+      "annotation_id": 109,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999997615814209,
+        "cat": 2.343332283771815e-7
+      }
+    },
+    {
+      "image_id": 95,
+      "annotation_id": 110,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999992847442627,
+        "cat": 6.746840881532989e-7
+      }
+    },
+    {
+      "image_id": 96,
+      "annotation_id": 111,
+      "true_class": "dog",
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.9999998807907104,
+        "cat": 6.896478055296029e-8
+      }
+    }
+  ],
+  "created_at": "2026-10-02T01:26:33.097538Z"
+}

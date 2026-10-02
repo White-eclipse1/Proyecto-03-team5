@@ -28,7 +28,10 @@ services:
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -p\"$${MARIADB_ROOT_PASSWORD}\""]
+      # Por TCP y no por socket: al inicializar, la imagen arranca un servidor temporal
+      # solo por socket y luego lo reinicia; un ping por socket daba "sano" antes de
+      # tiempo y la primera consulta de otro servicio caía en ese reinicio.
+      test: ["CMD-SHELL", "mariadb-admin ping --protocol=tcp -h 127.0.0.1 -uroot -p\"$${MARIADB_ROOT_PASSWORD}\""]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -119,9 +122,13 @@ services:
       args:
         VITE_API_BASE_URL: /api
     depends_on:
-      - backend
-      - copilot
-      - ml-api
+      backend:
+        condition: service_started
+      copilot:
+        condition: service_started
+      # nginx no recibe tráfico para /api/ml/ hasta que ml-api responde (evita 502).
+      ml-api:
+        condition: service_healthy
     ports:
       - "8080:80"
     volumes:
@@ -169,6 +176,12 @@ services:
     volumes:
       - ./reports:/app/reports:ro
       - ./data/crops:/app/data/crops:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
     restart: on-failure:5
 
   # P2-52: agente del Copilot (LLM + herramientas MCP de solo lectura). Misma

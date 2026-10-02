@@ -425,3 +425,60 @@ sus evaluaciones en `reports/evaluations/` con `created_at`.
 previa. Evidencia: [`tests/evidence/ml-08-candidate.md`](../tests/evidence/ml-08-candidate.md).
 
 Tests: `uv run pytest tests/test_classification_selection.py`.
+
+## ML-09 — Evaluación final sobre el test congelado
+
+`classification/evaluation.py`. Evalúa **una vez** el candidato congelado de
+ML-08 sobre el split `test`.
+
+1. Exige `reports/candidates/ml08_candidate.json` y verifica que el checkpoint
+   descargado de MLflow tenga el `checkpoint_sha256` congelado y que el
+   manifiesto sea el del candidato.
+2. Solo carga `test`, con el `image_size` del checkpoint. Se niega si el
+   preprocesamiento tuviera pasos aleatorios. Modo eval, sin gradiente ni
+   optimizador.
+3. Escribe en `reports/evaluations/test/`:
+   - `<id>.json`: contrato `Evaluation`, con la matriz (filas reales, columnas
+     predichas), las métricas por clase y las predicciones;
+   - `<id>.predictions.csv`: `crop_id`, `image_id`, `annotation_id`, clases,
+     `p_dog`, `p_cat` y acierto.
+4. Registra en el run del candidato `test_accuracy`, `test_f1_macro`,
+   `test_correct`, `test_total` y `test_precision_*`, `test_recall_*`,
+   `test_f1_*`, `test_support_*` por clase; los tags `test_accuracy_meets_target`
+   (`aciertos / total` contra 0.85 **con enteros**: `aciertos·20 >= 17·total`, sin
+   dividir ni redondear), `test_target_accuracy` y
+   `test_evaluation_id`; y los dos archivos como artefactos.
+
+```bash
+uv run python -m classification.evaluation evaluate  # una sola vez
+uv run python -m classification.evaluation audit     # re-infiere y compara cada muestra, sin escribir
+uv run python -m classification.evaluation verify    # CSV vs MLflow (Agent Test)
+```
+
+**Si MLflow falla a mitad del registro.** `evaluate` escribe primero el JSON y el
+CSV y después registra en MLflow. Si MLflow se cae o se corta la red en ese paso,
+`evaluate` termina con un error que dice que la evaluación quedó en disco, y no se
+puede repetir porque el test se evalúa una sola vez. Para completar MLflow **sin
+volver a inferir**:
+
+```bash
+uv run python -m classification.evaluation register  # registra la evaluación que está en disco
+uv run python -m classification.evaluation verify    # debe dar OK en todas las métricas
+```
+
+`register` exige que la evaluación sea del candidato congelado (run, checkpoint,
+manifiesto y release) y que el CSV coincida con el JSON muestra por muestra. Si el
+run ya tiene otra evaluación de test registrada, no la reemplaza. Repetirlo no cambia
+las métricas ni los tags.
+
+**Resultado:** `r03-sgd` obtiene accuracy = 68/71 = **0.9577** (≥ 0.85) y F1
+macro = 0.9548 en test. El recall de `cat` es 0.893 (3 gatos predichos como
+perro). Evidencia: [`tests/evidence/ml-09-test-evaluation.md`](../tests/evidence/ml-09-test-evaluation.md).
+
+La auditoría compara el **registro completo de cada muestra**: en el JSON, por
+`annotation_id`, los ids, la clase real, la clase predicha y las probabilidades; en
+el CSV, la fila entera por `crop_id`. Además compara la cabecera, la matriz y las
+métricas. Que cuadren la matriz y las métricas no basta: intercambiar las etiquetas
+reales de dos muestras con la misma predicción deja ambas iguales.
+
+Tests: `uv run pytest tests/test_classification_evaluation.py`.
