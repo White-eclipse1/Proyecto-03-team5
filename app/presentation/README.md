@@ -356,8 +356,10 @@ IDs obligatorios y con formato fijo:
 - `manifest_hash`: `md5:<32 hex>` (hash DVC) o `sha256:<64 hex>`.
 - `experiment_id` / `run_id`: IDs de MLflow (numérico / 32 hex en minúsculas).
 - `checkpoint`: `runs:/<run_id>/<ruta>`, siempre del mismo `run_id` que lo declara.
-- `model_version`: versión del Model Registry (entero positivo como string). Es un
-  campo distinto de `dataset_version` y no acepta su formato.
+- `model_version`: versión semántica propia del modelo, `MAJOR.MINOR.PATCH` (rúbrica
+  5.1), la misma que registra OPS-06 en `reports/models/registry.json`. No es el
+  número de versión del Model Registry de MLflow, es un campo distinto de
+  `dataset_version` y no acepta su formato.
 - `image_id` / `annotation_id`: IDs COCO del recorte (enteros >= 0).
 
 El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige
