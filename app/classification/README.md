@@ -482,3 +482,50 @@ métricas. Que cuadren la matriz y las métricas no basta: intercambiar las etiq
 reales de dos muestras con la misma predicción deja ambas iguales.
 
 Tests: `uv run pytest tests/test_classification_evaluation.py`.
+
+## ML-10 — Auditoría final de calidad y análisis de errores
+
+`classification/quality_audit.py`. Verifica de forma independiente la evaluación
+final de ML-09, **sin volver a inferir ni escribir en MLflow**.
+
+1. **Solo desde el CSV de predicciones** (Agent Test). Lo valida fila por fila:
+   `crop_id`, clases, probabilidades que suman 1, predicha = argmax y `correct`.
+   Después recalcula la matriz, la accuracy (con la meta 0.85 comparada con
+   enteros), el F1 macro, precision/recall/F1/support por clase, el baseline de
+   clase mayoritaria, la clase más confundida y si el accuracy oculta un recall
+   bajo 0.85. No reutiliza el cálculo de ML-09.
+2. **Test congelado.** Comprueba que las predicciones son exactamente el split
+   `test` del manifiesto, que la evaluación es del candidato y posterior a su
+   congelamiento, y que en MLflow ningún otro run quedó como candidato ni este fue
+   reemplazado.
+3. **Comparación con cada fuente.** Contrasta las cifras con:
+   - **MLflow:** métricas `test_*`, el tag de la meta y la matriz del artefacto;
+   - **la API:** `GET /api/ml/evaluation`, también muestra por muestra;
+   - **el portal:** la pantalla Evaluation renderizada en Chrome headless, cifra
+     por cifra.
+
+   Además, `frontend/tests/ml-quality-audit.test.ts` compara el cálculo del
+   portal con el reporte a precisión completa.
+4. **Ejemplos reales del test.** Toma todos los errores y, por clase, el acierto
+   más y el menos confiado. Verifica que la API sirve sus recortes idénticos y
+   arma la lámina `tests/evidence/ml-10-examples.jpg`.
+
+```bash
+GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --wait mlflow ml-api backend frontend
+cd app && uv run python -m classification.quality_audit   # exit 1 si algo no cuadra
+```
+
+Opciones: `--api-url` (por defecto `http://localhost:8080/api/ml`), `--portal-url`
+y `--chrome` (o `CHROME_BIN`). Si la API o el portal no responden, la auditoría
+no los da por buenos: los reporta como no verificados y termina con exit 1.
+
+**Resultado:** verificada, sin discrepancias. MLflow 17/17, API 16/16 (y las 71
+predicciones), portal 32/32, recortes 7/7.
+- 68/71 = 0.9577 ≥ 0.85; baseline 43/71 = 0.6056.
+- Clase más confundida: `cat` (3 gatos predichos como perro).
+- Ningún recall está bajo 0.85, pero `cat` (0.893, con 28 ejemplos) es la clase
+  débil.
+
+Evidencia: [`tests/evidence/ml-10-quality-audit.md`](../tests/evidence/ml-10-quality-audit.md).
+
+Tests: `uv run pytest tests/test_classification_quality_audit.py`.

@@ -592,6 +592,7 @@ def audit_inputs(tmp_path, monkeypatch, known_csv, known):
 
     monkeypatch.setattr(quality_audit, "_http_get", fake_get)
     return {
+        "overview": overview,
         "client": client,
         "predictions_path": predictions,
         "candidate_path": candidate_path,
@@ -605,7 +606,7 @@ def audit_inputs(tmp_path, monkeypatch, known_csv, known):
 
 
 def test_a_consistent_evaluation_is_verified_by_every_source(audit_inputs):
-    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
 
     report = quality_audit.run_audit(**inputs)
 
@@ -621,7 +622,7 @@ def test_a_consistent_evaluation_is_verified_by_every_source(audit_inputs):
 
 
 def test_an_unreachable_api_or_portal_is_reported_as_not_verified(audit_inputs, monkeypatch):
-    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
 
     def down(url):
         raise OSError("Connection refused")
@@ -636,7 +637,7 @@ def test_an_unreachable_api_or_portal_is_reported_as_not_verified(audit_inputs, 
 
 
 def test_a_crop_served_with_other_content_is_detected(audit_inputs):
-    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
     audit_inputs["served"]["/crops/img3-ann3"] = b"otra imagen"
 
     report = quality_audit.run_audit(**inputs)
@@ -646,7 +647,7 @@ def test_a_crop_served_with_other_content_is_detected(audit_inputs):
 
 
 def test_a_discrepancy_in_any_source_fails_the_audit(audit_inputs):
-    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
     inputs["client"].log_metric(
         json.loads(inputs["candidate_path"].read_text())["run_id"], "test_f1_macro", 0.1
     )
@@ -658,7 +659,7 @@ def test_a_discrepancy_in_any_source_fails_the_audit(audit_inputs):
 
 
 def test_the_audit_writes_nothing_and_leaves_the_candidate_unchanged(audit_inputs):
-    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
     test_dir = inputs["predictions_path"].parent
     listing = sorted(test_dir.iterdir())
     files = [inputs["candidate_path"], *listing]
@@ -694,3 +695,48 @@ def test_examples_sheet_shows_every_chosen_test_crop(tmp_path, known_csv):
     with Image.open(out) as sheet:
         assert sheet.format == "JPEG"
         assert sheet.size == (4 * 100, 2 * (100 + quality_audit.CAPTION_HEIGHT))
+
+
+def test_precision_and_baseline_use_columns_and_rows_of_an_asymmetric_matrix(tmp_path):
+    # Matriz [[2, 1], [0, 1]]: columnas y filas suman distinto.
+    rows = [
+        _row(1, 1, "dog", "dog", 0.9),
+        _row(2, 2, "dog", "dog", 0.8),
+        _row(3, 3, "dog", "cat", 0.4),
+        _row(4, 4, "cat", "cat", 0.1),
+    ]
+    metrics = recompute(read_predictions(_write(tmp_path / "p.csv", rows)))
+
+    dog, cat = metrics["per_class"]
+    assert (dog["precision"], dog["recall"]) == (1.0, 2 / 3)
+    assert (cat["precision"], cat["recall"]) == (0.5, 1.0)
+    assert metrics["baseline"] == {"classes": ["dog"], "correct": 3, "total": 4, "accuracy": 0.75}
+
+
+def test_errors_are_ordered_by_confidence_not_by_file_order(tmp_path):
+    rows = [
+        _row(1, 1, "cat", "dog", 0.55),
+        _row(2, 2, "cat", "dog", 0.95),
+        _row(3, 3, "cat", "dog", 0.75),
+    ]
+    examples = choose_examples(read_predictions(_write(tmp_path / "p.csv", rows)))
+
+    assert [e["crop_id"] for e in examples["errors"]] == ["img2-ann2", "img3-ann3", "img1-ann1"]
+
+
+def test_portal_rounding_matches_javascript_to_fixed():
+    # 1/32 = 0.03125 es exacto en binario: toFixed(4) desempata hacia arriba (0.0313).
+    assert quality_audit._fixed(1 / 32, 4) == "0.0313"
+    assert quality_audit._fixed(0.9577464788732394, 4) == "0.9577"
+    assert quality_audit._fixed(0.7691, 3) == "0.769"
+
+
+def test_api_predictions_that_differ_fail_the_audit(audit_inputs):
+    inputs = {k: v for k, v in audit_inputs.items() if k not in ("served", "overview")}
+    api = audit_inputs["overview"]["evaluation"]["predictions"]
+    api[0]["image_id"], api[1]["image_id"] = api[1]["image_id"], api[0]["image_id"]
+
+    report = quality_audit.run_audit(**inputs)
+
+    assert report["verified"] is False
+    assert "API: annotation_id 1: distinto en image_id" in report["problems"]
