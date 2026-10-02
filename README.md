@@ -311,10 +311,71 @@ En PowerShell:
 
 `GIT_COMMIT` debe corresponder al SHA real mostrado por `git rev-parse HEAD`.
 
+
 Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las
 migraciones y siembra únicamente las categorías `dog` y `cat` antes de
 arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
+
+### Smoke training corto de OPS-05
+
+Antes del smoke, el checkout debe tener materializados los datos del release
+y los crops de clasificación. En un clon limpio, después de completar la
+configuración de DVC/AWS descrita arriba, ejecuta desde la raíz:
+
+```bash
+dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
+dvc repro crops manifest
+```
+Después levanta el stack completo:
+
+```bash
+docker compose up --build
+```
+Desde otra terminal ejecuta:
+
+```bash
+cd app
+uv run python -m training.smoke
+```
+
+El smoke test utiliza el release `v0.1.1` y crea un job real con:
+
+- `max_epochs = 1`
+- `image_size = 32`
+- `batch_size = 128`
+
+La prueba verifica de extremo a extremo:
+
+```text
+portal /api/ml
+→ cola persistente en MariaDB
+→ training-worker
+→ MLflow
+→ checkpoint checkpoints/best.pt
+```
+
+El smoke no requiere GPU. El entrenamiento es compatible con CPU y no exige CUDA para ejecutarse.
+
+Si el flujo termina correctamente, la salida incluye:
+
+```text
+OPS-05 SMOKE OK
+job_id=...
+run_id=...
+checkpoint=runs:/<run_id>/checkpoints/best.pt
+```
+
+El comando falla con código distinto de cero si:
+
+- el API no está disponible;
+- el release requerido no existe;
+- el job termina en estado `failed`;
+- se supera el timeout;
+- no se obtiene un `run_id`;
+- el checkpoint no coincide con `checkpoints/best.pt`.
+
+
 
 | Servicio        | URL                              |
 |-----------------|-----------------------------------|
