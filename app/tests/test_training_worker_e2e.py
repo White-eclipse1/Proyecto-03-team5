@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 import pytest
-from mlflow.tracking import MlflowClient
 from sqlalchemy import create_engine
 
 from presentation.ml_contracts import TrainingJobRequest
@@ -75,7 +74,9 @@ def test_real_training_job_reaches_mlflow_checkpoint(tmp_path):
     expected_checkpoint = f"runs:/{persisted.run_id}/checkpoints/best.pt"
     assert persisted.checkpoint == expected_checkpoint
 
-    client = MlflowClient(tracking_uri=os.environ["MLFLOW_TRACKING_URI"])
+    from tracking.client import tracking_client
+
+    client = tracking_client()
     run = client.get_run(persisted.run_id)
 
     assert run.info.status == "FINISHED"
