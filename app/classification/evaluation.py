@@ -19,7 +19,9 @@
    archivos como artefactos.
 
 Si ya existe una evaluación de test, no se repite. `audit_evaluation` vuelve a
-inferir con el mismo checkpoint y manifiesto y compara, sin escribir nada.
+inferir con el mismo checkpoint y manifiesto y compara, sin escribir nada, el
+registro completo de cada muestra en el JSON y en el CSV, la cabecera, la matriz y
+las métricas.
 `verify_against_mlflow` recalcula accuracy y F1 desde el CSV y los compara con
 MLflow (Agent Test).
 
@@ -74,6 +76,18 @@ CSV_FIELDS = (
     "predicted_class",
     *(f"p_{name}" for name in CLASS_NAMES),
     "correct",
+)
+# Cabecera de `Evaluation` que la auditoría recalcula (no evaluation_id ni created_at).
+AUDITED_FIELDS = (
+    "run_id",
+    "checkpoint",
+    "dataset_version",
+    "manifest_hash",
+    "split",
+    "class_names",
+    "per_class",
+    "confusion_matrix",
+    "metrics",
 )
 
 
@@ -226,22 +240,24 @@ def _build_evaluation(
     return evaluation, metrics
 
 
+def _csv_row(row: dict) -> dict[str, str]:
+    return {
+        "crop_id": row["crop_id"],
+        "image_id": str(row["image_id"]),
+        "annotation_id": str(row["annotation_id"]),
+        "true_class": row["true_class"],
+        "predicted_class": row["predicted_class"],
+        **{f"p_{name}": repr(row["probabilities"][name]) for name in CLASS_NAMES},
+        "correct": str(row["true_class"] == row["predicted_class"]),
+    }
+
+
 def _write_predictions_csv(path: Path, rows: list[dict]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
         writer.writeheader()
         for row in rows:
-            writer.writerow(
-                {
-                    "crop_id": row["crop_id"],
-                    "image_id": row["image_id"],
-                    "annotation_id": row["annotation_id"],
-                    "true_class": row["true_class"],
-                    "predicted_class": row["predicted_class"],
-                    **{f"p_{name}": repr(row["probabilities"][name]) for name in CLASS_NAMES},
-                    "correct": str(row["true_class"] == row["predicted_class"]),
-                }
-            )
+            writer.writerow(_csv_row(row))
 
 
 def _mlflow_metrics(metrics: dict) -> dict[str, float]:
@@ -312,6 +328,56 @@ def evaluate_frozen_candidate(
     )
 
 
+def _record_differences(
+    old: dict, new: dict, fields, *, label: str, where: str, changed_in: str
+) -> list[str]:
+    """Compara registro por registro (todos los campos) dos tablas indexadas por id."""
+    differences = [f"{label} {key}: falta en {where}" for key in sorted(new.keys() - old.keys())]
+    differences += [f"{label} {key}: sobra en {where}" for key in sorted(old.keys() - new.keys())]
+    for key in sorted(old.keys() & new.keys()):
+        changed = [field for field in fields if old[key].get(field) != new[key][field]]
+        if changed:
+            differences.append(f"{label} {key}: {changed_in} {', '.join(changed)}")
+    return differences
+
+
+def _prediction_differences(stored: Evaluation, recomputed: Evaluation) -> list[str]:
+    old = {p.annotation_id: p.model_dump() for p in stored.predictions}
+    new = {p.annotation_id: p.model_dump() for p in recomputed.predictions}
+    # El contrato `Evaluation` ya rechaza un annotation_id repetido.
+    return _record_differences(
+        old,
+        new,
+        CropPrediction.model_fields,
+        label="annotation_id",
+        where="la evaluación",
+        changed_in="distinto en",
+    )
+
+
+def _csv_differences(path: Path, rows: list[dict]) -> list[str]:
+    if not path.is_file():
+        return [f"falta el CSV de predicciones {path.name}"]
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        stored_rows = list(reader)
+    differences = []
+    if reader.fieldnames != list(CSV_FIELDS):
+        differences.append(f"columnas del CSV {reader.fieldnames} distintas de {list(CSV_FIELDS)}")
+    old = {row.get("crop_id"): row for row in stored_rows}
+    if len(old) != len(stored_rows):
+        differences.append("crop_id repetido en el CSV de predicciones")
+    new = {row["crop_id"]: _csv_row(row) for row in rows}
+    return differences + _record_differences(
+        old,
+        new,
+        CSV_FIELDS,
+        label="crop_id",
+        where="el CSV de predicciones",
+        changed_in="fila del CSV distinta en",
+    )
+
+
 def audit_evaluation(
     *,
     client: MlflowClient,
@@ -319,32 +385,29 @@ def audit_evaluation(
     candidate_path: Path = CANDIDATE_PATH,
     evaluations_dir: Path = EVALUATIONS_DIR,
 ) -> list[str]:
-    """Vuelve a inferir el test con el mismo checkpoint y manifiesto; no escribe nada."""
+    """Vuelve a inferir el test con el mismo checkpoint y manifiesto; no escribe nada.
+
+    Compara el registro completo de cada muestra (JSON por `annotation_id` y CSV por
+    `crop_id`: ids, clase real, clase predicha, probabilidades y acierto), la cabecera
+    de la evaluación, la matriz y las métricas. Que cuadren la matriz y las métricas
+    no basta: dos etiquetas reales intercambiadas pueden dejarlas iguales.
+    """
     candidate = require_frozen_candidate(candidate_path)
     stored_files = [
         e for e in _evaluations(evaluations_dir, "test") if e["run_id"] == candidate.run_id
     ]
     if len(stored_files) != 1:
         raise RuntimeError(f"Se esperaba una evaluación de test del candidato: {len(stored_files)}")
-    stored = Evaluation.model_validate_json(
-        Path(stored_files[0]["path"]).read_text(encoding="utf-8")
-    )
-    recomputed, _ = _build_evaluation(
-        candidate, _predict(client, candidate, data), datetime.now(UTC)
-    )
-    differences = []
-    old = {p.annotation_id: p for p in stored.predictions}
-    new = {p.annotation_id: p for p in recomputed.predictions}
-    if set(old) != set(new):
-        differences.append("los crops evaluados no coinciden")
-    for annotation_id in sorted(set(old) & set(new)):
-        a, b = old[annotation_id], new[annotation_id]
-        if a.predicted_class != b.predicted_class or a.probabilities != b.probabilities:
-            differences.append(f"annotation_id {annotation_id}: predicción distinta")
-    if stored.confusion_matrix != recomputed.confusion_matrix:
-        differences.append("confusion_matrix distinta")
-    if stored.metrics != recomputed.metrics:
-        differences.append("métricas distintas")
+    evaluation_path = Path(stored_files[0]["path"])
+    stored = Evaluation.model_validate_json(evaluation_path.read_text(encoding="utf-8"))
+    rows = _predict(client, candidate, data)
+    recomputed, _ = _build_evaluation(candidate, rows, datetime.now(UTC))
+
+    differences = _prediction_differences(stored, recomputed)
+    differences += _csv_differences(evaluation_path.with_suffix(".predictions.csv"), rows)
+    for field in AUDITED_FIELDS:
+        if getattr(stored, field) != getattr(recomputed, field):
+            differences.append(f"{field} distinto del recalculado")
     return differences
 
 

@@ -106,6 +106,58 @@ Auditoría: sin diferencias
 Los archivos de `reports/evaluations/` no cambiaron (mismo sha). Una segunda
 evaluación "final" se rechaza (`test_the_final_evaluation_happens_only_once`).
 
+### 4.1 La auditoría compara el registro completo de cada muestra
+
+Corrección de la revisión del PR: antes la auditoría comparaba por `annotation_id`
+solo la clase predicha y las probabilidades, además de la matriz y las métricas. Si
+se intercambian las etiquetas reales de dos muestras con la misma clase predicha,
+la matriz y las métricas no cambian, y la auditoría respondía "sin diferencias".
+Ahora compara:
+
+- en el JSON, todos los campos de cada predicción por `annotation_id`: `image_id`,
+  `annotation_id`, `true_class`, `predicted_class` y `probabilities`;
+- en el CSV, toda la fila por `crop_id`: ids, clases, `p_dog`, `p_cat` y `correct`.
+  También reporta filas faltantes, sobrantes o repetidas, columnas distintas y un
+  CSV inexistente;
+- en la cabecera: `run_id`, `checkpoint`, `dataset_version`, `manifest_hash`,
+  `split`, `class_names`, `per_class`, `confusion_matrix` y `metrics`.
+
+Prueba sobre una **copia** de la evaluación real: se intercambia la clase real del
+gato mal clasificado `annotation_id 16` (cat→dog) con la del perro `135` (dog→dog).
+La matriz y las métricas quedan iguales:
+
+```text
+swap ann 16 <-> 135 | matriz igual: True | métricas iguales: True
+# código anterior
+Auditoría: sin diferencias
+# código nuevo (exit 1)
+annotation_id 16: distinto en true_class
+annotation_id 135: distinto en true_class
+```
+
+El mismo intercambio en el CSV de la copia (`true_class` y `correct`) también se
+detecta. `verify` sigue dando 12/12 OK sobre ese CSV, porque las métricas no
+cambian; por eso la auditoría compara muestra por muestra:
+
+```text
+crop_id img107-ann135: fila del CSV distinta en true_class, correct
+crop_id img18-ann16: fila del CSV distinta en true_class, correct
+```
+
+Sobre la evaluación real versionada: `Auditoría: sin diferencias`, y los sha256 del
+JSON y del CSV no cambiaron.
+
+Tests: `test_audit_detects_true_labels_swapped_between_samples` (caso de la
+revisión: el modelo falla un cat igual al evaluar y al auditar, y se cruzan solo las
+etiquetas reales), `..._whole_records_swapped_...`, `..._image_ids_swapped_...`,
+`test_audit_compares_every_field_of_the_predictions_csv`,
+`..._correct_column_altered_alone`, `..._missing_or_extra_csv_row`,
+`..._repeated_csv_row`, `..._renamed_csv_columns`, `test_audit_requires_the_predictions_csv`
+y `test_audit_compares_the_header_of_the_evaluation` (checkpoint, manifest_hash,
+dataset_version). Las 12 mutaciones de la auditoría mueren con estos tests, entre
+ellas comparar solo la predicción y las probabilidades (el bug original), quitar
+`true_class` o `image_id`, quitar el CSV o `correct`, y quitar campos de la cabecera.
+
 ## 5. El test se consultó después del congelamiento, y el candidato quedó bloqueado
 
 ```text

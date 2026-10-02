@@ -450,12 +450,18 @@ ML-08 sobre el split `test`.
 
 ```bash
 uv run python -m classification.evaluation evaluate  # una sola vez
-uv run python -m classification.evaluation audit     # re-infiere y compara, sin escribir
+uv run python -m classification.evaluation audit     # re-infiere y compara cada muestra, sin escribir
 uv run python -m classification.evaluation verify    # CSV vs MLflow (Agent Test)
 ```
 
 **Resultado:** `r03-sgd` obtiene accuracy = 68/71 = **0.9577** (≥ 0.85) y F1
 macro = 0.9548 en test. El recall de `cat` es 0.893 (3 gatos predichos como
 perro). Evidencia: [`tests/evidence/ml-09-test-evaluation.md`](../tests/evidence/ml-09-test-evaluation.md).
+
+La auditoría compara el **registro completo de cada muestra**: en el JSON, por
+`annotation_id`, los ids, la clase real, la clase predicha y las probabilidades; en
+el CSV, la fila entera por `crop_id`. Además compara la cabecera, la matriz y las
+métricas. Que cuadren la matriz y las métricas no basta: intercambiar las etiquetas
+reales de dos muestras con la misma predicción deja ambas iguales.
 
 Tests: `uv run pytest tests/test_classification_evaluation.py`.

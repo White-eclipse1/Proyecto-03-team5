@@ -460,7 +460,12 @@ def test_audit_compares_every_field_of_the_predictions_csv(client, data, frozen,
     dog, cat = _one_dog_and_one_cat(rows)
     # La matriz que se recalcula desde el CSV (verify) no cambia: se cruzan filas enteras
     # menos los identificadores.
-    swapped = [name for name in fieldnames if name not in ("crop_id", "image_id", "annotation_id")]
+    swapped = [
+        name
+        for name in fieldnames
+        if name not in ("crop_id", "image_id", "annotation_id") and dog[name] != cat[name]
+    ]
+    assert {"true_class", "predicted_class", "p_dog", "p_cat"} <= set(swapped)
     for name in swapped:
         dog[name], cat[name] = cat[name], dog[name]
     with record.predictions_path.open("w", encoding="utf-8", newline="") as handle:
@@ -499,15 +504,15 @@ def test_audit_requires_the_predictions_csv(client, data, frozen, tmp_path):
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("checkpoint", "otro/model.pt"),
-        ("manifest_hash", "sha256:" + "c" * 64),
-        ("dataset_version", "p3-otro"),
+        ("checkpoint", lambda run_id: f"runs:/{run_id}/checkpoints/otro.pt"),
+        ("manifest_hash", lambda run_id: "sha256:" + "c" * 64),
+        ("dataset_version", lambda run_id: "p3-otro"),
     ],
 )
 def test_audit_compares_the_header_of_the_evaluation(client, data, frozen, tmp_path, field, value):
     record = _evaluate(client, data, frozen, tmp_path)
     stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
-    stored[field] = value
+    stored[field] = value(stored["run_id"])
     record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
 
     assert _audit(client, data, frozen, tmp_path) == [f"{field} distinto del recalculado"]
@@ -550,3 +555,39 @@ def test_a_tampered_predictions_file_no_longer_matches_mlflow(client, data, froz
 
     assert comparison["test_correct"]["equal"] is False
     assert comparison["test_accuracy"]["equal"] is False
+
+
+def test_audit_detects_the_correct_column_altered_alone(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    text = record.predictions_path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    crop_id = lines[1].split(",")[0]
+    lines[1] = lines[1].replace(",True", ",False")  # en el fixture todo crop acierta
+    assert lines[1] != text.splitlines(keepends=True)[1]
+    record.predictions_path.write_text("".join(lines), encoding="utf-8")
+
+    assert _audit(client, data, frozen, tmp_path) == [
+        f"crop_id {crop_id}: fila del CSV distinta en correct"
+    ]
+
+
+def test_audit_detects_a_repeated_csv_row(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    lines = record.predictions_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    record.predictions_path.write_text("".join([*lines, lines[1]]), encoding="utf-8")
+
+    assert _audit(client, data, frozen, tmp_path) == ["crop_id repetido en el CSV de predicciones"]
+
+
+def test_audit_reports_renamed_csv_columns(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    text = record.predictions_path.read_text(encoding="utf-8")
+    record.predictions_path.write_text(text.replace("p_dog", "prob_dog", 1), encoding="utf-8")
+    crop_ids = sorted(line.split(",")[0] for line in text.splitlines()[1:])
+
+    differences = _audit(client, data, frozen, tmp_path)
+
+    assert differences[0].startswith("columnas del CSV")
+    assert differences[1:] == [
+        f"crop_id {crop_id}: fila del CSV distinta en p_dog" for crop_id in crop_ids
+    ]
