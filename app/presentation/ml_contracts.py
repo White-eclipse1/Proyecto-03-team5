@@ -50,7 +50,11 @@ RunId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 GitCommit = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{40}$")]
 ExperimentId = Annotated[str, StringConstraints(pattern=r"^[0-9]+$")]
 Checkpoint = Annotated[str, StringConstraints(pattern=r"^runs:/[0-9a-f]{32}/[^\s]+$")]
-ModelVersion = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]*$")]
+# Versión semántica propia del modelo (rúbrica 5.1), igual que `classification.registry`
+# de OPS-06; no es el número de versión del Model Registry de MLflow.
+ModelVersion = Annotated[
+    str, StringConstraints(pattern=r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+]
 ErrorCode = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")]
 Timestamp = Annotated[
     str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$")
@@ -560,24 +564,55 @@ class InferenceRequest(ContractModel):
     crop: CropSelection
 
 
+# Clases del clasificador (igual que `crops.classes.CLASS_NAMES`; lo comprueba un test).
+PET_CLASSES = ("dog", "cat")
+
+
+class UploadedImage(ContractModel):
+    """APP-07: imagen subida en el portal, ya validada por `ml-api`."""
+
+    filename: Label
+    content_type: Literal["image/png", "image/jpeg"]
+    size_bytes: int = Field(gt=0)
+    sha256: Sha256Hex
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
 class InferenceResponse(ContractModel):
-    """One class for the crop plus the full distribution; `dataset_version` is the
-    release the model was trained on, `crop.dataset_version` the crop's release."""
+    """One class for the image plus the full distribution.
+
+    `dataset_version` is the release the model was trained on; `crop.dataset_version`
+    the crop's release. APP-07: the image is either a crop of the portal or an upload
+    (`source` says which), and `checkpoint` + `checkpoint_sha256` + `image_size` name
+    the exact artifact and preprocessing used, so a change of model version is
+    visible in the response.
+    """
 
     schema_version: Literal["1.0"]
     request_id: Identifier
     model_name: Identifier
     model_version: ModelVersion
     run_id: RunId
+    checkpoint: Checkpoint
+    checkpoint_sha256: Sha256Hex
     dataset_version: Identifier
-    crop: CropSelection
+    image_size: int = Field(ge=32, le=1024, multiple_of=32)
+    source: Literal["crop", "upload"]
+    crop: CropSelection | None
+    upload: UploadedImage | None
     predicted_class: Label
     probabilities: dict[Label, Ratio]
     latency_ms: float = Field(ge=0)
 
     @model_validator(mode="after")
-    def probabilities_are_a_distribution(self) -> Self:
-        require_distribution(self.probabilities, self.predicted_class, None)
+    def one_image_and_a_distribution(self) -> Self:
+        require_checkpoint_of_run(self.checkpoint, self.run_id)
+        if (self.crop is None) == (self.upload is None):
+            raise ValueError("the image is either a crop or an upload, exactly one")
+        if (self.source == "crop") != (self.crop is not None):
+            raise ValueError("source must say where the image came from")
+        require_distribution(self.probabilities, self.predicted_class, list(PET_CLASSES))
         return self
 
 
@@ -765,6 +800,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "models": ModelsResponse,
     "inference_request": InferenceRequest,
     "inference": InferenceResponse,
+    "inference_upload": InferenceResponse,
     "error": ErrorResponse,
     "training_request": TrainingJobRequest,
     "provenance": ReleaseProvenance,

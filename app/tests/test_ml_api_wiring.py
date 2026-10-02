@@ -72,3 +72,24 @@ def test_ml_api_serves_crops_read_only_for_the_evaluation_examples():
     service = _compose()["services"]["ml-api"]
     assert "./data/crops:/app/data/crops:ro" in service["volumes"]
     assert service["environment"]["CROPS_DIR"] == "/app/data/crops"
+
+
+def test_app_image_ships_the_model_code_for_inference():
+    """APP-07: ml-api carga checkpoints (classification/) con las clases de ML-01 (crops/)."""
+    dockerfile = (ROOT / "app" / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY classification/ ./classification/" in dockerfile
+    assert "COPY crops/ ./crops/" in dockerfile
+
+
+def test_ml_api_serves_the_ops06_model_packages_read_only():
+    """APP-07: las versiones salen de reports/models/registry.json y data/models (OPS-06, DVC)."""
+    service = _compose()["services"]["ml-api"]
+    assert "./data/models:/app/data/models:ro" in service["volumes"]
+    assert "./reports:/app/reports:ro" in service["volumes"]
+
+
+def test_inference_does_not_depend_on_the_mlflow_model_registry():
+    """OPS-06 no registra versiones en MLflow: no queda prueba ni paso de CI de ese registry."""
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "test_inference_mlflow_integration.py" not in ci
+    assert not (ROOT / "app" / "tests" / "test_inference_mlflow_integration.py").exists()

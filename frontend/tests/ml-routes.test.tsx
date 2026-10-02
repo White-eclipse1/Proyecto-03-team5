@@ -151,7 +151,7 @@ describe("APP-01 estados de carga y error", () => {
     expect(
       await screen.findByText("La respuesta no cumple el contrato esperado.")
     ).toBeVisible();
-    expect(screen.queryByText("pet-classifier")).not.toBeInTheDocument();
+    expect(screen.queryByText("dog-cat-resnet18")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -206,7 +206,7 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
 
     const metrics = await screen.findByRole("region", { name: /evaluación final en test/i });
     expect(within(metrics).getByText("eval-0002")).toBeInTheDocument();
-    expect(within(metrics).getByText("pet-classifier v3")).toBeInTheDocument();
+    expect(within(metrics).getByText("dog-cat-resnet18 v1.0.0")).toBeInTheDocument();
     expect(screen.queryByText("mAP50")).not.toBeInTheDocument();
   });
 
@@ -215,8 +215,8 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     openAt("/ml/models");
 
     const row = (await screen.findByText("champion")).closest("tr")!;
-    expect(within(row).getByText("pet-classifier")).toBeInTheDocument();
-    expect(within(row).getByText("3")).toBeInTheDocument();
+    expect(within(row).getByText("dog-cat-resnet18")).toBeInTheDocument();
+    expect(within(row).getByText("1.0.0")).toBeInTheDocument();
     expect(within(row).getByText("demo-v1.0.0")).toBeInTheDocument();
     expect(within(row).getByText("READY")).toBeInTheDocument();
   });
@@ -229,15 +229,15 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     serve(() => json(models));
     openAt("/ml/inference");
 
-    expect(await screen.findByText("pet-classifier v3")).toBeVisible();
-    expect(screen.queryByText("pet-classifier v2")).not.toBeInTheDocument();
+    expect(await screen.findByText("dog-cat-resnet18 v1.0.0")).toBeVisible();
+    expect(screen.queryByText("dog-cat-resnet18 v0.9.0")).not.toBeInTheDocument();
   });
 
   it("InferenceResult muestra la clase del recorte con sus probabilidades, trazable al modelo", () => {
     const response = inferenceResponseSchema.parse(loadMlExample("inference"));
     render(<InferenceResult response={response} />);
 
-    expect(screen.getByText("pet-classifier v3")).toBeInTheDocument();
+    expect(screen.getByText("dog-cat-resnet18 v1.0.0")).toBeInTheDocument();
     expect(screen.getByText("demo-v1.0.0")).toBeInTheDocument();
     expect(screen.getByText("0a1b2c3d4e5f60718293a4b5c6d7e8f9")).toBeInTheDocument();
     expect(screen.getByText("demo-v1.0.0 · img 42 · ann 1007")).toBeInTheDocument();

@@ -4,6 +4,9 @@ import {
   type ContractError,
   type ExperimentRun,
   evaluationOverviewSchema,
+  type InferenceRequest,
+  type InferenceResponse,
+  inferenceResponseSchema,
   type ModelsResponse,
   modelsResponseSchema,
   type RunCurvesResponse,
@@ -34,6 +37,7 @@ export const ML_ENDPOINTS = {
   crops: "/ml/crops",
   models: "/ml/models",
   inference: "/ml/inference",
+  inferenceUpload: "/ml/inference/upload",
 } as const;
 
 // Referencias estables: useMlResource las usa como dependencias de su efecto.
@@ -121,6 +125,82 @@ export async function createTrainingJob(
     };
   }
   return { ok: true, job: parsed.data };
+}
+
+/** APP-07: lo que se clasifica, una imagen subida o un recorte del portal. */
+export type InferenceInput =
+  | { kind: "upload"; modelName: string; modelVersion: string; file: File }
+  | { kind: "crop"; request: InferenceRequest };
+
+export type InferenceResult =
+  | { ok: true; response: InferenceResponse }
+  | { ok: false; error: ContractError };
+
+/**
+ * `POST /api/ml/inference/upload` (multipart) o `POST /api/ml/inference` (JSON). La
+ * respuesta se valida con el contrato y debe ser del modelo pedido.
+ */
+export async function classifyImage(input: InferenceInput): Promise<InferenceResult> {
+  const [modelName, modelVersion] =
+    input.kind === "upload"
+      ? [input.modelName, input.modelVersion]
+      : [input.request.model_name, input.request.model_version];
+  let res: Response;
+  try {
+    if (input.kind === "upload") {
+      const form = new FormData();
+      form.append("model_name", input.modelName);
+      form.append("model_version", input.modelVersion);
+      form.append("file", input.file);
+      res = await fetch(`${API_BASE_URL}${ML_ENDPOINTS.inferenceUpload}`, {
+        method: "POST",
+        body: form,
+      });
+    } else {
+      res = await fetch(`${API_BASE_URL}${ML_ENDPOINTS.inference}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input.request),
+      });
+    }
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "network_error",
+        message: "No se pudo contactar al servidor.",
+        retryable: true,
+      },
+    };
+  }
+  if (!res.ok) return { ok: false, error: await errorFromResponse(res) };
+  const parsed = inferenceResponseSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: {
+        code: "contract_mismatch",
+        message: "La respuesta no cumple el contrato esperado.",
+        retryable: false,
+      },
+    };
+  }
+  const response = parsed.data;
+  if (
+    response.model_name !== modelName ||
+    response.model_version !== modelVersion ||
+    response.source !== input.kind
+  ) {
+    return {
+      ok: false,
+      error: {
+        code: "model_mismatch",
+        message: "La respuesta no corresponde a la model version elegida.",
+        retryable: false,
+      },
+    };
+  }
+  return { ok: true, response };
 }
 
 export type TrainingLogsState = {

@@ -17,6 +17,7 @@ export type MlContractName =
   | "models"
   | "inference_request"
   | "inference"
+  | "inference_upload"
   | "error"
   | "training_request"
   | "provenance"

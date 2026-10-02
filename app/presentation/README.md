@@ -324,7 +324,7 @@ válida del release es un recorte (ML-01), identificado por `image_id` +
 | `EvaluationOverview` | `GET /api/ml/evaluation` | Estado `candidate_not_frozen`/`candidate_frozen`/`evaluated`, candidato congelado (`FrozenCandidate`) y su evaluación de test; solo `evaluated` trae resultados de test (APP-05) |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
 | `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
-| `InferenceResponse` | `POST /api/ml/inference` | Clase predicha y probabilidad por clase, trazables al modelo |
+| `InferenceResponse` | `POST /api/ml/inference` y `POST /api/ml/inference/upload` | Clase predicha (dog o cat) y probabilidad por clase, de un recorte (`crop`) o de una imagen subida (`upload`, `UploadedImage`). Incluye el checkpoint, su sha256 y el `image_size` usados (APP-07) |
 | `ErrorResponse` | Cualquier respuesta no 2xx | `{code, message, retryable}` |
 
 **`TrainingParams`**: los 7 hiperparámetros obligatorios, sin defaults:
@@ -356,8 +356,10 @@ IDs obligatorios y con formato fijo:
 - `manifest_hash`: `md5:<32 hex>` (hash DVC) o `sha256:<64 hex>`.
 - `experiment_id` / `run_id`: IDs de MLflow (numérico / 32 hex en minúsculas).
 - `checkpoint`: `runs:/<run_id>/<ruta>`, siempre del mismo `run_id` que lo declara.
-- `model_version`: versión del Model Registry (entero positivo como string). Es un
-  campo distinto de `dataset_version` y no acepta su formato.
+- `model_version`: versión semántica propia del modelo, `MAJOR.MINOR.PATCH` (rúbrica
+  5.1), la misma que registra OPS-06 en `reports/models/registry.json`. No es el
+  número de versión del Model Registry de MLflow, es un campo distinto de
+  `dataset_version` y no acepta su formato.
 - `image_id` / `annotation_id`: IDs COCO del recorte (enteros >= 0).
 
 El ciclo de vida se valida en el contrato. Por ejemplo, un job `succeeded` exige

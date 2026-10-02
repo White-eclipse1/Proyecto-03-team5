@@ -40,6 +40,7 @@ VALID = {
     "models": "models.json",
     "inference_request": "inference_request.json",
     "inference": "inference.json",
+    "inference_upload": "inference_upload.json",
     "error": "error.json",
     "training_request": "training_request.json",
     "provenance": "provenance.json",
@@ -268,6 +269,34 @@ class ClassificationContractTests(unittest.TestCase):
             max(response.probabilities, key=response.probabilities.__getitem__),
         )
         self.assertNotIn("predictions", InferenceResponse.model_fields)
+
+    def test_model_version_is_the_semver_of_the_ops06_registry(self):
+        """Rúbrica 5.1: versión semántica propia del modelo, la misma regla que OPS-06."""
+        from pydantic import TypeAdapter
+
+        from classification.registry import SEMVER_PATTERN
+        from presentation.ml_contracts import ModelVersion
+
+        adapter = TypeAdapter(ModelVersion)
+        for version in ("1.0.0", "0.9.0", "10.2.33", "3", "1.0", "01.0.0", "v1.0.0", "1.0.0-rc1"):
+            try:
+                adapter.validate_python(version)
+                accepted = True
+            except ValidationError:
+                accepted = False
+            self.assertEqual(accepted, bool(SEMVER_PATTERN.fullmatch(version)), version)
+
+    def test_inference_classes_are_the_classifier_classes(self):
+        """APP-07: PET_CLASSES del contrato son las clases de ML-01 (dog, cat)."""
+        from crops.classes import CLASS_NAMES
+        from presentation.ml_contracts import PET_CLASSES
+
+        self.assertEqual(tuple(PET_CLASSES), tuple(CLASS_NAMES))
+
+    def test_upload_inference_names_the_file_and_not_a_crop(self):
+        response = InferenceResponse.model_validate(load("inference_upload.json"))
+        self.assertEqual((response.source, response.crop), ("upload", None))
+        self.assertEqual(response.upload.content_type, "image/jpeg")
 
 
 class TraceabilityTests(unittest.TestCase):

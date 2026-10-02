@@ -22,6 +22,7 @@ const CONTRACT_NAMES: MlContractName[] = [
   "models",
   "inference_request",
   "inference",
+  "inference_upload",
   "error",
   "training_request",
   "provenance",
@@ -124,7 +125,7 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
     const parsed = modelsResponseSchema.parse(loadMlExample("models"));
     const model = parsed.models[0]!;
     expect(model.dataset_version).toBe("demo-v1.0.0");
-    expect(model.model_version).toBe("3");
+    expect(model.model_version).toBe("1.0.0");
     const swapped = {
       ...parsed,
       models: [{ ...model, model_version: model.dataset_version }],
