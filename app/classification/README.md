@@ -418,4 +418,8 @@ ML-09 debe llamar `require_frozen_candidate()` antes de evaluar test y guardar
 sus evaluaciones en `reports/evaluations/` con `created_at`.
 `early_test_evaluations()` demuestra que todas son posteriores a `frozen_at`.
 
+**Candidato congelado:** `r03-sgd` (`bb448230424146349a969253d30db43b`), `best_val_loss` =
+0.0406, congelado en `2026-10-02T00:37:26.037627Z` sin ninguna evaluación de test
+previa. Evidencia: [`tests/evidence/ml-08-candidate.md`](../tests/evidence/ml-08-candidate.md).
+
 Tests: `uv run pytest tests/test_classification_selection.py`.

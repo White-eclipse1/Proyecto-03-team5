@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.0",
+  "matrix_id": "ml07-v1",
+  "split": "validation",
+  "metric": "best_val_loss",
+  "mode": "min",
+  "tie_breakers": [
+    {
+      "metric": "best_val_accuracy",
+      "mode": "max"
+    },
+    {
+      "metric": "entry",
+      "mode": "min"
+    }
+  ],
+  "metric_value": 0.04061833815649152,
+  "run_id": "bb448230424146349a969253d30db43b",
+  "entry": "r03-sgd",
+  "run_name": "ml07-v1-r03-sgd",
+  "checkpoint": "runs:/bb448230424146349a969253d30db43b/checkpoints/best.pt",
+  "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+  "dataset_version": "v0.1.1",
+  "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+  "training_git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+  "selection_git_commit": "e579fc2e6a00bfb9862a09d72f0d033b89b2b997",
+  "frozen_at": "2026-10-02T00:37:26.037627Z",
+  "ranking": [
+    {
+      "entry": "r03-sgd",
+      "run_id": "bb448230424146349a969253d30db43b",
+      "best_epoch": 3,
+      "best_val_loss": 0.04061833815649152,
+      "best_val_accuracy": 0.9765625
+    },
+    {
+      "entry": "r07-img224",
+      "run_id": "83e5a40ad86942478269c49a66d1d04b",
+      "best_epoch": 1,
+      "best_val_loss": 0.05735983527574717,
+      "best_val_accuracy": 0.9765625
+    },
+    {
+      "entry": "r06-lr3e-4-ep15",
+      "run_id": "e6921aea1f3b409695b06736aa8f4f8f",
+      "best_epoch": 1,
+      "best_val_loss": 0.07190167345106602,
+      "best_val_accuracy": 0.96875
+    },
+    {
+      "entry": "r02-adamw",
+      "run_id": "1d571224e7fc46468b495cdcbd33e88f",
+      "best_epoch": 5,
+      "best_val_loss": 0.0802379478700459,
+      "best_val_accuracy": 0.9765625
+    },
+    {
+      "entry": "r01-base",
+      "run_id": "f0cd9825563e45ccbdfe9dfd652a06c8",
+      "best_epoch": 5,
+      "best_val_loss": 0.08136008866131306,
+      "best_val_accuracy": 0.96875
+    },
+    {
+      "entry": "r12-ep6",
+      "run_id": "adc1c0b4ec304e28b626e8dacb458c29",
+      "best_epoch": 5,
+      "best_val_loss": 0.08136008866131306,
+      "best_val_accuracy": 0.96875
+    },
+    {
+      "entry": "r11-adamw-img160-head256-drop0.5",
+      "run_id": "06fc194ab16242f7a8403da8cd87a849",
+      "best_epoch": 2,
+      "best_val_loss": 0.08500097133219242,
+      "best_val_accuracy": 0.9609375
+    },
+    {
+      "entry": "r04-batch16",
+      "run_id": "306817e87ca144eb9b9d716816097181",
+      "best_epoch": 3,
+      "best_val_loss": 0.13149602460907772,
+      "best_val_accuracy": 0.9296875
+    },
+    {
+      "entry": "r10-no-hidden-drop0",
+      "run_id": "137244d23bd34a24b1633bdd9f44f49b",
+      "best_epoch": 4,
+      "best_val_loss": 0.1515923272818327,
+      "best_val_accuracy": 0.9375
+    },
+    {
+      "entry": "r09-head256-64-drop0.3",
+      "run_id": "21db27c7ecd24ebc894bf2219b875148",
+      "best_epoch": 4,
+      "best_val_loss": 0.15830006822943687,
+      "best_val_accuracy": 0.953125
+    },
+    {
+      "entry": "r05-batch64",
+      "run_id": "f6b548b403714d4a984cf756198a9c59",
+      "best_epoch": 1,
+      "best_val_loss": 0.16463682800531387,
+      "best_val_accuracy": 0.953125
+    },
+    {
+      "entry": "r08-img96",
+      "run_id": "d9c99b5a0e4e4b3c84dd4c49a96cd82c",
+      "best_epoch": 4,
+      "best_val_loss": 0.2962053604424,
+      "best_val_accuracy": 0.8984375
+    }
+  ]
+}
