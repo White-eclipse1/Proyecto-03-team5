@@ -62,6 +62,12 @@ export function useEvaluationOverview() {
   return useMlResource(ML_ENDPOINTS.evaluation, evaluationOverviewSchema, never);
 }
 
+/** APP-06: descarga de un archivo del paquete de una versión (ml-api lo verifica). */
+export function modelFileUrl(version: string, name: string): string {
+  const path = name.split("/").map(encodeURIComponent).join("/");
+  return `${API_BASE_URL}${ML_ENDPOINTS.models}/${encodeURIComponent(version)}/files/${path}`;
+}
+
 /** URL del recorte de una predicción: `crop_id = img<image_id>-ann<annotation_id>` (ML-01). */
 export function cropUrl(imageId: number, annotationId: number): string {
   return `${API_BASE_URL}${ML_ENDPOINTS.crops}/img${imageId}-ann${annotationId}`;

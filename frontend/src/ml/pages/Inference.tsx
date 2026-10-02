@@ -123,7 +123,9 @@ function UploadPreview({ file }: Readonly<{ file: File }>) {
 function InferenceForm({ models }: Readonly<{ models: RegisteredModelVersion[] }>) {
   const [params] = useSearchParams();
   const fromUrl = params.has("image_id") || params.has("annotation_id");
-  const [selected, setSelected] = useState(models[0] ? modelKey(models[0]) : "");
+  const requested = models.find((entry) => entry.model_version === params.get("model_version"));
+  const initial = requested ?? models[0];
+  const [selected, setSelected] = useState(initial ? modelKey(initial) : "");
   const model = models.find((entry) => modelKey(entry) === selected) ?? models[0];
   const [mode, setMode] = useState<"upload" | "crop">(fromUrl ? "crop" : "upload");
   const [file, setFile] = useState<File | null>(null);

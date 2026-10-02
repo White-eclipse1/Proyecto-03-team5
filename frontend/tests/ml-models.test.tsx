@@ -108,7 +108,10 @@ describe("APP-06 Models: detalle de una versión", () => {
     await versionsTable();
 
     const version = detail("1.0.0");
-    expect(within(version).getByText(SHA_CURRENT)).toBeInTheDocument();
+    // También aparece en la tabla de S3: aquí importa el campo del checkpoint.
+    expect(within(version).getByText("sha256 del checkpoint").nextElementSibling).toHaveTextContent(
+      SHA_CURRENT
+    );
     expect(
       within(version).getByText("runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt")
     ).toBeInTheDocument();
