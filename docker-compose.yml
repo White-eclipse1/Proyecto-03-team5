@@ -170,8 +170,12 @@ services:
       # los minutos de reintentos por defecto del cliente.
       MLFLOW_HTTP_REQUEST_MAX_RETRIES: "2"
       MLFLOW_HTTP_REQUEST_TIMEOUT: "10"
+      # APP-05: recortes de ML-01 (`dvc pull`) para los ejemplos de Evaluation. Sin
+      # ellos la pantalla funciona igual y muestra cada ejemplo sin imagen.
+      CROPS_DIR: /app/data/crops
     volumes:
       - ./reports:/app/reports:ro
+      - ./data/crops:/app/data/crops:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=4)"]
       interval: 5s

@@ -65,3 +65,10 @@ def test_ci_runs_the_experiments_integration_test_against_mlflow():
     ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
     commands = " ".join(step.get("run", "") for step in ci["jobs"]["mlflow"]["steps"])
     assert "tests/test_experiments_mlflow_integration.py" in commands
+
+
+def test_ml_api_serves_crops_read_only_for_the_evaluation_examples():
+    """APP-05: los ejemplos de Evaluation muestran el recorte de ML-01 (`data/crops`, DVC)."""
+    service = _compose()["services"]["ml-api"]
+    assert "./data/crops:/app/data/crops:ro" in service["volumes"]
+    assert service["environment"]["CROPS_DIR"] == "/app/data/crops"

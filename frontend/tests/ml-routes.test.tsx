@@ -14,7 +14,7 @@ import { loadMlExample } from "./mlCorpus";
 const SCREENS = [
   { label: "Training", path: "/ml/training", endpoint: "/api/ml/training/jobs" },
   { label: "Experiments", path: "/ml/experiments", endpoint: "/api/ml/runs" },
-  { label: "Evaluation", path: "/ml/evaluation", endpoint: "/api/ml/evaluations" },
+  { label: "Evaluation", path: "/ml/evaluation", endpoint: "/api/ml/evaluation" },
   { label: "Models", path: "/ml/models", endpoint: "/api/ml/models" },
   { label: "Inference", path: "/ml/inference", endpoint: "/api/ml/models" },
 ] as const;
@@ -22,7 +22,7 @@ const SCREENS = [
 const EXAMPLES: Record<string, unknown> = {
   "/api/ml/training/jobs": loadMlExample("training_jobs"),
   "/api/ml/runs": loadMlExample("runs"),
-  "/api/ml/evaluations": loadMlExample("evaluations"),
+  "/api/ml/evaluation": loadMlExample("evaluation_overview"),
   "/api/ml/models": loadMlExample("models"),
 };
 
@@ -157,7 +157,6 @@ describe("APP-01 estados de carga y error", () => {
   it.each([
     ["/ml/training", "jobs", "Todavía no hay jobs de entrenamiento."],
     ["/ml/experiments", "runs", "Todavía no hay runs registrados en MLflow."],
-    ["/ml/evaluation", "evaluations", "Todavía no hay evaluaciones."],
     ["/ml/models", "models", "Todavía no hay modelos registrados."],
     ["/ml/inference", "models", "No hay modelos READY disponibles para inferencia."],
   ])("%s muestra un estado vacío explícito", async (path, key, message) => {
@@ -200,19 +199,15 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     expect(within(row).getAllByRole("cell")[column]).toHaveTextContent("0.875");
   });
 
-  it("Evaluation muestra métricas de clasificación y separa model_version de dataset_version", async () => {
+  it("Evaluation muestra el candidato congelado y su evaluación final de test", async () => {
+    // APP-05: el detalle (estados, matriz, ejemplos) está en ml-evaluation.test.tsx.
     serveExamples();
     openAt("/ml/evaluation");
 
-    const row = (await screen.findByText("eval-0002")).closest("tr")!;
-    expect(within(row).getByText("pet-classifier v3")).toBeInTheDocument();
-    expect(within(row).getByText("demo-v1.0.0")).toBeInTheDocument();
-    expect(within(row).getByText("0.800")).toBeInTheDocument();
-    expect(within(row).getByText("0.792")).toBeInTheDocument();
-    expect(within(row).getByText("10")).toBeInTheDocument();
+    const metrics = await screen.findByRole("region", { name: /evaluación final en test/i });
+    expect(within(metrics).getByText("eval-0002")).toBeInTheDocument();
+    expect(within(metrics).getByText("pet-classifier v3")).toBeInTheDocument();
     expect(screen.queryByText("mAP50")).not.toBeInTheDocument();
-    const unregistered = screen.getByText("eval-0001").closest("tr")!;
-    expect(within(unregistered).getByText("Sin registrar")).toBeInTheDocument();
   });
 
   it("Models muestra versión del registry, aliases y dataset de origen", async () => {

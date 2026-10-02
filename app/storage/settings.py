@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     # APP-03: API de jobs de entrenamiento; docker-compose la abre con ML_API_HOST.
     ml_api_host: str = "127.0.0.1"
     ml_api_port: int = 8001
+    # APP-05: recortes de ML-01 (`data/crops`) para los ejemplos de Evaluation.
+    crops_dir: Path | None = None
 
     quality: QualityPolicy
 

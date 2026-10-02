@@ -36,6 +36,7 @@ VALID = {
     "runs": "runs.json",
     "run_curves": "run_curves.json",
     "evaluations": "evaluations.json",
+    "evaluation_overview": "evaluation_overview.json",
     "models": "models.json",
     "inference_request": "inference_request.json",
     "inference": "inference.json",

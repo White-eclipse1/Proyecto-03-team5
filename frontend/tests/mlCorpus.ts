@@ -13,6 +13,7 @@ export type MlContractName =
   | "runs"
   | "run_curves"
   | "evaluations"
+  | "evaluation_overview"
   | "models"
   | "inference_request"
   | "inference"

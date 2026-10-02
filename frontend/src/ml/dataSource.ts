@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/api/client";
 import {
   type ContractError,
-  type EvaluationsResponse,
   type ExperimentRun,
-  evaluationsResponseSchema,
+  evaluationOverviewSchema,
   type ModelsResponse,
   modelsResponseSchema,
   type RunCurvesResponse,
@@ -24,12 +23,15 @@ import { errorFromResponse, useMlResource } from "./useMlResource";
 /**
  * Rutas del backend para las pantallas de modelos, relativas a `API_BASE_URL`.
  * `trainingJobs` lo sirve `ml-api` (APP-03); APP-04…APP-07 conectan las demás fuentes
- * reales respetando los contratos de `schemas.ts`.
+ * reales respetando los contratos de `schemas.ts`. `evaluation`, `predictionsCsv` y
+ * `crops` son de APP-05.
  */
 export const ML_ENDPOINTS = {
   trainingJobs: "/ml/training/jobs",
   runs: "/ml/runs",
-  evaluations: "/ml/evaluations",
+  evaluation: "/ml/evaluation",
+  predictionsCsv: "/ml/evaluation/predictions.csv",
+  crops: "/ml/crops",
   models: "/ml/models",
   inference: "/ml/inference",
 } as const;
@@ -37,7 +39,7 @@ export const ML_ENDPOINTS = {
 // Referencias estables: useMlResource las usa como dependencias de su efecto.
 const noJobs = (response: TrainingJobsResponse) => response.jobs.length === 0;
 const noRuns = (response: RunsResponse) => response.runs.length === 0;
-const noEvaluations = (response: EvaluationsResponse) => response.evaluations.length === 0;
+const never = () => false;
 const noModels = (response: ModelsResponse) => response.models.length === 0;
 const noReadyModels = (response: ModelsResponse) =>
   !response.models.some((model) => model.status === "READY");
@@ -50,8 +52,14 @@ export function useExperimentRuns() {
   return useMlResource(ML_ENDPOINTS.runs, runsResponseSchema, noRuns);
 }
 
-export function useEvaluations() {
-  return useMlResource(ML_ENDPOINTS.evaluations, evaluationsResponseSchema, noEvaluations);
+/** APP-05: siempre trae un estado (sin candidato también es una respuesta, no "vacío"). */
+export function useEvaluationOverview() {
+  return useMlResource(ML_ENDPOINTS.evaluation, evaluationOverviewSchema, never);
+}
+
+/** URL del recorte de una predicción: `crop_id = img<image_id>-ann<annotation_id>` (ML-01). */
+export function cropUrl(imageId: number, annotationId: number): string {
+  return `${API_BASE_URL}${ML_ENDPOINTS.crops}/img${imageId}-ann${annotationId}`;
 }
 
 export function useRegisteredModels() {

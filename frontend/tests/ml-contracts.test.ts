@@ -18,6 +18,7 @@ const CONTRACT_NAMES: MlContractName[] = [
   "runs",
   "run_curves",
   "evaluations",
+  "evaluation_overview",
   "models",
   "inference_request",
   "inference",
