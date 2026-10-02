@@ -299,15 +299,17 @@ cada run y Compose rechaza valores ausentes.
 
 En macOS/Linux:
 
-```bash
-export GIT_COMMIT="$(git rev-parse HEAD)"
-docker compose up --build
-```
+    export GIT_COMMIT="$(git rev-parse HEAD)"
+    docker compose config --quiet
+    docker compose up --build
 
-```powershell
-$env:GIT_COMMIT = git rev-parse HEAD
-docker compose up --build
-```
+En PowerShell:
+
+    $env:GIT_COMMIT = git rev-parse HEAD
+    docker compose config --quiet
+    docker compose up --build
+
+`GIT_COMMIT` debe corresponder al SHA real mostrado por `git rev-parse HEAD`.
 
 Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las
