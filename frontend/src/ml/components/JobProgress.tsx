@@ -4,9 +4,12 @@ import { Missing } from "./DataTable";
 /** Métrica que se muestra junto a la barra, en orden de preferencia. */
 const HEADLINE_METRICS = ["val_accuracy", "val_loss", "train_loss"];
 
-function headlineMetric(metrics: Record<string, number>): string | null {
+function headlineMetric(metrics: Record<string, number | null>): string | null {
   const name = HEADLINE_METRICS.find((key) => key in metrics) ?? Object.keys(metrics)[0];
-  return name === undefined ? null : `${name} ${metrics[name]}`;
+  if (name === undefined) return null;
+  // null: el worker reportó NaN o ±inf; se dice tal cual, sin inventar un número.
+  const value = metrics[name];
+  return `${name} ${value === null ? "no finito" : value}`;
 }
 
 /**

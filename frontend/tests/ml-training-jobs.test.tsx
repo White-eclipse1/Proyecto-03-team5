@@ -77,6 +77,21 @@ describe("APP-03 progreso de los jobs", () => {
     expect(within(row).getByText("val_accuracy 0.812")).toBeVisible();
   });
 
+  it("una métrica de progreso no finita se muestra así, sin inventar un número", async () => {
+    const jobs = jobsExample();
+    const running = jobs.jobs.find((j) => j.job_id === "job-0003")!;
+    running.progress = {
+      ...(running.progress as object),
+      metrics: { val_loss: null, train_loss: 0.41 },
+    };
+    serve({ [JOBS_URL]: () => json(jobs) });
+    openAt("/ml/training");
+
+    const row = (await screen.findByText("job-0003")).closest("tr")!;
+    expect(within(row).getByText("val_loss no finito")).toBeVisible();
+    expect(within(row).queryByText(/null/)).not.toBeInTheDocument();
+  });
+
   it("un job queued no inventa progreso", async () => {
     serve({ [JOBS_URL]: () => json(jobsExample()) });
     openAt("/ml/training");
