@@ -372,31 +372,42 @@ jobs:
       - name: Reproducir crops y manifest del release
         run: .venv-dvc-e2e/bin/dvc repro crops manifest
 
-      - name: Levantar cola, MLflow y worker real
-        run: docker compose up -d --build mariadb minio mlflow training-worker
+      - name: Levantar stack completo de Proyecto 3
+        run: docker compose up -d --build
 
-      - name: Esperar MLflow
+      - name: Esperar MLflow y portal
         run: |
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null \
+              && curl -fsS http://127.0.0.1:8080/api/ml/health >/dev/null; then
+              docker compose ps
               exit 0
             fi
             sleep 2
           done
-          echo "::error::MLflow no quedo listo."
+
+          echo "::error::El stack de OPS-05 no quedo listo."
+          docker compose ps
           exit 1
 
       - name: Cola -> worker -> MLflow -> checkpoint
         working-directory: app
         run: uv run --locked --no-build pytest -v tests/test_training_worker_e2e.py
 
+      - name: Smoke training desde el portal (OPS-05)
+        working-directory: app
+        env:
+          OPS05_API_BASE: http://127.0.0.1:8080/api/ml
+          OPS05_TIMEOUT_SECONDS: "900"
+        run: uv run --locked --no-build python -m training.smoke
+
       - name: Verificar descarga real de pesos ImageNet
         run: |
           docker compose exec -T training-worker python -c "from pathlib import Path; p=Path('/home/appuser/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth'); assert p.is_file() and p.stat().st_size > 0, p; print(f'Pesos pretrained descargados: {p} ({p.stat().st_size} bytes)')"
 
-      - name: Logs del worker
+      - name: Logs del stack
         if: failure()
-        run: docker compose logs training-worker mlflow mariadb minio
+        run: docker compose logs backend frontend ml-api training-worker mlflow mariadb minio app
 
       - name: Apagar y borrar datos efimeros
         if: always()
