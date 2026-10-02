@@ -22,9 +22,11 @@ export function InferenceResult({ response }: Readonly<{ response: InferenceResp
           <dd className="font-semibold">{response.predicted_class}</dd>
         </div>
         <div>
-          <dt className="text-ink-muted">Recorte</dt>
+          <dt className="text-ink-muted">{crop === null ? "Imagen subida" : "Recorte"}</dt>
           <dd className="font-mono">
-            {`${crop.dataset_version} · img ${crop.image_id} · ann ${crop.annotation_id}`}
+            {crop === null
+              ? response.upload?.filename
+              : `${crop.dataset_version} · img ${crop.image_id} · ann ${crop.annotation_id}`}
           </dd>
         </div>
         <div>

@@ -270,6 +270,18 @@ class ClassificationContractTests(unittest.TestCase):
         )
         self.assertNotIn("predictions", InferenceResponse.model_fields)
 
+    def test_inference_classes_are_the_classifier_classes(self):
+        """APP-07: PET_CLASSES del contrato son las clases de ML-01 (dog, cat)."""
+        from crops.classes import CLASS_NAMES
+        from presentation.ml_contracts import PET_CLASSES
+
+        self.assertEqual(tuple(PET_CLASSES), tuple(CLASS_NAMES))
+
+    def test_upload_inference_names_the_file_and_not_a_crop(self):
+        response = InferenceResponse.model_validate(load("inference_upload.json"))
+        self.assertEqual((response.source, response.crop), ("upload", None))
+        self.assertEqual(response.upload.content_type, "image/jpeg")
+
 
 class TraceabilityTests(unittest.TestCase):
     """Los IDs reales encadenan dataset → job → run → checkpoint → modelo → inferencia."""

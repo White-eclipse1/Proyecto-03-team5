@@ -587,9 +587,25 @@ export const inferenceRequestSchema = z.strictObject({
 });
 export type InferenceRequest = z.infer<typeof inferenceRequestSchema>;
 
+/** Clases del clasificador (igual que PET_CLASSES en Python). */
+export const PET_CLASSES = ["dog", "cat"] as const;
+
+/** APP-07: imagen subida en el portal, ya validada por `ml-api`. */
+export const uploadedImageSchema = z.strictObject({
+  filename: labelSchema,
+  content_type: z.enum(["image/png", "image/jpeg"]),
+  size_bytes: z.number().int().positive(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type UploadedImage = z.infer<typeof uploadedImageSchema>;
+
 /**
- * Una clase para el recorte más la distribución completa. `dataset_version` es el
+ * Una clase para la imagen más la distribución completa. `dataset_version` es el
  * release con el que se entrenó el modelo; `crop.dataset_version`, el del recorte.
+ * APP-07: la imagen es un recorte del portal o un archivo subido (`source`), y
+ * `checkpoint` + `checkpoint_sha256` + `image_size` dicen qué artefacto se usó.
  */
 export const inferenceResponseSchema = z
   .strictObject({
@@ -598,15 +614,32 @@ export const inferenceResponseSchema = z
     model_name: identifierSchema,
     model_version: modelVersionSchema,
     run_id: runIdSchema,
+    checkpoint: checkpointSchema,
+    checkpoint_sha256: z.string().regex(/^[0-9a-f]{64}$/),
     dataset_version: identifierSchema,
-    crop: cropSelectionSchema,
+    image_size: z.number().int().min(32).max(1024).multipleOf(32),
+    source: z.enum(["crop", "upload"]),
+    crop: cropSelectionSchema.nullable(),
+    upload: uploadedImageSchema.nullable(),
     predicted_class: labelSchema,
     probabilities: probabilitiesSchema,
     latency_ms: z.number().min(0),
   })
   .superRefine((response, context) => {
-    const problem = distributionIssue(response.probabilities, response.predicted_class, null);
-    if (problem !== null) context.addIssue({ code: "custom", message: problem });
+    const issue = (message: string) => context.addIssue({ code: "custom", message });
+    if (checkpointRunId(response.checkpoint) !== response.run_id) {
+      issue("El checkpoint debe pertenecer al mismo run_id");
+    }
+    if ((response.crop === null) === (response.upload === null)) {
+      issue("La imagen es un recorte o un archivo subido, exactamente uno");
+    }
+    if ((response.source === "crop") !== (response.crop !== null)) {
+      issue("source dice de dónde vino la imagen");
+    }
+    const problem = distributionIssue(response.probabilities, response.predicted_class, [
+      ...PET_CLASSES,
+    ]);
+    if (problem !== null) issue(problem);
   });
 export type InferenceResponse = z.infer<typeof inferenceResponseSchema>;
 
@@ -775,6 +808,7 @@ export const ML_CONTRACTS = {
   models: modelsResponseSchema,
   inference_request: inferenceRequestSchema,
   inference: inferenceResponseSchema,
+  inference_upload: inferenceResponseSchema,
   error: errorResponseSchema,
   training_request: trainingJobRequestSchema,
   provenance: releaseProvenanceSchema,
