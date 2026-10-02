@@ -398,6 +398,26 @@ jobs:
           OPS05_TIMEOUT_SECONDS: "900"
         run: uv run --locked --no-build python -m training.smoke
 
+      - name: P3 trazable end-to-end (OPS-09)
+        working-directory: app
+        env:
+          OPS09_E2E: "1"
+          OPS09_S3_ENDPOINT: http://127.0.0.1:9000
+          OPS09_TRACE_OUTPUT: ${{ github.workspace }}/reports/evidence/ops09-traceability.json
+          AWS_ACCESS_KEY_ID: ${{ env.MINIO_ROOT_USER }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.MINIO_ROOT_PASSWORD }}
+          AWS_SESSION_TOKEN: ""
+          AWS_SECURITY_TOKEN: ""
+          AWS_DEFAULT_REGION: us-east-1
+        run: uv run --locked --no-build pytest -v tests/test_p3_e2e_traceability.py
+
+      - name: Guardar evidencia de trazabilidad OPS-09
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ops-09-e2e-traceability
+          path: reports/evidence/ops09-traceability.json
+          if-no-files-found: error
+
       - name: Verificar descarga real de pesos ImageNet
         run: |
           docker compose exec -T training-worker python -c "from pathlib import Path; p=Path('/home/appuser/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth'); assert p.is_file() and p.stat().st_size > 0, p; print(f'Pesos pretrained descargados: {p} ({p.stat().st_size} bytes)')"
@@ -409,13 +429,59 @@ jobs:
       - name: Apagar y borrar datos efimeros
         if: always()
         run: docker compose down -v
+  secrets:
+    name: Secret scan (HEAD + Git history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Rechazar datasets, checkpoints y artefactos locales trackeados
+        shell: bash
+        run: |
+          forbidden="$(
+            git ls-files |
+            grep -E '(^|/)\.env(\..+)?$|(^|/)\.dvc/config\.local$|(^|/)(mlruns|mlartifacts)/|(^|/)data/(crops|models)/|(^|/)data/raw/(images|annotations)/|\.(pt|pth|ckpt)$' |
+            grep -Ev '(^|/)\.env(\..+)?\.example$' \
+            || true
+          )"
+
+          if [ -n "$forbidden" ]; then
+            echo "::error::Git contiene archivos que deben permanecer fuera del repositorio:"
+            echo "$forbidden"
+            exit 1
+          fi
+
+          echo "No hay datasets, checkpoints, .env ni artefactos MLflow trackeados."
+
+      - name: Instalar Gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          curl -fsSL \
+            -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Revisar HEAD por secretos
+        run: gitleaks dir . --redact --no-banner
+
+      - name: Revisar historial Git por secretos
+        run: gitleaks git . --redact --no-banner
 
   ci-ok:
     name: CI OK
     # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
     # fallido dejaría a `CI OK` en "skipped", y GitHub lo trata como aprobado.
     if: always()
-    needs: [python, backend, frontend, compose, mlflow, training-queue, quality-gate, quality-gate-prod, training-worker-e2e]
+    needs: [python, backend, frontend, compose, mlflow, training-queue, quality-gate, quality-gate-prod, training-worker-e2e, secrets]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
