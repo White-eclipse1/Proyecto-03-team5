@@ -570,3 +570,51 @@ exit 1 si algo no cuadra.
 
 Evidencia: [`tests/evidence/ops-06-model-registry.md`](../tests/evidence/ops-06-model-registry.md).
 Tests: `uv run pytest tests/test_model_registry.py`.
+
+## OPS-07 — Modelo publicado en AWS S3
+
+`classification/publication.py`. Publica el paquete de OPS-06 de una model version
+en AWS S3 y demuestra que se recupera y funciona desde un entorno limpio.
+
+| Model version | Bucket | Prefijo |
+|---|---|---|
+| `1.0.0` | `mlops-p2-dvc-cache-280764207006` (us-east-1) | `models/dog-cat-resnet18/1.0.0/` |
+
+El prefijo `models/` queda separado del `files/` que usa DVC. El registro de cada
+objeto está en `reports/models/s3_publications.json`: bucket, key, `VersionId`,
+tamaño, SHA-256 local, `ChecksumSHA256` calculado por S3, SHA-256 de una descarga de
+prueba y `ETag`. El ETag se guarda solo como dato de S3: **no** se usa como SHA-256.
+
+```bash
+cd app
+uv run python -m classification.publication publish 1.0.0 \
+  --bucket mlops-p2-dvc-cache-280764207006 --profile mlops-p2
+uv run python -m classification.publication verify 1.0.0 \
+  --profile mlops-p2 --image ../data/crops/cat/img369-ann355.png
+```
+
+`publish` sube y verifica cada archivo antes de registrar la publicación:
+1. Solo publica un paquete cuyo sha256 coincide con el registro de OPS-06.
+2. Sube el archivo y comprueba que el `ChecksumSHA256` que calcula S3 sea el SHA-256
+   local.
+3. Hace una descarga de prueba y compara su SHA-256.
+
+Nunca sobrescribe una key con otro contenido: una versión publicada es fija, y
+republicar la misma no sube nada.
+
+`verify` es el Agent Test: head-object → get-object del `VersionId` registrado →
+SHA-256 → carga del checkpoint e inferencia de una imagen en **otro proceso** que
+solo ve los archivos descargados.
+
+Las credenciales salen de la cadena por defecto de AWS (perfil SSO `mlops-p2`); el
+código no lee ni guarda access keys.
+
+El bucket no tiene versionado: S3 no devuelve `VersionId` y queda registrado como
+`null`. Cada model version vive en su propia ruta y no se sobrescribe, así que una
+versión anterior sigue en su key al publicar otra. Si alguien cambia un objeto,
+`verify` lo detecta por SHA-256. Con versionado, el `VersionId` registrado
+recuperaría el objeto original. Las pruebas cubren ambos casos.
+
+Evidencia: [`tests/evidence/ops-07-s3-publication.md`](../tests/evidence/ops-07-s3-publication.md).
+Tests: `uv run pytest tests/test_model_publication.py`. La prueba contra un S3 real
+corre con `S3_INTEGRATION_ENDPOINT`, por ejemplo el MinIO local.
