@@ -3,6 +3,7 @@
 import csv
 import json
 from datetime import UTC, datetime
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from classification.evaluation import (
     compute_metrics,
     evaluate_frozen_candidate,
     meets_target,
+    register_evaluation,
     verify_against_mlflow,
 )
 from classification.selection import (
@@ -91,19 +93,31 @@ def test_metrics_reject_unknown_labels_and_length_mismatch():
 
 
 @pytest.mark.parametrize(
-    ("accuracy", "expected"),
+    ("correct", "total", "expected"),
     [
-        (0.85, True),
-        (17 / 20, True),
-        (0.9, True),
-        (0.8499999999, False),
-        (0.84995, False),  # redondeado a 4 decimales sería 0.85
-        (84 / 99, False),  # 0.8484…
+        (17, 20, True),  # exactamente 0.85
+        (16, 20, False),
+        (68, 71, True),  # resultado real de r03-sgd
+        (84, 99, False),  # 0.8484…
+        (8499, 10_000, False),  # redondeado a 2 decimales sería 0.85
+        (85 * 10**15, 10**17, True),
+        # Un acierto menos que 0.85 exacto: en float, la división redondea a 0.85.
+        (85 * 10**15 - 1, 10**17, False),
     ],
 )
-def test_target_is_compared_without_rounding(accuracy, expected):
-    assert TARGET_ACCURACY == 0.85
-    assert meets_target(accuracy) is expected
+def test_target_is_compared_with_integers_without_rounding(correct, total, expected):
+    assert Fraction(85, 100) == TARGET_ACCURACY
+    assert meets_target(correct, total) is expected
+
+
+def test_float_division_cannot_tell_the_limit_case_apart():
+    # Por qué la comparación es con enteros: el float de este caso es 0.85.
+    assert (85 * 10**15 - 1) / 10**17 >= 0.85
+
+
+def test_target_requires_at_least_one_test_crop():
+    with pytest.raises(ValueError, match="total"):
+        meets_target(0, 0)
 
 
 # --- Evaluación del candidato congelado (extremo a extremo con dataset controlado) -------
@@ -591,3 +605,112 @@ def test_audit_reports_renamed_csv_columns(client, data, frozen, tmp_path):
     assert differences[1:] == [
         f"crop_id {crop_id}: fila del CSV distinta en p_dog" for crop_id in crop_ids
     ]
+
+
+# --- Recuperación: MLflow falla después de escribir la evaluación ------------------------
+
+
+class _FailingMlflow:
+    """Hace fallar un método del cliente de MLflow hasta que se repare."""
+
+    def __init__(self, client, monkeypatch, method):
+        self.broken = True
+        original = getattr(client, method)
+
+        def maybe_fail(*args, **kwargs):
+            if self.broken:
+                raise ConnectionError(f"MLflow no responde ({method})")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(client, method, maybe_fail)
+
+
+def _register(client, frozen, tmp_path):
+    return register_evaluation(
+        client=client, candidate_path=frozen, evaluations_dir=tmp_path / "evaluations"
+    )
+
+
+@pytest.mark.parametrize("method", ["log_batch", "set_tag", "log_artifact"])
+def test_register_completes_mlflow_after_a_failure_without_inferring_again(
+    client, data, frozen, tmp_path, monkeypatch, method
+):
+    mlflow = _FailingMlflow(client, monkeypatch, method)
+    with pytest.raises(RuntimeError, match="register"):
+        _evaluate(client, data, frozen, tmp_path)
+    files = sorted((tmp_path / "evaluations" / "test").iterdir())
+    assert [f.suffix for f in files] == [".json", ".csv"]
+    contents = [f.read_bytes() for f in files]
+    # La regla de evaluar una sola vez se mantiene; el error indica cómo recuperarse.
+    with pytest.raises(RuntimeError, match="register"):
+        _evaluate(client, data, frozen, tmp_path)
+
+    mlflow.broken = False
+    monkeypatch.setattr(evaluation_module, "_predict", _must_not_infer)
+    record = _register(client, frozen, tmp_path)
+
+    assert [f.read_bytes() for f in files] == contents
+    comparison = verify_against_mlflow(client, record.predictions_path, record.evaluation.run_id)
+    assert all(row["equal"] for row in comparison.values()), comparison
+    tags = client.get_run(record.evaluation.run_id).data.tags
+    assert tags["test_evaluation_id"] == record.evaluation.evaluation_id
+    assert tags["test_evaluated_at"] == record.evaluation.created_at
+    assert tags["test_accuracy_meets_target"] == str(record.meets_target)
+    assert tags["test_target_accuracy"] == "0.85"
+    artifacts = {a.path for a in client.list_artifacts(record.evaluation.run_id, "evaluation/test")}
+    assert artifacts == {f"evaluation/test/{f.name}" for f in files}
+
+
+def _must_not_infer(*args):
+    raise AssertionError("register no debe volver a inferir el test")
+
+
+def test_register_is_idempotent_after_a_complete_evaluation(
+    client, data, frozen, tmp_path, monkeypatch
+):
+    first = _evaluate(client, data, frozen, tmp_path)
+    before = client.get_run(first.evaluation.run_id).data
+    monkeypatch.setattr(evaluation_module, "_predict", _must_not_infer)
+
+    again = _register(client, frozen, tmp_path)
+
+    after = client.get_run(first.evaluation.run_id).data
+    assert after.metrics == before.metrics
+    assert after.tags == before.tags
+    assert (again.correct, again.total, again.meets_target) == (
+        first.correct,
+        first.total,
+        first.meets_target,
+    )
+
+
+def test_register_refuses_a_predictions_csv_that_does_not_match_the_evaluation(
+    client, data, frozen, tmp_path, monkeypatch
+):
+    mlflow = _FailingMlflow(client, monkeypatch, "log_batch")
+    with pytest.raises(RuntimeError):
+        _evaluate(client, data, frozen, tmp_path)
+    mlflow.broken = False
+    csv_path = next((tmp_path / "evaluations" / "test").glob("*.csv"))
+    original = csv_path.read_bytes()
+    csv_path.write_bytes(original.replace(b",True\r\n", b",False\r\n", 1))
+    assert csv_path.read_bytes() != original
+
+    with pytest.raises(ValueError, match="CSV"):
+        _register(client, frozen, tmp_path)
+
+    run_id = json.loads(frozen.read_text(encoding="utf-8"))["run_id"]
+    assert "test_accuracy" not in client.get_run(run_id).data.metrics
+
+
+def test_register_refuses_when_mlflow_has_another_test_evaluation(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    client.set_tag(record.evaluation.run_id, "test_evaluation_id", "test-otra-20260101T000000Z")
+
+    with pytest.raises(RuntimeError, match="test-otra"):
+        _register(client, frozen, tmp_path)
+
+
+def test_register_requires_an_evaluation_on_disk(client, frozen, tmp_path):
+    with pytest.raises(RuntimeError, match="evaluación de test"):
+        _register(client, frozen, tmp_path)
