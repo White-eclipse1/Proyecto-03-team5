@@ -175,7 +175,7 @@ function ConfusionMatrix({
   const number = "px-4 py-3 text-right font-mono text-xs";
   return (
     <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto rounded-2xl border border-border bg-surface shadow-card">
+      <div className="w-fit max-w-full overflow-x-auto rounded-2xl border border-border bg-surface shadow-card">
         <table className="text-sm">
           <caption className="sr-only">Matriz de confusión (test)</caption>
           <thead className="border-b border-border text-xs text-ink-muted">
@@ -392,8 +392,20 @@ function Overview({ overview }: Readonly<{ overview: EvaluationOverview }>) {
     <div className="flex flex-col gap-6">
       <CandidateCard candidate={candidate} />
       <FinalMetrics evaluation={evaluation} summary={summary} />
-      <PerClassTable summary={summary} />
-      <ConfusionMatrix evaluation={evaluation} summary={summary} />
+      <Section title="Métricas por clase y matriz de confusión (test)">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-ink-muted">Por clase</h3>
+            <PerClassTable summary={summary} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-ink-muted">
+              Matriz de confusión (filas: clase real, columnas: clase predicha)
+            </h3>
+            <ConfusionMatrix evaluation={evaluation} summary={summary} />
+          </div>
+        </div>
+      </Section>
       <ErrorAnalysis summary={summary} />
       <Examples evaluation={evaluation} />
     </div>
