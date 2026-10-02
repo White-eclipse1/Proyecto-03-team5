@@ -320,7 +320,8 @@ válida del release es un recorte (ML-01), identificado por `image_id` +
 | `TrainingLogsResponse` | `GET /api/ml/training/jobs/{job_id}/logs` | Líneas de log del job (`seq`, `timestamp`, `level`, `message`), de la más vieja a la más nueva (APP-03) |
 | `RunsResponse` | `GET /api/ml/runs` | Runs de MLflow (estados y params como en MLflow) y su `git_commit` (APP-04) |
 | `RunCurvesResponse` | `GET /api/ml/runs/{run_id}/curves` | Historial por época (`step`, `value`) de cada métrica del run (APP-04) |
-| `EvaluationsResponse` | `GET /api/ml/evaluations` | Métricas de clasificación por checkpoint en `validation`/`test` |
+| `EvaluationsResponse` | — | Métricas de clasificación por checkpoint en `validation`/`test` |
+| `EvaluationOverview` | `GET /api/ml/evaluation` | Estado `candidate_not_frozen`/`candidate_frozen`/`evaluated`, candidato congelado (`FrozenCandidate`) y su evaluación de test; solo `evaluated` trae resultados de test (APP-05) |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
 | `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
 | `InferenceResponse` | `POST /api/ml/inference` | Clase predicha y probabilidad por clase, trazables al modelo |

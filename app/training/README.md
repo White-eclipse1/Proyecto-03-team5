@@ -28,6 +28,9 @@ Training (navegador) ──POST /api/ml/training/jobs──▶ nginx ──▶ m
 | `GET /api/ml/training/jobs/{job_id}/logs?after=<seq>` | `TrainingLogsResponse` con las líneas de `seq > after` | 400 `invalid_request`, 404 `job_not_found` |
 | `GET /api/ml/runs` | `RunsResponse`: runs de entrenamiento de MLflow, más recientes primero (APP-04) | 503 `mlflow_unavailable` (reintentable), 503 `mlflow_not_configured` |
 | `GET /api/ml/runs/{run_id}/curves` | `RunCurvesResponse`: historial por época de cada métrica (APP-04) | 400 `invalid_request`, 404 `run_not_found`, 503 como arriba |
+| `GET /api/ml/evaluation` | `EvaluationOverview`: candidato congelado y su evaluación final de test (APP-05) | — (lo que no cuadra va en `problem`) |
+| `GET /api/ml/evaluation/predictions.csv` | CSV de predicciones por recorte de ML-09, como descarga | 404 `predictions_not_available` |
+| `GET /api/ml/crops/{crop_id}` | PNG del recorte `img<image_id>-ann<annotation_id>` | 400 `invalid_request`, 404 `crop_not_found`, 503 `crops_not_configured` |
 
 El POST aplica `training_request_rejection` (ml_contracts.py): bloquea un Quality
 Gate `failed`, un release sin `provenance.json` o `manifest.json` válidos, y un
@@ -62,6 +65,31 @@ celda dice "no finito" y en la curva esa época queda como un hueco.
 Las columnas de métricas de validación de la tabla son **todas** las métricas `val_*`
 de los runs (por ejemplo, `val_accuracy_top1` si la evaluación la registra), y se
 pueden ordenar.
+
+## Evaluation (APP-05)
+
+`training/evaluation_view.py` lee lo que dejan ML-08 y ML-09 en `reports/` en cada
+petición:
+
+- `candidates/ml08_candidate.json`: el candidato elegido con validation y congelado.
+- `evaluations/test/<evaluation_id>.json` (contrato `Evaluation`) y
+  `<evaluation_id>.predictions.csv`.
+
+| Estado | Cuándo | Qué ve el portal |
+|---|---|---|
+| `candidate_not_frozen` | No hay candidato, o el archivo no es válido | Ningún resultado de test, aunque exista uno en disco |
+| `candidate_frozen` | Hay candidato pero no una evaluación de test que sea suya | El candidato; sin métricas de test |
+| `evaluated` | Una sola evaluación `split: test` del mismo run, checkpoint, release y manifest, creada después de `frozen_at` | Métricas, matriz, ejemplos y CSV |
+
+Si hay una evaluación que no cuadra (otro run o manifest, anterior al
+congelamiento, de validation o más de una), se oculta y `problem` explica por qué.
+El portal recalcula accuracy, F1 y métricas por clase desde la matriz, y compara
+con 0.85 sin redondear.
+
+Los ejemplos muestran el recorte de ML-01: `ml-api` busca `crop_id` en
+`reports/crops.json` y sirve `CROPS_DIR/<crop_path>` (`./data/crops`, montado de
+solo lectura). El cliente nunca manda una ruta. Sin `dvc pull` de `data/crops` la
+pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
 
 ## Interfaz para el worker (OPS-04)
 
