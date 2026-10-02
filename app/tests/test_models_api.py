@@ -236,6 +236,19 @@ def test_only_registered_package_files_are_served(tmp_path, registry, name):
     response = client_for(tmp_path, registry).get(f"/models/1.0.0/files/{name}")
 
     assert response.status_code == 404
+    # `../` sin codificar lo normaliza el cliente HTTP (llega a /models/registry.json).
+    assert ErrorResponse.model_validate(response.json()).error.code in {
+        "file_not_found",
+        "model_not_found",
+    }
+    assert registry.path.read_text(encoding="utf-8") not in response.text
+
+
+def test_encoded_traversal_reaches_the_whitelist(tmp_path, registry):
+    response = client_for(tmp_path, registry).get(
+        "/models/1.0.0/files/..%2F..%2F..%2Freports%2Fmodels%2Fregistry.json"
+    )
+
     assert ErrorResponse.model_validate(response.json()).error.code == "file_not_found"
 
 
