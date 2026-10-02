@@ -101,12 +101,20 @@ def test_worker_recovers_abandoned_running_job(tmp_path):
     queue.claim_next("dead-worker")
     queue.start(job.job_id, experiment_id="1", run_id=RUN_ID)
 
+    terminated = []
+    client = SimpleNamespace(
+        get_run=lambda run_id: SimpleNamespace(info=SimpleNamespace(status="RUNNING")),
+        set_terminated=lambda run_id, status: terminated.append((run_id, status)),
+    )
+
     recovered = recover_abandoned_jobs(
         queue,
+        client=client,
         worker_id="dead-worker",
     )
 
     assert recovered == 1
+    assert terminated == [(RUN_ID, "KILLED")]
 
     persisted = queue.get(job.job_id)
     assert persisted is not None
@@ -127,8 +135,15 @@ def test_worker_recovers_abandoned_claimed_queued_job(tmp_path):
     claimed = queue.claim_next("dead-worker")
     assert claimed is not None
 
+    def unexpected_termination(*args, **kwargs):
+        raise AssertionError("Un job queued sin run_id no debe cerrar ningun run de MLflow")
+
     recovered = recover_abandoned_jobs(
         queue,
+        client=SimpleNamespace(
+            get_run=unexpected_termination,
+            set_terminated=unexpected_termination,
+        ),
         worker_id="dead-worker",
     )
 
@@ -217,7 +232,7 @@ def test_main_wires_queue_tracking_recovery_and_loop(monkeypatch):
     monkeypatch.setattr(
         worker,
         "recover_abandoned_jobs",
-        lambda queue, *, worker_id: calls.append(("recover", queue, worker_id)),
+        lambda queue, *, client, worker_id: calls.append(("recover", queue, client, worker_id)),
     )
     monkeypatch.setattr(
         worker,
@@ -231,6 +246,6 @@ def test_main_wires_queue_tracking_recovery_and_loop(monkeypatch):
         "create_tables",
         "ping",
         "check_server",
-        ("recover", fake_queue, "worker-main-test"),
+        ("recover", fake_queue, "mlflow-client", "worker-main-test"),
         ("run_worker", fake_queue, "mlflow-client", "worker-main-test"),
     ]

@@ -30,9 +30,13 @@ COPY crops/ ./crops/
 # imagen — por eso se crea y se le da dueño ANTES de montar el volumen y de
 # bajar a appuser, si no, la primera escritura de gate.py truena con
 # PermissionError (el volumen nace root:root).
-RUN mkdir -p /app/reports && chown appuser:appuser /app/reports
+RUN mkdir -p /app/reports /home/appuser/.cache/torch/hub/checkpoints \
+    && chown appuser:appuser /app/reports \
+    && chown -R appuser:appuser /home/appuser
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV HOME=/home/appuser
+ENV TORCH_HOME=/home/appuser/.cache/torch
 USER appuser
 
 CMD ["python", "-m", "presentation.main"]

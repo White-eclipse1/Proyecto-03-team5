@@ -47,12 +47,23 @@ def process_one(
 def recover_abandoned_jobs(
     queue: TrainingJobQueue,
     *,
+    client: Any,
     worker_id: str,
 ) -> int:
-    """Marca como fallidos los jobs no terminales del mismo worker tras un reinicio."""
+    """Cierra runs de MLflow y falla jobs no terminales de un worker anterior."""
     job_ids = queue.claimed_by(worker_id)
+    recovered = 0
 
     for job_id in job_ids:
+        job = queue.get(job_id)
+        if job is None:
+            continue
+
+        if job.run_id is not None:
+            run = client.get_run(job.run_id)
+            if run.info.status == "RUNNING":
+                client.set_terminated(job.run_id, status="KILLED")
+
         queue.fail(
             job_id,
             ContractError(
@@ -61,8 +72,9 @@ def recover_abandoned_jobs(
                 retryable=True,
             ),
         )
+        recovered += 1
 
-    return len(job_ids)
+    return recovered
 
 
 def run_worker(
@@ -106,6 +118,7 @@ def main() -> None:
 
     recover_abandoned_jobs(
         queue,
+        client=client,
         worker_id=worker_id,
     )
 

@@ -176,10 +176,10 @@ services:
     environment:
       <<: *pipeline-env
       TRAINING_WORKER_ID: training-worker-1
-      GIT_COMMIT: ${GIT_COMMIT:-}
+      GIT_COMMIT: ${GIT_COMMIT:?Define GIT_COMMIT con el SHA actual}
     volumes:
-      - ./data/crops:/app/data/crops:ro
-      - ./reports:/app/reports:ro
+      - ./data/crops:/data/crops:ro
+      - ./reports:/reports:ro
     restart: on-failure:5
 
   # P2-52: agente del Copilot (LLM + herramientas MCP de solo lectura). Misma

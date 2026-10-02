@@ -15,6 +15,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -297,12 +300,108 @@ jobs:
             reports/crops.json
           if-no-files-found: error
 
+
+  training-worker-e2e:
+    name: Training worker E2E (OPS-04)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MARIADB_ROOT_PASSWORD: ci-worker-${{ github.run_id }}
+      MINIO_ROOT_USER: ci-worker
+      MINIO_ROOT_PASSWORD: ci-worker-${{ github.run_id }}
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+      TRAINING_QUEUE_DATABASE_URL: mysql+pymysql://root:ci-worker-${{ github.run_id }}@127.0.0.1:3306/image_repo
+      TRAINING_WORKER_E2E: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Exigir acceso al dataset PROD
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::error::AWS_ROLE_ARN es obligatorio para el E2E real de OPS-04."
+            exit 1
+          fi
+
+      - name: Assume the AWS role using GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+          role-duration-seconds: 1800
+          role-session-name: github-training-worker-${{ github.run_id }}
+          mask-aws-account-id: true
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+
+      - name: Instalar DVC con soporte S3
+        run: |
+          uv venv .venv-dvc-e2e --python 3.12
+          uv pip install --no-build --python .venv-dvc-e2e/bin/python 'dvc[s3]==3.67.1'
+
+      - name: Recuperar datos versionados de PROD
+        run: .venv-dvc-e2e/bin/dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
+
+      - name: Instalar dependencias Python
+        working-directory: app
+        run: uv sync --locked --no-build
+
+      - name: Preparar Quality Gate
+        working-directory: app
+        run: |
+          uv run --locked --no-build python dvc_quality_report_stage.py
+          uv run --locked --no-build python dvc_gate_stage.py
+
+      - name: Reproducir crops y manifest del release
+        run: .venv-dvc-e2e/bin/dvc repro crops manifest
+
+      - name: Levantar cola, MLflow y worker real
+        run: docker compose up -d --build mariadb minio mlflow training-worker
+
+      - name: Esperar MLflow
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::MLflow no quedo listo."
+          exit 1
+
+      - name: Cola -> worker -> MLflow -> checkpoint
+        working-directory: app
+        run: uv run --locked --no-build pytest -v tests/test_training_worker_e2e.py
+
+      - name: Verificar descarga real de pesos ImageNet
+        run: |
+          docker compose exec -T training-worker python -c "from pathlib import Path; p=Path('/home/appuser/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth'); assert p.is_file() and p.stat().st_size > 0, p; print(f'Pesos pretrained descargados: {p} ({p.stat().st_size} bytes)')"
+
+      - name: Logs del worker
+        if: failure()
+        run: docker compose logs training-worker mlflow mariadb minio
+
+      - name: Apagar y borrar datos efimeros
+        if: always()
+        run: docker compose down -v
+
   ci-ok:
     name: CI OK
     # `always()`: si un job falla, este también debe correr y fallar. Sin esto, un job
     # fallido dejaría a `CI OK` en "skipped", y GitHub lo trata como aprobado.
     if: always()
-    needs: [python, backend, frontend, compose, mlflow, training-queue, quality-gate, quality-gate-prod]
+    needs: [python, backend, frontend, compose, mlflow, training-queue, quality-gate, quality-gate-prod, training-worker-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
