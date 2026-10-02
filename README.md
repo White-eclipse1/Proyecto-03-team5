@@ -292,7 +292,20 @@ chmod 600 .env
 `ANTHROPIC_API_KEY` puede permanecer vacío si no vas a usar el chat Copilot.
 No pongas credenciales AWS en este archivo.
 
+
+Antes de levantar el stack, define `GIT_COMMIT` con el SHA real del commit
+actual. El worker de entrenamiento lo usa para registrar la procedencia de
+cada run y Compose rechaza valores ausentes.
+
+En macOS/Linux:
+
 ```bash
+export GIT_COMMIT="$(git rev-parse HEAD)"
+docker compose up --build
+```
+
+```powershell
+$env:GIT_COMMIT = git rev-parse HEAD
 docker compose up --build
 ```
 
