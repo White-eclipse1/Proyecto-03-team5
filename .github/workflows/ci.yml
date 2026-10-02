@@ -398,6 +398,26 @@ jobs:
           OPS05_TIMEOUT_SECONDS: "900"
         run: uv run --locked --no-build python -m training.smoke
 
+      - name: P3 trazable end-to-end (OPS-09)
+        working-directory: app
+        env:
+          OPS09_E2E: "1"
+          OPS09_S3_ENDPOINT: http://127.0.0.1:9000
+          OPS09_TRACE_OUTPUT: ${{ github.workspace }}/reports/evidence/ops09-traceability.json
+          AWS_ACCESS_KEY_ID: ${{ env.MINIO_ROOT_USER }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.MINIO_ROOT_PASSWORD }}
+          AWS_SESSION_TOKEN: ""
+          AWS_SECURITY_TOKEN: ""
+          AWS_DEFAULT_REGION: us-east-1
+        run: uv run --locked --no-build pytest -v tests/test_p3_e2e_traceability.py
+
+      - name: Guardar evidencia de trazabilidad OPS-09
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ops-09-e2e-traceability
+          path: reports/evidence/ops09-traceability.json
+          if-no-files-found: error
+
       - name: Verificar descarga real de pesos ImageNet
         run: |
           docker compose exec -T training-worker python -c "from pathlib import Path; p=Path('/home/appuser/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth'); assert p.is_file() and p.stat().st_size > 0, p; print(f'Pesos pretrained descargados: {p} ({p.stat().st_size} bytes)')"
