@@ -6,36 +6,34 @@ ilegible) y esquema de la respuesta (`InferenceResponse`).
 Agent Test: con la misma imagen, cambiar de model version cambia el checkpoint (y
 su sha256) que se carga y la predicción; el nombre del archivo no influye.
 
-El registry es un MLflow falso que sirve checkpoints reales (`save_checkpoint` de
-ML-03): la inferencia carga pesos de verdad y aplica el preprocesamiento de
-evaluación de ML-02.
+Las versiones salen del registro de OPS-06 (`reports/models/registry.json`, paquetes
+en `data/models/<modelo>/<versión>/`, `classification.registry`). Aquí es un registro
+temporal con el mismo formato y checkpoints reales (`save_checkpoint` de ML-03): la
+inferencia carga pesos de verdad y aplica el preprocesamiento de evaluación de ML-02.
 """
 
 import hashlib
 import io
 import json
-import shutil
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import torch
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from PIL import Image
 from sqlalchemy import create_engine
 from starlette.testclient import TestClient
 
 from classification.model import ModelConfig, build_model, predict_proba, save_checkpoint
+from classification.registry import ModelPackage, ModelRegistry
 from classification.transforms import eval_transform
 from presentation.ml_contracts import ErrorResponse, InferenceResponse
-from training.inference import MlflowRegistryResolver
+from training.inference import PackageRegistryResolver
 from training.queue import TrainingJobQueue
 from training.server import create_app
 
-MODEL = "pet-classifier"
+ROOT = Path(__file__).resolve().parents[2]
+MODEL = "dog-cat-resnet18"
 RELEASE = "v0.1.1"
-MANIFEST = "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2"
 RUN_DOG = "a" * 32
 RUN_CAT = "b" * 32
 RUN_REAL = "c" * 32
@@ -61,46 +59,64 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-class FakeMlflow:
-    """Lo que `MlflowRegistryResolver` usa de `MlflowClient`."""
+class Registry:
+    """Registro de OPS-06 en una carpeta temporal: `reports/models/registry.json` y paquetes."""
 
-    def __init__(self):
-        self.versions: dict[tuple[str, str], SimpleNamespace] = {}
-        self.files: dict[str, Path] = {}
-        self.downloads = 0
-        self.down = False
+    def __init__(self, root: Path):
+        self.root = root
+        self.path = root / "reports" / "models" / "registry.json"
+        self.packages: list[dict] = []
+        self.template = json.loads(
+            (ROOT / "reports" / "models" / "registry.json").read_text(encoding="utf-8")
+        )["models"][0]
 
-    def register(self, version: str, run_id: str, checkpoint: Path, **changes) -> None:
-        self.files[run_id] = checkpoint
-        entry = SimpleNamespace(
-            name=MODEL,
-            version=version,
+    def register(self, version: str, run_id: str, checkpoint: Path | None, **changes) -> dict:
+        """Una versión con su paquete; sin `checkpoint`, solo metadata (sin paquete)."""
+        entry = json.loads(json.dumps(self.template))
+        entry.update(
+            model_version=version,
             run_id=run_id,
-            source=f"runs:/{run_id}/checkpoints/best.pt",
-            status="READY",
-            tags={},
+            checkpoint=f"runs:/{run_id}/checkpoints/best.pt",
+            dataset_version=RELEASE,
         )
+        entry["architecture"].update(
+            image_size=IMAGE_SIZE, hidden_layers=[], dropout=0.0, pretrained=False
+        )
+        entry["preprocessing"]["image_size"] = IMAGE_SIZE
+        entry["model_card"].update(mlflow_run_id=run_id, dataset_release=RELEASE)
+        if checkpoint is None:
+            entry.update(package_path=None, files=None)
+        else:
+            package = f"data/models/{MODEL}/{version}"
+            folder = self.root / package
+            (folder / "checkpoint").mkdir(parents=True, exist_ok=True)
+            (folder / "checkpoint" / "best.pt").write_bytes(checkpoint.read_bytes())
+            (folder / "model-card.md").write_text(f"# {MODEL} {version}\n", encoding="utf-8")
+            (folder / "dependencies.json").write_text("{}\n", encoding="utf-8")
+            files = {
+                name: sha256(folder / name)
+                for name in ("checkpoint/best.pt", "model-card.md", "dependencies.json")
+            }
+            entry.update(
+                package_path=package,
+                files=files,
+                checkpoint_sha256=files["checkpoint/best.pt"],
+            )
         for key, value in changes.items():
-            setattr(entry, key, value)
-        self.versions[(MODEL, version)] = entry
+            entry[key] = value
+        ModelPackage.model_validate(entry)
+        self.packages.append(entry)
+        self.save()
+        return entry
 
-    def get_model_version(self, name: str, version: str):
-        if self.down:
-            raise ConnectionError("MLflow no responde")
-        if (name, version) not in self.versions:
-            raise MlflowException("no existe", error_code=RESOURCE_DOES_NOT_EXIST)
-        return self.versions[(name, version)]
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        document = {"schema_version": "1.0", "models": self.packages}
+        ModelRegistry.model_validate(document)
+        self.path.write_text(json.dumps(document, indent=2), encoding="utf-8")
 
-    def get_run(self, run_id: str):
-        tags = {"dataset_version": RELEASE, "manifest_hash": MANIFEST}
-        return SimpleNamespace(info=SimpleNamespace(run_id=run_id), data=SimpleNamespace(tags=tags))
-
-    def download_artifacts(self, run_id: str, path: str, dst_path: str) -> str:
-        assert path == "checkpoints/best.pt"
-        self.downloads += 1
-        target = Path(dst_path) / "best.pt"
-        shutil.copyfile(self.files[run_id], target)
-        return str(target)
+    def checkpoint(self, version: str) -> Path:
+        return self.root / "data" / "models" / MODEL / version / "checkpoint" / "best.pt"
 
 
 @pytest.fixture(scope="module")
@@ -114,20 +130,24 @@ def checkpoints(tmp_path_factory) -> dict[str, Path]:
 
 
 @pytest.fixture
-def mlflow(checkpoints) -> FakeMlflow:
-    fake = FakeMlflow()
-    fake.register("1", RUN_DOG, checkpoints["dog"])
-    fake.register("2", RUN_CAT, checkpoints["cat"])
-    fake.register("3", RUN_REAL, checkpoints["real"])
-    return fake
+def registry(tmp_path, checkpoints) -> Registry:
+    built = Registry(tmp_path / "repo")
+    built.register("1.0.0", RUN_DOG, checkpoints["dog"])
+    built.register("1.1.0", RUN_CAT, checkpoints["cat"])
+    built.register("2.0.0", RUN_REAL, checkpoints["real"])
+    return built
 
 
-def client_for(tmp_path, mlflow=None, *, crops_dir=None, reports_dir=None, **limits):
+def client_for(tmp_path, registry=None, *, crops_dir=None, reports_dir=None, **limits):
     queue = TrainingJobQueue(create_engine(f"sqlite:///{tmp_path / 'jobs.db'}"))
     queue.create_tables()
     reports = reports_dir or tmp_path / "reports"
     reports.mkdir(exist_ok=True)
-    models = MlflowRegistryResolver(mlflow) if mlflow is not None else None
+    models = (
+        PackageRegistryResolver(registry.path, repo_root=registry.root)
+        if registry is not None
+        else None
+    )
     app = create_app(queue=queue, reports_dir=reports, crops_dir=crops_dir, models=models, **limits)
     return TestClient(app)
 
@@ -148,7 +168,7 @@ def striped(size=(80, 60)) -> bytes:
     return buffer.getvalue()
 
 
-def upload(client, data: bytes, *, filename="foto.png", version="1", content_type="image/png"):
+def upload(client, data: bytes, *, filename="foto.png", version="1.0.0", content_type="image/png"):
     return client.post(
         "/inference/upload",
         data={"model_name": MODEL, "model_version": version},
@@ -163,9 +183,9 @@ def error_code(response) -> str:
 # --- Imagen subida: esquema de la respuesta ------------------------------------------
 
 
-def test_upload_returns_a_valid_inference_response(tmp_path, mlflow, checkpoints):
+def test_upload_returns_a_valid_inference_response(tmp_path, registry, checkpoints):
     data = image_bytes()
-    response = upload(client_for(tmp_path, mlflow), data)
+    response = upload(client_for(tmp_path, registry), data)
 
     assert response.status_code == 200, response.text
     result = InferenceResponse.model_validate(response.json())
@@ -173,7 +193,7 @@ def test_upload_returns_a_valid_inference_response(tmp_path, mlflow, checkpoints
     assert result.upload.sha256 == hashlib.sha256(data).hexdigest()
     assert (result.upload.width, result.upload.height) == (80, 60)
     assert (result.upload.content_type, result.upload.size_bytes) == ("image/png", len(data))
-    assert (result.model_name, result.model_version) == (MODEL, "1")
+    assert (result.model_name, result.model_version) == (MODEL, "1.0.0")
     assert result.run_id == RUN_DOG
     assert result.checkpoint == f"runs:/{RUN_DOG}/checkpoints/best.pt"
     assert result.checkpoint_sha256 == sha256(checkpoints["dog"])
@@ -183,9 +203,9 @@ def test_upload_returns_a_valid_inference_response(tmp_path, mlflow, checkpoints
     assert result.predicted_class == "dog"
 
 
-def test_jpeg_is_detected_by_content_not_by_name(tmp_path, mlflow):
+def test_jpeg_is_detected_by_content_not_by_name(tmp_path, registry):
     response = upload(
-        client_for(tmp_path, mlflow),
+        client_for(tmp_path, registry),
         image_bytes(fmt="JPEG"),
         filename="foto.png",
         content_type="image/png",
@@ -199,40 +219,40 @@ def test_jpeg_is_detected_by_content_not_by_name(tmp_path, mlflow):
 
 
 def test_agent_test_changing_model_version_changes_the_loaded_checkpoint(
-    tmp_path, mlflow, checkpoints
+    tmp_path, registry, checkpoints
 ):
-    client = client_for(tmp_path, mlflow)
+    client = client_for(tmp_path, registry)
     data = image_bytes()
 
-    first = InferenceResponse.model_validate(upload(client, data, version="1").json())
-    second = InferenceResponse.model_validate(upload(client, data, version="2").json())
+    first = InferenceResponse.model_validate(upload(client, data, version="1.0.0").json())
+    second = InferenceResponse.model_validate(upload(client, data, version="1.1.0").json())
 
     assert (first.run_id, first.checkpoint_sha256) == (RUN_DOG, sha256(checkpoints["dog"]))
     assert (second.run_id, second.checkpoint_sha256) == (RUN_CAT, sha256(checkpoints["cat"]))
     assert (first.predicted_class, second.predicted_class) == ("dog", "cat")
 
 
-def test_the_file_name_does_not_decide_the_class(tmp_path, mlflow):
-    client = client_for(tmp_path, mlflow)
+def test_the_file_name_does_not_decide_the_class(tmp_path, registry):
+    client = client_for(tmp_path, registry)
     data = image_bytes()
 
     as_cat = upload(client, data, filename="cat.png").json()
     as_dog = upload(client, data, filename="dog.png").json()
 
-    assert as_cat["predicted_class"] == "dog"  # la versión 1 siempre dice dog
+    assert as_cat["predicted_class"] == "dog"  # la versión 1.0.0 siempre dice dog
     assert as_cat["probabilities"] == as_dog["probabilities"]
 
 
 def test_the_prediction_comes_from_the_model_and_the_eval_preprocessing(
-    tmp_path, mlflow, checkpoints
+    tmp_path, registry, checkpoints
 ):
     from classification.model import load_checkpoint
 
-    client = client_for(tmp_path, mlflow)
+    client = client_for(tmp_path, registry)
     plain, stripes = image_bytes(), striped()
 
     results = [
-        upload(client, data, version="3").json()["probabilities"] for data in (plain, stripes)
+        upload(client, data, version="2.0.0").json()["probabilities"] for data in (plain, stripes)
     ]
 
     assert results[0] != results[1], "con pesos reales, imágenes distintas dan otra salida"
@@ -242,11 +262,18 @@ def test_the_prediction_comes_from_the_model_and_the_eval_preprocessing(
     assert [results[1]["dog"], results[1]["cat"]] == pytest.approx(expected, abs=1e-6)
 
 
-def test_each_model_version_is_downloaded_once(tmp_path, mlflow):
-    client = client_for(tmp_path, mlflow)
-    for _ in range(3):
-        assert upload(client, image_bytes()).status_code == 200
-    assert mlflow.downloads == 1
+def test_each_model_version_is_loaded_once(tmp_path, registry, monkeypatch):
+    import training.inference as inference
+
+    loads = []
+    original = inference.load_checkpoint
+    monkeypatch.setattr(
+        inference, "load_checkpoint", lambda path: loads.append(path) or original(path)
+    )
+    client = client_for(tmp_path, registry)
+    for version in ("1.0.0", "1.0.0", "1.1.0", "1.0.0"):
+        assert upload(client, image_bytes(), version=version).status_code == 200
+    assert len(loads) == 2
 
 
 # --- Validación de la entrada --------------------------------------------------------
@@ -261,8 +288,8 @@ def test_each_model_version_is_downloaded_once(tmp_path, mlflow):
     ],
     ids=["pdf", "gif", "text-named-png"],
 )
-def test_only_png_and_jpeg_are_accepted(tmp_path, mlflow, data, filename):
-    response = upload(client_for(tmp_path, mlflow), data, filename=filename)
+def test_only_png_and_jpeg_are_accepted(tmp_path, registry, data, filename):
+    response = upload(client_for(tmp_path, registry), data, filename=filename)
 
     assert response.status_code == 415
     assert error_code(response) == "unsupported_image_type"
@@ -270,16 +297,16 @@ def test_only_png_and_jpeg_are_accepted(tmp_path, mlflow, data, filename):
 
 
 @pytest.mark.parametrize("data", [b"", image_bytes()[:120]], ids=["empty", "truncated-png"])
-def test_unreadable_image_gets_a_useful_message(tmp_path, mlflow, data):
-    response = upload(client_for(tmp_path, mlflow), data)
+def test_unreadable_image_gets_a_useful_message(tmp_path, registry, data):
+    response = upload(client_for(tmp_path, registry), data)
 
     assert response.status_code == 422
     assert error_code(response) == "invalid_image"
 
 
-def test_file_over_the_size_limit_is_rejected(tmp_path, mlflow):
+def test_file_over_the_size_limit_is_rejected(tmp_path, registry):
     data = striped(size=(400, 400))
-    client = client_for(tmp_path, mlflow, max_upload_bytes=len(data) - 1)
+    client = client_for(tmp_path, registry, max_upload_bytes=len(data) - 1)
 
     response = upload(client, data)
 
@@ -287,8 +314,8 @@ def test_file_over_the_size_limit_is_rejected(tmp_path, mlflow):
     assert error_code(response) == "image_too_large"
 
 
-def test_image_with_too_many_pixels_is_rejected(tmp_path, mlflow):
-    client = client_for(tmp_path, mlflow, max_image_pixels=100 * 100)
+def test_image_with_too_many_pixels_is_rejected(tmp_path, registry):
+    client = client_for(tmp_path, registry, max_image_pixels=100 * 100)
 
     response = upload(client, image_bytes(size=(101, 100)))
 
@@ -298,11 +325,16 @@ def test_image_with_too_many_pixels_is_rejected(tmp_path, mlflow):
 
 @pytest.mark.parametrize(
     "fields",
-    [{"model_version": "1"}, {"model_name": MODEL}, {"model_name": MODEL, "model_version": "v1"}],
-    ids=["no-name", "no-version", "bad-version"],
+    [
+        {"model_version": "1.0.0"},
+        {"model_name": MODEL},
+        {"model_name": MODEL, "model_version": "1"},
+        {"model_name": MODEL, "model_version": "v1.0.0"},
+    ],
+    ids=["no-name", "no-version", "mlflow-integer", "v-prefix"],
 )
-def test_missing_or_invalid_model_fields(tmp_path, mlflow, fields):
-    response = client_for(tmp_path, mlflow).post(
+def test_missing_or_invalid_model_fields(tmp_path, registry, fields):
+    response = client_for(tmp_path, registry).post(
         "/inference/upload", data=fields, files={"file": ("foto.png", image_bytes(), "image/png")}
     )
 
@@ -310,9 +342,9 @@ def test_missing_or_invalid_model_fields(tmp_path, mlflow, fields):
     assert error_code(response) == "invalid_request"
 
 
-def test_missing_file(tmp_path, mlflow):
-    response = client_for(tmp_path, mlflow).post(
-        "/inference/upload", data={"model_name": MODEL, "model_version": "1"}
+def test_missing_file(tmp_path, registry):
+    response = client_for(tmp_path, registry).post(
+        "/inference/upload", data={"model_name": MODEL, "model_version": "1.0.0"}
     )
 
     assert response.status_code == 422
@@ -322,49 +354,69 @@ def test_missing_file(tmp_path, mlflow):
 # --- Modelo inexistente o no servible: error controlado -----------------------------
 
 
-def test_unknown_model_version(tmp_path, mlflow):
-    response = upload(client_for(tmp_path, mlflow), image_bytes(), version="9")
+@pytest.mark.parametrize(
+    ("model_name", "version"), [(MODEL, "9.9.9"), ("otro-modelo", "1.0.0")], ids=["version", "name"]
+)
+def test_unknown_model_version(tmp_path, registry, model_name, version):
+    response = client_for(tmp_path, registry).post(
+        "/inference/upload",
+        data={"model_name": model_name, "model_version": version},
+        files={"file": ("foto.png", image_bytes(), "image/png")},
+    )
 
     # 422 y no 404: el portal lee un 404 como "servicio no conectado".
     assert response.status_code == 422
     assert error_code(response) == "model_not_found"
 
 
-def test_model_version_that_is_not_ready(tmp_path, mlflow, checkpoints):
-    mlflow.register("4", "d" * 32, checkpoints["dog"], status="PENDING_REGISTRATION")
+def test_version_with_metadata_but_no_package(tmp_path, registry):
+    registry.register("3.0.0", "d" * 32, None)
 
-    response = upload(client_for(tmp_path, mlflow), image_bytes(), version="4")
-
-    assert response.status_code == 409
-    assert error_code(response) == "model_not_ready"
-
-
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"tags": {"checkpoint_sha256": "0" * 64}},
-        {"source": f"runs:/{'e' * 32}/checkpoints/best.pt"},
-        {"source": "models:/m-123"},
-    ],
-    ids=["other-sha256", "checkpoint-of-another-run", "not-a-run-checkpoint"],
-)
-def test_model_version_whose_artifact_cannot_be_trusted(tmp_path, mlflow, checkpoints, changes):
-    mlflow.register("5", "d" * 32, checkpoints["dog"], **changes)
-
-    response = upload(client_for(tmp_path, mlflow), image_bytes(), version="5")
+    response = upload(client_for(tmp_path, registry), image_bytes(), version="3.0.0")
 
     assert response.status_code == 409
     assert error_code(response) == "model_not_servable"
 
 
-def test_registry_down_is_retryable(tmp_path, mlflow):
-    mlflow.down = True
+def test_package_not_pulled_says_how_to_get_it(tmp_path, registry):
+    registry.checkpoint("1.0.0").unlink()
 
-    response = upload(client_for(tmp_path, mlflow), image_bytes())
+    response = upload(client_for(tmp_path, registry), image_bytes())
 
     assert response.status_code == 503
-    body = ErrorResponse.model_validate(response.json())
-    assert (body.error.code, body.error.retryable) == ("registry_unavailable", True)
+    assert error_code(response) == "model_package_missing"
+    assert "dvc pull data/models.dvc" in response.json()["error"]["message"]
+
+
+def test_altered_checkpoint_is_not_served(tmp_path, registry, checkpoints):
+    registry.checkpoint("1.0.0").write_bytes(checkpoints["cat"].read_bytes())
+
+    response = upload(client_for(tmp_path, registry), image_bytes())
+
+    assert response.status_code == 409
+    assert error_code(response) == "model_not_servable"
+
+
+def test_checkpoint_that_does_not_match_the_registered_architecture(tmp_path, registry):
+    entry = registry.packages[0]
+    entry["architecture"]["image_size"] = 128
+    entry["preprocessing"]["image_size"] = 128
+    registry.save()
+
+    response = upload(client_for(tmp_path, registry), image_bytes())
+
+    assert response.status_code == 409
+    assert error_code(response) == "model_not_servable"
+    assert "image_size" in response.json()["error"]["message"]
+
+
+def test_unreadable_registry(tmp_path, registry):
+    registry.path.write_text("{no es json", encoding="utf-8")
+
+    response = upload(client_for(tmp_path, registry), image_bytes())
+
+    assert response.status_code == 503
+    assert error_code(response) == "registry_unavailable"
 
 
 def test_inference_not_configured(tmp_path):
@@ -405,7 +457,9 @@ def crops(tmp_path) -> tuple[Path, Path]:
     return crops_dir, reports
 
 
-def classify_crop(client, *, version="3", dataset_version=RELEASE, image_id=12, annotation_id=11):
+def classify_crop(
+    client, *, version="2.0.0", dataset_version=RELEASE, image_id=12, annotation_id=11
+):
     return client.post(
         "/inference",
         json={
@@ -421,9 +475,9 @@ def classify_crop(client, *, version="3", dataset_version=RELEASE, image_id=12, 
     )
 
 
-def test_crop_of_the_portal_is_classified(tmp_path, mlflow, crops, checkpoints):
+def test_crop_of_the_portal_is_classified(tmp_path, registry, crops, checkpoints):
     crops_dir, reports = crops
-    client = client_for(tmp_path, mlflow, crops_dir=crops_dir, reports_dir=reports)
+    client = client_for(tmp_path, registry, crops_dir=crops_dir, reports_dir=reports)
 
     response = classify_crop(client)
 
@@ -432,7 +486,7 @@ def test_crop_of_the_portal_is_classified(tmp_path, mlflow, crops, checkpoints):
     assert (result.source, result.upload) == ("crop", None)
     assert (result.crop.image_id, result.crop.annotation_id) == (12, 11)
     assert result.checkpoint_sha256 == sha256(checkpoints["real"])
-    stripes = upload(client, striped(), version="3").json()["probabilities"]
+    stripes = upload(client, striped(), version="2.0.0").json()["probabilities"]
     assert result.probabilities == pytest.approx(stripes, abs=1e-6)
 
 
@@ -441,9 +495,9 @@ def test_crop_of_the_portal_is_classified(tmp_path, mlflow, crops, checkpoints):
     [{"image_id": 99, "annotation_id": 98}, {"dataset_version": "v0.1.0"}],
     ids=["unknown-crop", "crop-of-another-release"],
 )
-def test_crop_that_does_not_exist(tmp_path, mlflow, crops, selection):
+def test_crop_that_does_not_exist(tmp_path, registry, crops, selection):
     crops_dir, reports = crops
-    client = client_for(tmp_path, mlflow, crops_dir=crops_dir, reports_dir=reports)
+    client = client_for(tmp_path, registry, crops_dir=crops_dir, reports_dir=reports)
 
     response = classify_crop(client, **selection)
 
@@ -451,10 +505,10 @@ def test_crop_that_does_not_exist(tmp_path, mlflow, crops, selection):
     assert error_code(response) == "crop_not_found"
 
 
-def test_altered_crop_is_not_classified(tmp_path, mlflow, crops):
+def test_altered_crop_is_not_classified(tmp_path, registry, crops):
     crops_dir, reports = crops
     (crops_dir / "cat" / "img12-ann11.png").write_bytes(image_bytes())
-    client = client_for(tmp_path, mlflow, crops_dir=crops_dir, reports_dir=reports)
+    client = client_for(tmp_path, registry, crops_dir=crops_dir, reports_dir=reports)
 
     response = classify_crop(client)
 
@@ -462,9 +516,9 @@ def test_altered_crop_is_not_classified(tmp_path, mlflow, crops):
     assert error_code(response) == "crop_not_available"
 
 
-def test_crop_inference_without_crops_dir(tmp_path, mlflow, crops):
+def test_crop_inference_without_crops_dir(tmp_path, registry, crops):
     _, reports = crops
-    client = client_for(tmp_path, mlflow, reports_dir=reports)
+    client = client_for(tmp_path, registry, reports_dir=reports)
 
     response = classify_crop(client)
 
@@ -477,8 +531,8 @@ def test_crop_inference_without_crops_dir(tmp_path, mlflow, crops):
     [("{no es json", 400, "invalid_json"), ('{"schema_version": "1.0"}', 422, "invalid_request")],
     ids=["json", "contract"],
 )
-def test_bad_crop_request(tmp_path, mlflow, body, status, code):
-    response = client_for(tmp_path, mlflow).post(
+def test_bad_crop_request(tmp_path, registry, body, status, code):
+    response = client_for(tmp_path, registry).post(
         "/inference", content=body, headers={"content-type": "application/json"}
     )
 
