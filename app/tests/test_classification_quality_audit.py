@@ -24,11 +24,11 @@ from classification.quality_audit import (
     expected_portal_figures,
     flat_metrics,
     frozen_problems,
+    frozen_split_problems,
     mlflow_figures,
     portal_figures,
     read_predictions,
     recompute,
-    test_split_problems,
 )
 
 FIELDS = (
@@ -254,13 +254,13 @@ def test_examples_and_predictions_belong_to_the_frozen_test_split(known_csv):
         {"crop_id": f"img{i}-ann{a}", "source_image_id": i, "class": t, "split": "test"}
         for i, a, t, _, _ in KNOWN
     ]
-    assert test_split_problems(predictions, records) == []
+    assert frozen_split_problems(predictions, records) == []
 
     records[0]["split"] = "train"
     records[1]["class"] = "cat"
     records.append({"crop_id": "img9-ann9", "source_image_id": 9, "class": "dog", "split": "test"})
 
-    assert test_split_problems(predictions, records) == [
+    assert frozen_split_problems(predictions, records) == [
         "img1-ann1 no es del split test",
         "img2-ann2: clase real dog, en el manifiesto cat",
         "faltan predicciones de test: ['img9-ann9']",
@@ -421,6 +421,7 @@ def _portal_dom(metrics: dict, **overrides) -> str:
       <tr><th>cat</th><td>{f["confusion_cat_dog"]}</td><td>{matrix[1][1]}</td><td>2</td></tr>
       <tr><th>Total predicho</th><td>4</td><td>2</td><td>6</td></tr></tbody></table>
       <p>La matriz suma 6 = 6 predicciones de test.</p>
+      <h2>Interpretación de errores</h2>
       <ul><li>Confusión más frecuente (real → predicha): dog → cat: 1 recortes.</li>
       <li>El recall de dog es 0.7500, por debajo de 0.85.</li>
       <li>El recall de cat es 0.5000, por debajo de 0.85.</li></ul>
