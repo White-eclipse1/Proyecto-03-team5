@@ -1,0 +1,688 @@
+{
+  "generated_at": "2026-10-02T13:35:11Z",
+  "commit": "ec816b74571f805dce74a9c79c8e7f1c42965b1b",
+  "api_url": "http://localhost:8080/api/ml",
+  "portal_url": "http://localhost:8080/ml/evaluation",
+  "verified": true,
+  "problems": [],
+  "predictions_file": "test-r03-sgd-20261002T012633Z.predictions.csv",
+  "predictions_sha256": "b52c2a8385a58d44f3b54f8c3f86b6a591f6d1eed48d423293877eab20308081",
+  "evaluation_id": "test-r03-sgd-20261002T012633Z",
+  "run_id": "bb448230424146349a969253d30db43b",
+  "candidate_frozen_at": "2026-10-02T00:37:26.037627Z",
+  "evaluation_created_at": "2026-10-02T01:26:33.097538Z",
+  "metrics": {
+    "class_names": [
+      "dog",
+      "cat"
+    ],
+    "confusion_matrix": [
+      [
+        43,
+        0
+      ],
+      [
+        3,
+        25
+      ]
+    ],
+    "total": 71,
+    "correct": 68,
+    "accuracy": 0.9577464788732394,
+    "accuracy_fraction": "68/71",
+    "meets_target": true,
+    "target": "0.85",
+    "f1_macro": 0.9548441806232775,
+    "per_class": [
+      {
+        "class_name": "dog",
+        "precision": 0.9347826086956522,
+        "recall": 1.0,
+        "f1": 0.9662921348314606,
+        "support": 43,
+        "hits": 43,
+        "errors": 0,
+        "low_recall": false
+      },
+      {
+        "class_name": "cat",
+        "precision": 1.0,
+        "recall": 0.8928571428571429,
+        "f1": 0.9433962264150945,
+        "support": 28,
+        "hits": 25,
+        "errors": 3,
+        "low_recall": false
+      }
+    ],
+    "baseline": {
+      "classes": [
+        "dog"
+      ],
+      "correct": 43,
+      "total": 71,
+      "accuracy": 0.6056338028169014
+    },
+    "accuracy_over_baseline": 0.352112676056338,
+    "most_confused_pairs": [
+      {
+        "true_class": "cat",
+        "predicted_class": "dog",
+        "count": 3
+      }
+    ],
+    "most_confused_classes": [
+      "cat"
+    ],
+    "low_recall_classes": [],
+    "accuracy_hides_low_recall": false,
+    "error_crop_ids": [
+      "img18-ann16",
+      "img27-ann42",
+      "img366-ann351"
+    ],
+    "error_confidences": {
+      "img18-ann16": 0.76905357837677,
+      "img27-ann42": 0.5348254442214966,
+      "img366-ann351": 0.7945454120635986
+    }
+  },
+  "examples": {
+    "errors": [
+      {
+        "kind": "error",
+        "crop_id": "img366-ann351",
+        "image_id": 366,
+        "annotation_id": 351,
+        "true_class": "cat",
+        "predicted_class": "dog",
+        "confidence": 0.7945454120635986,
+        "probabilities": {
+          "dog": 0.7945454120635986,
+          "cat": 0.20545457303524017
+        }
+      },
+      {
+        "kind": "error",
+        "crop_id": "img18-ann16",
+        "image_id": 18,
+        "annotation_id": 16,
+        "true_class": "cat",
+        "predicted_class": "dog",
+        "confidence": 0.76905357837677,
+        "probabilities": {
+          "dog": 0.76905357837677,
+          "cat": 0.23094645142555237
+        }
+      },
+      {
+        "kind": "error",
+        "crop_id": "img27-ann42",
+        "image_id": 27,
+        "annotation_id": 42,
+        "true_class": "cat",
+        "predicted_class": "dog",
+        "confidence": 0.5348254442214966,
+        "probabilities": {
+          "dog": 0.5348254442214966,
+          "cat": 0.4651745855808258
+        }
+      }
+    ],
+    "hits": [
+      {
+        "kind": "hit",
+        "crop_id": "img218-ann249",
+        "image_id": 218,
+        "annotation_id": 249,
+        "true_class": "dog",
+        "predicted_class": "dog",
+        "confidence": 1.0,
+        "probabilities": {
+          "dog": 1.0,
+          "cat": 1.1501894547905067e-08
+        }
+      },
+      {
+        "kind": "hit",
+        "crop_id": "img296-ann339",
+        "image_id": 296,
+        "annotation_id": 339,
+        "true_class": "dog",
+        "predicted_class": "dog",
+        "confidence": 0.8621968626976013,
+        "probabilities": {
+          "dog": 0.8621968626976013,
+          "cat": 0.13780316710472107
+        }
+      },
+      {
+        "kind": "hit",
+        "crop_id": "img80-ann94",
+        "image_id": 80,
+        "annotation_id": 94,
+        "true_class": "cat",
+        "predicted_class": "cat",
+        "confidence": 0.9999984502792358,
+        "probabilities": {
+          "dog": 1.5002449345047353e-06,
+          "cat": 0.9999984502792358
+        }
+      },
+      {
+        "kind": "hit",
+        "crop_id": "img369-ann355",
+        "image_id": 369,
+        "annotation_id": 355,
+        "true_class": "cat",
+        "predicted_class": "cat",
+        "confidence": 0.6320927143096924,
+        "probabilities": {
+          "dog": 0.3679072856903076,
+          "cat": 0.6320927143096924
+        }
+      }
+    ]
+  },
+  "crops": [
+    {
+      "crop_id": "img366-ann351",
+      "served": true,
+      "same_file": true,
+      "sha256": "6870ae9cb7a5295320c802e601481ea5fac23b2aeb7ec6e24503b12c9650b04c"
+    },
+    {
+      "crop_id": "img18-ann16",
+      "served": true,
+      "same_file": true,
+      "sha256": "a404184b2bf4c16ca2d98edfd6b8d3b053c2aaf220b2eb32d3d429d5889be65e"
+    },
+    {
+      "crop_id": "img27-ann42",
+      "served": true,
+      "same_file": true,
+      "sha256": "4194c94f68b9e4e4ca3b6537dc2c6d788afa7587caf520ef0a1729311f9dbc84"
+    },
+    {
+      "crop_id": "img218-ann249",
+      "served": true,
+      "same_file": true,
+      "sha256": "6da5067db02b2a5f5a7ac156eaeadce7b00a4ef1a051d96e8a9e59b620cd630e"
+    },
+    {
+      "crop_id": "img296-ann339",
+      "served": true,
+      "same_file": true,
+      "sha256": "fbd6743fa683dcaabe3950ba5f3a2fa9f4f5562223f4c0716ca2fcb4a0c273e5"
+    },
+    {
+      "crop_id": "img80-ann94",
+      "served": true,
+      "same_file": true,
+      "sha256": "f65a6713e63e0b7bbb7a8c5387d8ae8114c11ba53a4e473bddabcb890d9882b3"
+    },
+    {
+      "crop_id": "img369-ann355",
+      "served": true,
+      "same_file": true,
+      "sha256": "6d18bdc6b4872ef94755c9552f01221c340673c555a43796d2d09a100eb98601"
+    }
+  ],
+  "comparisons": [
+    {
+      "source": "MLflow",
+      "metric": "accuracy",
+      "recomputed": 0.9577464788732394,
+      "reported": 0.9577464788732394,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "f1_macro",
+      "recomputed": 0.9548441806232775,
+      "reported": 0.9548441806232775,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "correct",
+      "recomputed": 68.0,
+      "reported": 68.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "total",
+      "recomputed": 71.0,
+      "reported": 71.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "precision_dog",
+      "recomputed": 0.9347826086956522,
+      "reported": 0.9347826086956522,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "recall_dog",
+      "recomputed": 1.0,
+      "reported": 1.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "f1_dog",
+      "recomputed": 0.9662921348314606,
+      "reported": 0.9662921348314606,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "support_dog",
+      "recomputed": 43.0,
+      "reported": 43.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "precision_cat",
+      "recomputed": 1.0,
+      "reported": 1.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "recall_cat",
+      "recomputed": 0.8928571428571429,
+      "reported": 0.8928571428571429,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "f1_cat",
+      "recomputed": 0.9433962264150945,
+      "reported": 0.9433962264150945,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "support_cat",
+      "recomputed": 28.0,
+      "reported": 28.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "confusion_dog_dog",
+      "recomputed": 43.0,
+      "reported": 43.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "confusion_dog_cat",
+      "recomputed": 0.0,
+      "reported": 0.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "confusion_cat_dog",
+      "recomputed": 3.0,
+      "reported": 3.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "confusion_cat_cat",
+      "recomputed": 25.0,
+      "reported": 25.0,
+      "equal": true
+    },
+    {
+      "source": "MLflow",
+      "metric": "meets_target",
+      "recomputed": "True",
+      "reported": "True",
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "accuracy",
+      "recomputed": 0.9577464788732394,
+      "reported": 0.9577464788732394,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "f1_macro",
+      "recomputed": 0.9548441806232775,
+      "reported": 0.9548441806232775,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "correct",
+      "recomputed": 68.0,
+      "reported": 68.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "total",
+      "recomputed": 71.0,
+      "reported": 71.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "precision_dog",
+      "recomputed": 0.9347826086956522,
+      "reported": 0.9347826086956522,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "recall_dog",
+      "recomputed": 1.0,
+      "reported": 1.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "f1_dog",
+      "recomputed": 0.9662921348314606,
+      "reported": 0.9662921348314606,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "support_dog",
+      "recomputed": 43.0,
+      "reported": 43.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "precision_cat",
+      "recomputed": 1.0,
+      "reported": 1.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "recall_cat",
+      "recomputed": 0.8928571428571429,
+      "reported": 0.8928571428571429,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "f1_cat",
+      "recomputed": 0.9433962264150945,
+      "reported": 0.9433962264150945,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "support_cat",
+      "recomputed": 28.0,
+      "reported": 28.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "confusion_dog_dog",
+      "recomputed": 43.0,
+      "reported": 43.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "confusion_dog_cat",
+      "recomputed": 0.0,
+      "reported": 0.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "confusion_cat_dog",
+      "recomputed": 3.0,
+      "reported": 3.0,
+      "equal": true
+    },
+    {
+      "source": "API",
+      "metric": "confusion_cat_cat",
+      "recomputed": 25.0,
+      "reported": 25.0,
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "accuracy",
+      "recomputed": "0.9577",
+      "reported": "0.9577",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "correct",
+      "recomputed": "68",
+      "reported": "68",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "total",
+      "recomputed": "71",
+      "reported": "71",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "meets_target",
+      "recomputed": "alcanzada",
+      "reported": "alcanzada",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "f1_macro",
+      "recomputed": "0.9548",
+      "reported": "0.9548",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "baseline_accuracy",
+      "recomputed": "0.6056",
+      "reported": "0.6056",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "baseline_class",
+      "recomputed": "dog",
+      "reported": "dog",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "precision_dog",
+      "recomputed": "0.9348",
+      "reported": "0.9348",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "recall_dog",
+      "recomputed": "1.0000",
+      "reported": "1.0000",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "f1_dog",
+      "recomputed": "0.9663",
+      "reported": "0.9663",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "support_dog",
+      "recomputed": "43",
+      "reported": "43",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "precision_cat",
+      "recomputed": "1.0000",
+      "reported": "1.0000",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "recall_cat",
+      "recomputed": "0.8929",
+      "reported": "0.8929",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "f1_cat",
+      "recomputed": "0.9434",
+      "reported": "0.9434",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "support_cat",
+      "recomputed": "28",
+      "reported": "28",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "confusion_dog_dog",
+      "recomputed": "43",
+      "reported": "43",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "confusion_dog_cat",
+      "recomputed": "0",
+      "reported": "0",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "confusion_cat_dog",
+      "recomputed": "3",
+      "reported": "3",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "confusion_cat_cat",
+      "recomputed": "25",
+      "reported": "25",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "row_total_dog",
+      "recomputed": "43",
+      "reported": "43",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "row_total_cat",
+      "recomputed": "28",
+      "reported": "28",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "column_total_dog",
+      "recomputed": "46",
+      "reported": "46",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "column_total_cat",
+      "recomputed": "25",
+      "reported": "25",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "matrix_total",
+      "recomputed": "71",
+      "reported": "71",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "predictions_count",
+      "recomputed": "71",
+      "reported": "71",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "most_confused",
+      "recomputed": "cat → dog: 3",
+      "reported": "cat → dog: 3",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "low_recall_classes",
+      "recomputed": "",
+      "reported": "",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "accuracy_hides_low_recall",
+      "recomputed": "no",
+      "reported": "no",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "errors_shown",
+      "recomputed": "3",
+      "reported": "3",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "hits_shown",
+      "recomputed": "68",
+      "reported": "68",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "error_examples",
+      "recomputed": "img18-ann16, img27-ann42, img366-ann351",
+      "reported": "img18-ann16, img27-ann42, img366-ann351",
+      "equal": true
+    },
+    {
+      "source": "Portal",
+      "metric": "error_confidences",
+      "recomputed": "0.769, 0.535, 0.795",
+      "reported": "0.769, 0.535, 0.795",
+      "equal": true
+    }
+  ]
+}
