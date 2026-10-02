@@ -324,7 +324,7 @@ válida del release es un recorte (ML-01), identificado por `image_id` +
 | `EvaluationOverview` | `GET /api/ml/evaluation` | Estado `candidate_not_frozen`/`candidate_frozen`/`evaluated`, candidato congelado (`FrozenCandidate`) y su evaluación de test; solo `evaluated` trae resultados de test (APP-05) |
 | `ModelsResponse` | `GET /api/ml/models` | Versiones del Model Registry con aliases |
 | `InferenceRequest` | `POST /api/ml/inference` (body) | Modelo + recorte seleccionado (`dataset_version`, `image_id`, `annotation_id`) |
-| `InferenceResponse` | `POST /api/ml/inference` | Clase predicha y probabilidad por clase, trazables al modelo |
+| `InferenceResponse` | `POST /api/ml/inference` y `POST /api/ml/inference/upload` | Clase predicha (dog o cat) y probabilidad por clase, de un recorte (`crop`) o de una imagen subida (`upload`, `UploadedImage`). Incluye el checkpoint, su sha256 y el `image_size` usados (APP-07) |
 | `ErrorResponse` | Cualquier respuesta no 2xx | `{code, message, retryable}` |
 
 **`TrainingParams`**: los 7 hiperparámetros obligatorios, sin defaults:

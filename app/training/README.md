@@ -31,6 +31,8 @@ Training (navegador) ──POST /api/ml/training/jobs──▶ nginx ──▶ m
 | `GET /api/ml/evaluation` | `EvaluationOverview`: candidato congelado y su evaluación final de test (APP-05) | — (lo que no cuadra va en `problem`) |
 | `GET /api/ml/evaluation/predictions.csv` | CSV de predicciones por recorte de ML-09, como descarga | 404 `predictions_not_available` |
 | `GET /api/ml/crops/{crop_id}` | PNG del recorte `img<image_id>-ann<annotation_id>` | 400 `invalid_request`, 404 `crop_not_found`, 503 `crops_not_configured` |
+| `POST /api/ml/inference` | `InferenceRequest` (recorte del portal) → `InferenceResponse` (APP-07) | 400 `invalid_json`, 422 `invalid_request`, 422 `crop_not_found`, 422 `crop_not_available`, errores del modelo (abajo) |
+| `POST /api/ml/inference/upload` | multipart `model_name`, `model_version`, `file` → `InferenceResponse` (APP-07) | 413 `image_too_large`, 415 `unsupported_image_type`, 422 `invalid_image`, 422 `invalid_request`, errores del modelo |
 
 El POST aplica `training_request_rejection` (ml_contracts.py): bloquea un Quality
 Gate `failed`, un release sin `provenance.json` o `manifest.json` válidos, y un
@@ -90,6 +92,38 @@ Los ejemplos muestran el recorte de ML-01: `ml-api` busca `crop_id` en
 `reports/crops.json` y sirve `CROPS_DIR/<crop_path>` (`./data/crops`, montado de
 solo lectura). El cliente nunca manda una ruta. Sin `dvc pull` de `data/crops` la
 pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
+
+## Inference (APP-07)
+
+`training/inference.py` clasifica con el modelo real:
+
+1. **Imagen.** Una subida se valida por su contenido: PNG o JPEG que Pillow pueda
+   decodificar, hasta 10 MB y 40 millones de pixeles. El nombre del archivo y el tipo
+   que declara el navegador no deciden nada. Un recorte del portal se busca en
+   `reports/crops.json` por release, `image_id` y `annotation_id`, y su sha256 debe
+   ser el registrado.
+2. **Modelo.** `model_name` + `model_version` se resuelven en el **Model Registry de
+   MLflow**. La versión debe estar `READY` y su `source` debe ser un checkpoint de su
+   propio run (`runs:/<run_id>/checkpoints/best.pt`). Si la versión tiene el tag
+   `checkpoint_sha256`, el archivo descargado debe tener ese hash. El release sale
+   del tag `dataset_version` del run. Los últimos 4 modelos quedan en memoria.
+3. **Predicción.** `preprocess_image` (el preprocesamiento de validation/test de
+   ML-02) y `predict_proba` (modo eval, sin gradiente). La respuesta dice qué
+   checkpoint, con qué sha256 y con qué `image_size` se clasificó.
+
+| Error del modelo | Cuándo |
+|---|---|
+| 422 `model_not_found` | La versión no existe en el registry (422 y no 404: el portal lee un 404 como "no conectado") |
+| 409 `model_not_ready` | La versión no está `READY` |
+| 409 `model_not_servable` | No apunta a un checkpoint de su run, el sha256 no coincide, el checkpoint no carga o el run no tiene `dataset_version` |
+| 503 `registry_unavailable` | MLflow no respondió (reintentable) |
+| 503 `inference_not_configured` | El servicio no tiene `MLFLOW_TRACKING_URI` |
+
+**Para OPS-06:** para que una versión se pueda servir, regístrala con
+`create_model_version(name, f"runs:/{run_id}/checkpoints/best.pt", run_id=run_id,
+tags={"checkpoint_sha256": <sha256 del archivo>})`, en un run con el tag
+`dataset_version`. `tests/test_inference_mlflow_integration.py` lo hace contra el
+MLflow real.
 
 ## Interfaz para el worker (OPS-04)
 
