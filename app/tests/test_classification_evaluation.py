@@ -10,6 +10,7 @@ import torch
 from mlflow.tracking import MlflowClient
 
 import classification.dataset as dataset_module
+import classification.evaluation as evaluation_module
 from classification.evaluation import (
     TARGET_ACCURACY,
     audit_evaluation,
@@ -359,7 +360,157 @@ def test_audit_detects_a_stored_prediction_that_was_altered(client, data, frozen
         evaluations_dir=tmp_path / "evaluations",
     )
 
-    assert differences == [f"annotation_id {first['annotation_id']}: predicción distinta"]
+    assert differences == [f"annotation_id {first['annotation_id']}: distinto en probabilities"]
+
+
+def _audit(client, data, frozen, tmp_path):
+    return audit_evaluation(
+        client=client,
+        data=data,
+        candidate_path=frozen,
+        evaluations_dir=tmp_path / "evaluations",
+    )
+
+
+def _one_dog_and_one_cat(predictions):
+    dog = next(p for p in predictions if p["true_class"] == "dog")
+    cat = next(p for p in predictions if p["true_class"] == "cat")
+    return dog, cat
+
+
+def _misclassify_one_cat_as_dog(monkeypatch):
+    """El modelo falla un cat (lo predice dog) igual al evaluar que al auditar."""
+    predict = evaluation_module._predict
+
+    def wrong_on_one_cat(*args):
+        rows = predict(*args)
+        cat = next(row for row in rows if row["true_class"] == "cat")
+        cat["predicted_class"] = "dog"
+        cat["probabilities"] = {
+            "dog": cat["probabilities"]["cat"],
+            "cat": cat["probabilities"]["dog"],
+        }
+        return rows
+
+    monkeypatch.setattr(evaluation_module, "_predict", wrong_on_one_cat)
+
+
+def test_audit_detects_true_labels_swapped_between_samples(
+    client, data, frozen, tmp_path, monkeypatch
+):
+    # Caso de la revisión: dos muestras con la misma clase predicha y las etiquetas reales
+    # intercambiadas. La matriz y las métricas no cambian; solo el registro por muestra.
+    _misclassify_one_cat_as_dog(monkeypatch)
+    record = _evaluate(client, data, frozen, tmp_path)
+    stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
+    dog = next(p for p in stored["predictions"] if p["true_class"] == p["predicted_class"] == "dog")
+    cat = next(p for p in stored["predictions"] if p["true_class"] == "cat" != p["predicted_class"])
+    dog["true_class"], cat["true_class"] = cat["true_class"], dog["true_class"]
+    record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+    altered = Evaluation.model_validate(stored)
+    assert altered.confusion_matrix == record.evaluation.confusion_matrix
+    assert altered.metrics == record.evaluation.metrics
+
+    differences = _audit(client, data, frozen, tmp_path)
+
+    assert differences == [
+        f"annotation_id {p['annotation_id']}: distinto en true_class"
+        for p in sorted((dog, cat), key=lambda p: p["annotation_id"])
+    ]
+
+
+def test_audit_detects_whole_records_swapped_between_samples(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
+    dog, cat = _one_dog_and_one_cat(stored["predictions"])
+    fields = ("true_class", "predicted_class", "probabilities")
+    for field in fields:
+        dog[field], cat[field] = cat[field], dog[field]
+    record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert Evaluation.model_validate(stored).confusion_matrix == record.evaluation.confusion_matrix
+
+    differences = _audit(client, data, frozen, tmp_path)
+
+    assert differences == [
+        f"annotation_id {p['annotation_id']}: distinto en {', '.join(fields)}"
+        for p in sorted((dog, cat), key=lambda p: p["annotation_id"])
+    ]
+
+
+def test_audit_detects_image_ids_swapped_between_samples(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
+    first, second = stored["predictions"][:2]
+    first["image_id"], second["image_id"] = second["image_id"], first["image_id"]
+    record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+
+    differences = _audit(client, data, frozen, tmp_path)
+
+    assert differences == [
+        f"annotation_id {p['annotation_id']}: distinto en image_id"
+        for p in sorted((first, second), key=lambda p: p["annotation_id"])
+    ]
+
+
+def test_audit_compares_every_field_of_the_predictions_csv(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    with record.predictions_path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    fieldnames = list(rows[0])
+    dog, cat = _one_dog_and_one_cat(rows)
+    # La matriz que se recalcula desde el CSV (verify) no cambia: se cruzan filas enteras
+    # menos los identificadores.
+    swapped = [name for name in fieldnames if name not in ("crop_id", "image_id", "annotation_id")]
+    for name in swapped:
+        dog[name], cat[name] = cat[name], dog[name]
+    with record.predictions_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    differences = _audit(client, data, frozen, tmp_path)
+
+    assert differences == [
+        f"crop_id {row['crop_id']}: fila del CSV distinta en {', '.join(swapped)}"
+        for row in sorted((dog, cat), key=lambda row: row["crop_id"])
+    ]
+
+
+def test_audit_detects_a_missing_or_extra_csv_row(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    lines = record.predictions_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    removed = lines.pop(1).split(",")[0]
+    record.predictions_path.write_text("".join(lines), encoding="utf-8")
+
+    assert _audit(client, data, frozen, tmp_path) == [
+        f"crop_id {removed}: falta en el CSV de predicciones"
+    ]
+
+
+def test_audit_requires_the_predictions_csv(client, data, frozen, tmp_path):
+    record = _evaluate(client, data, frozen, tmp_path)
+    record.predictions_path.unlink()
+
+    assert _audit(client, data, frozen, tmp_path) == [
+        f"falta el CSV de predicciones {record.predictions_path.name}"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("checkpoint", "otro/model.pt"),
+        ("manifest_hash", "sha256:" + "c" * 64),
+        ("dataset_version", "p3-otro"),
+    ],
+)
+def test_audit_compares_the_header_of_the_evaluation(client, data, frozen, tmp_path, field, value):
+    record = _evaluate(client, data, frozen, tmp_path)
+    stored = json.loads(record.evaluation_path.read_text(encoding="utf-8"))
+    stored[field] = value
+    record.evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+
+    assert _audit(client, data, frozen, tmp_path) == [f"{field} distinto del recalculado"]
 
 
 def test_candidate_stays_locked_and_frozen_before_the_test(client, data, frozen, tmp_path):
