@@ -102,28 +102,29 @@ pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
    que declara el navegador no deciden nada. Un recorte del portal se busca en
    `reports/crops.json` por release, `image_id` y `annotation_id`, y su sha256 debe
    ser el registrado.
-2. **Modelo.** `model_name` + `model_version` se resuelven en el **Model Registry de
-   MLflow**. La versión debe estar `READY` y su `source` debe ser un checkpoint de su
-   propio run (`runs:/<run_id>/checkpoints/best.pt`). Si la versión tiene el tag
-   `checkpoint_sha256`, el archivo descargado debe tener ese hash. El release sale
-   del tag `dataset_version` del run. Los últimos 4 modelos quedan en memoria.
+2. **Modelo.** `model_name` + `model_version` (SemVer, por ejemplo `dog-cat-resnet18`
+   `1.0.0`) se resuelven en el **registro de OPS-06** (`reports/models/registry.json`)
+   con `classification.registry`. El paquete está en `data/models/<modelo>/<versión>/`
+   (`dvc pull data/models.dvc`); se verifica el sha256 de cada archivo contra el
+   registro, y el `image_size` y las `hidden_layers` del checkpoint deben ser los
+   registrados. Run, checkpoint y release salen del registro. Los últimos 4 modelos
+   quedan en memoria.
 3. **Predicción.** `preprocess_image` (el preprocesamiento de validation/test de
    ML-02) y `predict_proba` (modo eval, sin gradiente). La respuesta dice qué
    checkpoint, con qué sha256 y con qué `image_size` se clasificó.
 
 | Error del modelo | Cuándo |
 |---|---|
-| 422 `model_not_found` | La versión no existe en el registry (422 y no 404: el portal lee un 404 como "no conectado") |
-| 409 `model_not_ready` | La versión no está `READY` |
-| 409 `model_not_servable` | No apunta a un checkpoint de su run, el sha256 no coincide, el checkpoint no carga o el run no tiene `dataset_version` |
-| 503 `registry_unavailable` | MLflow no respondió (reintentable) |
-| 503 `inference_not_configured` | El servicio no tiene `MLFLOW_TRACKING_URI` |
+| 422 `model_not_found` | La versión o el nombre no están en el registro (422 y no 404: el portal lee un 404 como "no conectado") |
+| 409 `model_not_servable` | La versión solo tiene metadata, un archivo del paquete no tiene el sha256 registrado o el checkpoint no coincide con la arquitectura registrada |
+| 503 `model_package_missing` | Falta el paquete en el servidor: hay que correr `dvc pull data/models.dvc` |
+| 503 `registry_unavailable` | `registry.json` no se puede leer |
 
-**Para OPS-06:** para que una versión se pueda servir, regístrala con
-`create_model_version(name, f"runs:/{run_id}/checkpoints/best.pt", run_id=run_id,
-tags={"checkpoint_sha256": <sha256 del archivo>})`, en un run con el tag
-`dataset_version`. `tests/test_inference_mlflow_integration.py` lo hace contra el
-MLflow real.
+`ml-api` lee `reports/models/registry.json` y monta `./data/models` de solo lectura;
+`package_path` se resuelve contra la carpeta padre de `REPORTS_DIR` (`/app` en
+Docker, la raíz del repo en local). `tests/test_inference_real_model.py` comprueba,
+con el paquete real `1.0.0`, que la inferencia reproduce las probabilidades de ML-09
+en los 71 recortes de test (se omite si no hay `data/models` ni `data/crops`).
 
 ## Interfaz para el worker (OPS-04)
 
