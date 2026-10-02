@@ -1229,6 +1229,29 @@ MLFLOW_INTEGRATION=1 MLFLOW_TRACKING_URI=http://localhost:5000   uv run pytest -
 
 En CI la corre el job **MLflow persistente (OPS-03)**.
 
+### Restaurar las corridas de ML-07 en un clon limpio
+
+MLflow guarda los runs en los volúmenes Docker de cada máquina, así que un clon
+nuevo arranca con MLflow vacío. Las 12 corridas de la matriz de ML-07 (#26) están
+versionadas como snapshot DVC en `data/mlflow-snapshot` (volcado de la base
+`mlflow` + checkpoints y curvas, con sha256). Para cargarlas con **los mismos
+run IDs** que lista `reports/experiments/ml07_runs.json`, desde la raíz:
+
+```bash
+docker compose up -d --wait mlflow
+dvc pull -r prod data/mlflow-snapshot.dvc
+cd app
+MLFLOW_TRACKING_URI=http://localhost:5000 uv run python -m tracking.snapshot restore
+MLFLOW_TRACKING_URI=http://localhost:5000 uv run python -m classification.experiments report \
+  --matrix classification/ml07_matrix.yaml
+```
+
+`restore` carga el volcado en MariaDB (reemplaza la base `mlflow` local),
+reinicia MLflow, sube los artefactos a los mismos runs por la API y verifica
+tamaño y sha256 de cada uno. `report` comprueba por la API los criterios de ML-07
+y termina con código ≠ 0 si alguno falla. Detalle:
+[`app/classification/README.md`](app/classification/README.md#ml-07--matriz-de-experimentos-y-10-corridas-en-mlflow).
+
 ## APP-03 — Jobs de entrenamiento
 
 La pantalla **Training** (`/ml/training`) crea jobs con `POST /api/ml/training/jobs`.

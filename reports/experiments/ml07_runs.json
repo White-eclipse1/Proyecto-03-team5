@@ -1,0 +1,480 @@
+{
+  "matrix_id": "ml07-v1",
+  "experiment": "dogcat-classifier",
+  "dataset_version": "v0.1.1",
+  "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+  "min_runs": 10,
+  "checks": {
+    "at_least_min_runs": true,
+    "at_least_min_distinct_results": true,
+    "seven_params_vary": true,
+    "no_duplicate_configs": true,
+    "same_manifest_hash": true,
+    "same_dataset_version": true,
+    "same_classes_dog_cat": true,
+    "all_record_seed": true,
+    "all_record_git_commit": true,
+    "all_record_dvc_release": true,
+    "all_have_epoch_metrics": true,
+    "all_have_checkpoint": true,
+    "all_trained_on_real_split": true
+  },
+  "varied_params": {
+    "optimizer": [
+      "adam",
+      "adamw",
+      "sgd"
+    ],
+    "batch_size": [
+      "16",
+      "32",
+      "64"
+    ],
+    "max_epochs": [
+      "10",
+      "15",
+      "6"
+    ],
+    "learning_rate": [
+      "0.0003",
+      "0.001",
+      "0.01"
+    ],
+    "image_size": [
+      "128",
+      "160",
+      "224",
+      "96"
+    ],
+    "hidden_layers": [
+      "",
+      "128",
+      "256",
+      "256,64"
+    ],
+    "dropout": [
+      "0.0",
+      "0.2",
+      "0.3",
+      "0.5"
+    ]
+  },
+  "distinct_results": 11,
+  "identical_results": [
+    [
+      "r01-base",
+      "r12-ep6"
+    ]
+  ],
+  "valid_runs": [
+    {
+      "run_id": "f0cd9825563e45ccbdfe9dfd652a06c8",
+      "entry": "r01-base",
+      "run_name": "ml07-v1-r01-base",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 5,
+      "best_val_loss": 0.08136008866131306,
+      "best_val_accuracy": 0.96875,
+      "epochs_completed": 8,
+      "stopped_epoch": 8,
+      "epoch_metrics": {
+        "train_loss": 8,
+        "train_accuracy": 8,
+        "val_loss": 8,
+        "val_accuracy": 8
+      },
+      "checkpoint": "runs:/f0cd9825563e45ccbdfe9dfd652a06c8/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "1d571224e7fc46468b495cdcbd33e88f",
+      "entry": "r02-adamw",
+      "run_name": "ml07-v1-r02-adamw",
+      "params": {
+        "optimizer": "adamw",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 5,
+      "best_val_loss": 0.0802379478700459,
+      "best_val_accuracy": 0.9765625,
+      "epochs_completed": 8,
+      "stopped_epoch": 8,
+      "epoch_metrics": {
+        "train_loss": 8,
+        "train_accuracy": 8,
+        "val_loss": 8,
+        "val_accuracy": 8
+      },
+      "checkpoint": "runs:/1d571224e7fc46468b495cdcbd33e88f/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "bb448230424146349a969253d30db43b",
+      "entry": "r03-sgd",
+      "run_name": "ml07-v1-r03-sgd",
+      "params": {
+        "optimizer": "sgd",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.01",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 3,
+      "best_val_loss": 0.04061833815649152,
+      "best_val_accuracy": 0.9765625,
+      "epochs_completed": 6,
+      "stopped_epoch": 6,
+      "epoch_metrics": {
+        "train_loss": 6,
+        "train_accuracy": 6,
+        "val_loss": 6,
+        "val_accuracy": 6
+      },
+      "checkpoint": "runs:/bb448230424146349a969253d30db43b/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "306817e87ca144eb9b9d716816097181",
+      "entry": "r04-batch16",
+      "run_name": "ml07-v1-r04-batch16",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "16",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 3,
+      "best_val_loss": 0.13149602460907772,
+      "best_val_accuracy": 0.9296875,
+      "epochs_completed": 6,
+      "stopped_epoch": 6,
+      "epoch_metrics": {
+        "train_loss": 6,
+        "train_accuracy": 6,
+        "val_loss": 6,
+        "val_accuracy": 6
+      },
+      "checkpoint": "runs:/306817e87ca144eb9b9d716816097181/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "f6b548b403714d4a984cf756198a9c59",
+      "entry": "r05-batch64",
+      "run_name": "ml07-v1-r05-batch64",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "64",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 1,
+      "best_val_loss": 0.16463682800531387,
+      "best_val_accuracy": 0.953125,
+      "epochs_completed": 4,
+      "stopped_epoch": 4,
+      "epoch_metrics": {
+        "train_loss": 4,
+        "train_accuracy": 4,
+        "val_loss": 4,
+        "val_accuracy": 4
+      },
+      "checkpoint": "runs:/f6b548b403714d4a984cf756198a9c59/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "e6921aea1f3b409695b06736aa8f4f8f",
+      "entry": "r06-lr3e-4-ep15",
+      "run_name": "ml07-v1-r06-lr3e-4-ep15",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "15",
+        "learning_rate": "0.0003",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 1,
+      "best_val_loss": 0.07190167345106602,
+      "best_val_accuracy": 0.96875,
+      "epochs_completed": 4,
+      "stopped_epoch": 4,
+      "epoch_metrics": {
+        "train_loss": 4,
+        "train_accuracy": 4,
+        "val_loss": 4,
+        "val_accuracy": 4
+      },
+      "checkpoint": "runs:/e6921aea1f3b409695b06736aa8f4f8f/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "83e5a40ad86942478269c49a66d1d04b",
+      "entry": "r07-img224",
+      "run_name": "ml07-v1-r07-img224",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "224",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 1,
+      "best_val_loss": 0.05735983527574717,
+      "best_val_accuracy": 0.9765625,
+      "epochs_completed": 4,
+      "stopped_epoch": 4,
+      "epoch_metrics": {
+        "train_loss": 4,
+        "train_accuracy": 4,
+        "val_loss": 4,
+        "val_accuracy": 4
+      },
+      "checkpoint": "runs:/83e5a40ad86942478269c49a66d1d04b/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "d9c99b5a0e4e4b3c84dd4c49a96cd82c",
+      "entry": "r08-img96",
+      "run_name": "ml07-v1-r08-img96",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "96",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 4,
+      "best_val_loss": 0.2962053604424,
+      "best_val_accuracy": 0.8984375,
+      "epochs_completed": 7,
+      "stopped_epoch": 7,
+      "epoch_metrics": {
+        "train_loss": 7,
+        "train_accuracy": 7,
+        "val_loss": 7,
+        "val_accuracy": 7
+      },
+      "checkpoint": "runs:/d9c99b5a0e4e4b3c84dd4c49a96cd82c/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "21db27c7ecd24ebc894bf2219b875148",
+      "entry": "r09-head256-64-drop0.3",
+      "run_name": "ml07-v1-r09-head256-64-drop0.3",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "256,64",
+        "dropout": "0.3",
+        "seed": "42"
+      },
+      "best_epoch": 4,
+      "best_val_loss": 0.15830006822943687,
+      "best_val_accuracy": 0.953125,
+      "epochs_completed": 7,
+      "stopped_epoch": 7,
+      "epoch_metrics": {
+        "train_loss": 7,
+        "train_accuracy": 7,
+        "val_loss": 7,
+        "val_accuracy": 7
+      },
+      "checkpoint": "runs:/21db27c7ecd24ebc894bf2219b875148/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "137244d23bd34a24b1633bdd9f44f49b",
+      "entry": "r10-no-hidden-drop0",
+      "run_name": "ml07-v1-r10-no-hidden-drop0",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "10",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "",
+        "dropout": "0.0",
+        "seed": "42"
+      },
+      "best_epoch": 4,
+      "best_val_loss": 0.1515923272818327,
+      "best_val_accuracy": 0.9375,
+      "epochs_completed": 7,
+      "stopped_epoch": 7,
+      "epoch_metrics": {
+        "train_loss": 7,
+        "train_accuracy": 7,
+        "val_loss": 7,
+        "val_accuracy": 7
+      },
+      "checkpoint": "runs:/137244d23bd34a24b1633bdd9f44f49b/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "06fc194ab16242f7a8403da8cd87a849",
+      "entry": "r11-adamw-img160-head256-drop0.5",
+      "run_name": "ml07-v1-r11-adamw-img160-head256-drop0.5",
+      "params": {
+        "optimizer": "adamw",
+        "batch_size": "32",
+        "max_epochs": "15",
+        "learning_rate": "0.0003",
+        "image_size": "160",
+        "hidden_layers": "256",
+        "dropout": "0.5",
+        "seed": "42"
+      },
+      "best_epoch": 2,
+      "best_val_loss": 0.08500097133219242,
+      "best_val_accuracy": 0.9609375,
+      "epochs_completed": 5,
+      "stopped_epoch": 5,
+      "epoch_metrics": {
+        "train_loss": 5,
+        "train_accuracy": 5,
+        "val_loss": 5,
+        "val_accuracy": 5
+      },
+      "checkpoint": "runs:/06fc194ab16242f7a8403da8cd87a849/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    },
+    {
+      "run_id": "adc1c0b4ec304e28b626e8dacb458c29",
+      "entry": "r12-ep6",
+      "run_name": "ml07-v1-r12-ep6",
+      "params": {
+        "optimizer": "adam",
+        "batch_size": "32",
+        "max_epochs": "6",
+        "learning_rate": "0.001",
+        "image_size": "128",
+        "hidden_layers": "128",
+        "dropout": "0.2",
+        "seed": "42"
+      },
+      "best_epoch": 5,
+      "best_val_loss": 0.08136008866131306,
+      "best_val_accuracy": 0.96875,
+      "epochs_completed": 6,
+      "stopped_epoch": null,
+      "epoch_metrics": {
+        "train_loss": 6,
+        "train_accuracy": 6,
+        "val_loss": 6,
+        "val_accuracy": 6
+      },
+      "checkpoint": "runs:/adc1c0b4ec304e28b626e8dacb458c29/checkpoints/best.pt",
+      "git_commit": "86a33f8426226d0e3da9d75cf849765aa06e6396",
+      "dataset_version": "v0.1.1",
+      "dvc_images_hash": "951150dd4fb053f4665089fcb37a1c87.dir",
+      "dvc_annotations_hash": "c7cb86ae7ece94ef7b853620e464a4d7.dir",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "classes": "dog,cat",
+      "train_samples": "469"
+    }
+  ],
+  "excluded_runs": []
+}
