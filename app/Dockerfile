@@ -22,6 +22,9 @@ COPY projections/ ./projections/
 COPY copilot/ ./copilot/
 COPY tracking/ ./tracking/
 COPY training/ ./training/
+# APP-07: ml-api carga checkpoints (classification/) con las clases de ML-01 (crops/).
+COPY classification/ ./classification/
+COPY crops/ ./crops/
 
 # El volumen nombrado reports_data (docker-compose.yml) se inicializa la
 # primera vez con el contenido/dueño de este directorio si ya existe en la
