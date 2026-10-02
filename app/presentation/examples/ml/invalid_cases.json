@@ -9199,5 +9199,343 @@
       },
       "problem": null
     }
+  },
+  {
+    "name": "evaluation_candidate_selected_with_train_loss",
+    "contract": "evaluation_overview",
+    "reason": "El candidato se elige con best_val_loss o best_val_accuracy (política de ML-08).",
+    "field": "candidate.selection_metric",
+    "document": {
+      "schema_version": "1.0",
+      "state": "evaluated",
+      "candidate": {
+        "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+        "run_name": "mlp-512-256-adam",
+        "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+        "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+        "dataset_version": "demo-v1.0.0",
+        "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+        "selection_metric": "train_loss",
+        "selection_value": 0.241,
+        "frozen_at": "2026-01-14T14:00:00.000000Z"
+      },
+      "evaluation": {
+        "evaluation_id": "eval-0002",
+        "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+        "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+        "model_name": "pet-classifier",
+        "model_version": "3",
+        "dataset_version": "demo-v1.0.0",
+        "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+        "split": "test",
+        "class_names": [
+          "dog",
+          "cat"
+        ],
+        "metrics": {
+          "accuracy_top1": 0.8,
+          "f1_macro": 0.7917
+        },
+        "per_class": [
+          {
+            "class_name": "dog",
+            "precision": 0.8333,
+            "recall": 0.8333,
+            "f1": 0.8333,
+            "support": 6
+          },
+          {
+            "class_name": "cat",
+            "precision": 0.75,
+            "recall": 0.75,
+            "f1": 0.75,
+            "support": 4
+          }
+        ],
+        "confusion_matrix": [
+          [
+            5,
+            1
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        "predictions": [
+          {
+            "image_id": 40,
+            "annotation_id": 1001,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.912,
+              "cat": 0.088
+            }
+          },
+          {
+            "image_id": 41,
+            "annotation_id": 1002,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.874,
+              "cat": 0.126
+            }
+          },
+          {
+            "image_id": 42,
+            "annotation_id": 1003,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.953,
+              "cat": 0.047
+            }
+          },
+          {
+            "image_id": 43,
+            "annotation_id": 1004,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.781,
+              "cat": 0.219
+            }
+          },
+          {
+            "image_id": 44,
+            "annotation_id": 1005,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.664,
+              "cat": 0.336
+            }
+          },
+          {
+            "image_id": 45,
+            "annotation_id": 1006,
+            "true_class": "dog",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.417,
+              "cat": 0.583
+            }
+          },
+          {
+            "image_id": 46,
+            "annotation_id": 1007,
+            "true_class": "cat",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.612,
+              "cat": 0.388
+            }
+          },
+          {
+            "image_id": 40,
+            "annotation_id": 1008,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.095,
+              "cat": 0.905
+            }
+          },
+          {
+            "image_id": 41,
+            "annotation_id": 1009,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.153,
+              "cat": 0.847
+            }
+          },
+          {
+            "image_id": 42,
+            "annotation_id": 1010,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.271,
+              "cat": 0.729
+            }
+          }
+        ],
+        "created_at": "2026-01-14T14:10:00Z"
+      },
+      "problem": null
+    }
+  },
+  {
+    "name": "evaluation_candidate_selected_with_unpolicied_val_metric",
+    "contract": "evaluation_overview",
+    "reason": "El candidato se elige con best_val_loss o best_val_accuracy (política de ML-08).",
+    "field": "candidate.selection_metric",
+    "document": {
+      "schema_version": "1.0",
+      "state": "evaluated",
+      "candidate": {
+        "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+        "run_name": "mlp-512-256-adam",
+        "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+        "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+        "dataset_version": "demo-v1.0.0",
+        "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+        "selection_metric": "val_loss",
+        "selection_value": 0.241,
+        "frozen_at": "2026-01-14T14:00:00.000000Z"
+      },
+      "evaluation": {
+        "evaluation_id": "eval-0002",
+        "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+        "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+        "model_name": "pet-classifier",
+        "model_version": "3",
+        "dataset_version": "demo-v1.0.0",
+        "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+        "split": "test",
+        "class_names": [
+          "dog",
+          "cat"
+        ],
+        "metrics": {
+          "accuracy_top1": 0.8,
+          "f1_macro": 0.7917
+        },
+        "per_class": [
+          {
+            "class_name": "dog",
+            "precision": 0.8333,
+            "recall": 0.8333,
+            "f1": 0.8333,
+            "support": 6
+          },
+          {
+            "class_name": "cat",
+            "precision": 0.75,
+            "recall": 0.75,
+            "f1": 0.75,
+            "support": 4
+          }
+        ],
+        "confusion_matrix": [
+          [
+            5,
+            1
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        "predictions": [
+          {
+            "image_id": 40,
+            "annotation_id": 1001,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.912,
+              "cat": 0.088
+            }
+          },
+          {
+            "image_id": 41,
+            "annotation_id": 1002,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.874,
+              "cat": 0.126
+            }
+          },
+          {
+            "image_id": 42,
+            "annotation_id": 1003,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.953,
+              "cat": 0.047
+            }
+          },
+          {
+            "image_id": 43,
+            "annotation_id": 1004,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.781,
+              "cat": 0.219
+            }
+          },
+          {
+            "image_id": 44,
+            "annotation_id": 1005,
+            "true_class": "dog",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.664,
+              "cat": 0.336
+            }
+          },
+          {
+            "image_id": 45,
+            "annotation_id": 1006,
+            "true_class": "dog",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.417,
+              "cat": 0.583
+            }
+          },
+          {
+            "image_id": 46,
+            "annotation_id": 1007,
+            "true_class": "cat",
+            "predicted_class": "dog",
+            "probabilities": {
+              "dog": 0.612,
+              "cat": 0.388
+            }
+          },
+          {
+            "image_id": 40,
+            "annotation_id": 1008,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.095,
+              "cat": 0.905
+            }
+          },
+          {
+            "image_id": 41,
+            "annotation_id": 1009,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.153,
+              "cat": 0.847
+            }
+          },
+          {
+            "image_id": 42,
+            "annotation_id": 1010,
+            "true_class": "cat",
+            "predicted_class": "cat",
+            "probabilities": {
+              "dog": 0.271,
+              "cat": 0.729
+            }
+          }
+        ],
+        "created_at": "2026-01-14T14:10:00Z"
+      },
+      "problem": null
+    }
   }
 ]

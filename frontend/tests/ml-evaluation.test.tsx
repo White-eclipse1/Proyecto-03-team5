@@ -187,6 +187,22 @@ describe("APP-05 Evaluation: estados", () => {
     expect(within(candidate).queryByText(/test/i)).not.toBeInTheDocument();
   });
 
+  it.each(["train_loss", "test_accuracy"])(
+    "un candidato elegido con %s no se muestra ni revela el test",
+    async (metric) => {
+      const overview = evaluated();
+      overview.candidate = { ...overview.candidate, selection_metric: metric };
+      serve(overview);
+      openEvaluation();
+
+      expect(
+        await screen.findByText("La respuesta no cumple el contrato esperado.")
+      ).toBeVisible();
+      expectNoTestResults();
+      expect(screen.queryByText(metric, { exact: false })).not.toBeInTheDocument();
+    }
+  );
+
   it("candidate_frozen: si la evaluación no cuadra, explica por qué se oculta", async () => {
     serve(frozen("Hay 2 evaluaciones de test; el test se evalúa una sola vez."));
     openEvaluation();

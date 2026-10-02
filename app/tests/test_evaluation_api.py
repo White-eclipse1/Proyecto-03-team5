@@ -220,6 +220,43 @@ def test_unreadable_test_evaluation_is_withheld(tmp_path, reports):
     assert "eval-roto.json" in result.problem
 
 
+@pytest.mark.parametrize("metric", ["train_loss", "train_accuracy", "test_accuracy", "val_loss"])
+def test_candidate_not_selected_with_a_validation_metric_reveals_nothing(tmp_path, reports, metric):
+    """Revisión de #49: solo best_val_loss o best_val_accuracy (VALIDATION_METRICS de ML-08)."""
+    write_candidate(reports, metric=metric)
+    write_evaluation(reports)
+    client = client_for(tmp_path, reports)
+
+    response = client.get("/evaluation")
+
+    result = EvaluationOverview.model_validate(response.json())
+    assert (result.state, result.candidate, result.evaluation) == (
+        "candidate_not_frozen",
+        None,
+        None,
+    )
+    assert "ml08_candidate.json" in result.problem and "selection_metric" in result.problem
+    assert_no_test_numbers(response.text)
+    assert client.get("/evaluation/predictions.csv").status_code == 404
+
+
+@pytest.mark.parametrize("metric", ["best_val_loss", "best_val_accuracy"])
+def test_both_validation_metrics_of_the_policy_are_accepted(tmp_path, reports, metric):
+    write_candidate(reports, metric=metric)
+    write_evaluation(reports)
+
+    assert overview(client_for(tmp_path, reports)).state == "evaluated"
+
+
+def test_selection_metrics_are_the_ones_ml08_allows():
+    from typing import get_args
+
+    from classification.selection import VALIDATION_METRICS
+    from presentation.ml_contracts import SelectionMetric
+
+    assert get_args(SelectionMetric) == VALIDATION_METRICS
+
+
 # --- Predicciones por recorte (exportar) -------------------------------------------
 
 
