@@ -19,6 +19,7 @@ from presentation.ml_contracts import (
     InferenceResponse,
     ModelsResponse,
     ReleaseProvenance,
+    RunCurvesResponse,
     RunsResponse,
     TrainingJobRequest,
     TrainingJobsResponse,
@@ -33,6 +34,7 @@ VALID = {
     "training_jobs": "training_jobs.json",
     "training_logs": "training_logs.json",
     "runs": "runs.json",
+    "run_curves": "run_curves.json",
     "evaluations": "evaluations.json",
     "models": "models.json",
     "inference_request": "inference_request.json",
@@ -303,6 +305,16 @@ class TraceabilityTests(unittest.TestCase):
             (served.run_id, served.dataset_version),
             (inference.run_id, inference.dataset_version),
         )
+
+    def test_curves_end_at_the_run_latest_metrics(self):
+        """APP-04: MLflow reporta como métrica del run el último valor de su historial."""
+        curves = RunCurvesResponse.model_validate(load("run_curves.json"))
+        runs = {run.run_id: run for run in RunsResponse.model_validate(load("runs.json")).runs}
+        run = runs[curves.run_id]
+
+        for name, points in curves.curves.items():
+            if name in run.metrics:
+                self.assertEqual(points[-1].value, run.metrics[name])
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@
       "end_time": null,
       "dataset_version": "demo-v1.0.0",
       "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "git_commit": "3f2a9c1e7b4d5a6f8e0c1b2a3d4e5f6a7b8c9d0e",
       "params": {
         "optimizer": "adamw",
         "batch_size": "16",
@@ -23,7 +24,8 @@
         "min_delta": "0.001"
       },
       "metrics": {
-        "train_loss": 0.482
+        "train_loss": 0.482,
+        "val_loss": null
       }
     },
     {
@@ -35,6 +37,7 @@
       "end_time": "2026-01-14T18:07:02Z",
       "dataset_version": "demo-v1.0.0",
       "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "git_commit": null,
       "params": {
         "optimizer": "adam",
         "batch_size": "32",
@@ -58,6 +61,7 @@
       "end_time": "2026-01-14T13:45:10Z",
       "dataset_version": "demo-v1.0.0",
       "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+      "git_commit": "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d",
       "params": {
         "optimizer": "adam",
         "batch_size": "32",

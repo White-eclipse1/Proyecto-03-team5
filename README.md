@@ -1270,3 +1270,20 @@ Detalle de la API, de la cola y de la interfaz para el worker en
 [`app/training/README.md`](app/training/README.md).
 
  -> MariaDB queue -> training-worker -> run_training() -> MLflow
+
+## APP-04 — Experiments
+
+La pantalla **Experiments** (`/ml/experiments`) muestra los runs de entrenamiento
+reales de MLflow, leídos por `ml-api` en cada consulta (`GET /api/ml/runs`):
+`run_id`, estado, release DVC, `manifest_hash`, commit, los 7 hiperparámetros y
+una columna ordenable por cada métrica de validación. Se puede buscar, filtrar
+por estado y dataset, y abrir el mismo run en la UI de MLflow
+(`VITE_MLFLOW_UI_URL`, por defecto `http://localhost:5000`).
+
+Marcando hasta 3 runs se comparan sus parámetros y métricas ("Distinto" en lo que
+cambia) y sus curvas reales de train/validation (`GET /api/ml/runs/{id}/curves`),
+cada una con su tabla "Ver datos". La comparación queda en la URL (`?runs=`).
+Mientras haya runs en curso, la pantalla se actualiza cada 5 s.
+
+Lo que cada run debe registrar en MLflow para aparecer aquí está en
+[`app/training/README.md`](app/training/README.md#qué-debe-registrar-cada-run-de-entrenamiento-ml-04--ops-04).

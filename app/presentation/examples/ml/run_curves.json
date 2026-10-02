@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+  "curves": {
+    "train_loss": [
+      {
+        "step": 1,
+        "value": 0.642
+      },
+      {
+        "step": 2,
+        "value": 0.418
+      },
+      {
+        "step": 3,
+        "value": 0.305
+      },
+      {
+        "step": 4,
+        "value": 0.252
+      },
+      {
+        "step": 5,
+        "value": 0.231
+      }
+    ],
+    "val_loss": [
+      {
+        "step": 1,
+        "value": 0.661
+      },
+      {
+        "step": 2,
+        "value": 0.452
+      },
+      {
+        "step": 3,
+        "value": null
+      },
+      {
+        "step": 4,
+        "value": 0.349
+      },
+      {
+        "step": 5,
+        "value": 0.356
+      }
+    ],
+    "train_accuracy": [
+      {
+        "step": 1,
+        "value": 0.634
+      },
+      {
+        "step": 2,
+        "value": 0.802
+      },
+      {
+        "step": 3,
+        "value": 0.871
+      },
+      {
+        "step": 4,
+        "value": 0.902
+      },
+      {
+        "step": 5,
+        "value": 0.913
+      }
+    ],
+    "val_accuracy": [
+      {
+        "step": 1,
+        "value": 0.618
+      },
+      {
+        "step": 2,
+        "value": 0.781
+      },
+      {
+        "step": 3,
+        "value": 0.846
+      },
+      {
+        "step": 4,
+        "value": 0.875
+      },
+      {
+        "step": 5,
+        "value": 0.869
+      }
+    ]
+  }
+}

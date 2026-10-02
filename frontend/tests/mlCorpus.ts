@@ -11,6 +11,7 @@ export type MlContractName =
   | "training_jobs"
   | "training_logs"
   | "runs"
+  | "run_curves"
   | "evaluations"
   | "models"
   | "inference_request"
