@@ -317,6 +317,7 @@ def run_training(
     pretrained: bool = True,
     git_commit: str | None = None,
     experiment_name: str = EXPERIMENT_NAME,
+    tags: dict[str, str] | None = None,
 ) -> TrainingResult:
     hooks = hooks or _NoHooks()
     train_set = load_split(
@@ -386,6 +387,7 @@ def run_training(
             "weights_origin": json.dumps(WEIGHTS_ORIGIN if pretrained else None),
             "trainable_summary": json.dumps(model.trainable_summary()),
             **environment_tags(),
+            **(tags or {}),
         },
     )
     run_id = run.info.run_id

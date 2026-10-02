@@ -7,6 +7,7 @@ métodos de la cola que usará (`claim_next`, `start`, `report_progress`, `log`,
 """
 
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -242,6 +243,24 @@ def test_job_is_still_visible_after_reloading_the_service(database_url, reports)
     reloaded = client_for(database_url, reports)
 
     assert reloaded.get(f"/training/jobs/{job_id}").json()["status"] == "queued"
+
+
+def test_non_finite_progress_is_served_as_json_null(client, database_url):
+    job_id = post_job(client).json()["job_id"]
+    worker = make_queue(database_url)
+    worker.claim_next("worker-1")
+    worker.start(job_id, experiment_id="1", run_id=RUN_ID)
+    worker.report_progress(job_id, epoch=1, metrics={"val_loss": math.nan, "val_accuracy": 0.6})
+
+    def reject_non_json(value):
+        raise ValueError(f"no es JSON estándar: {value}")
+
+    for path in ("/training/jobs", f"/training/jobs/{job_id}"):
+        response = client.get(path)
+        assert response.status_code == 200
+        json.loads(response.text, parse_constant=reject_non_json)
+    job = client.get(f"/training/jobs/{job_id}").json()
+    assert job["progress"]["metrics"] == {"val_loss": None, "val_accuracy": 0.6}
 
 
 def test_running_job_exposes_progress_and_logs(client, database_url):
