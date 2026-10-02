@@ -209,7 +209,6 @@ function InferenceForm({ models }: Readonly<{ models: RegisteredModelVersion[] }
           </select>
           <span className="mt-1 block text-xs font-normal text-ink-muted">
             {`Run ${model.run_id} · release ${model.dataset_version}`}
-            {model.aliases.length > 0 && ` · ${model.aliases.join(", ")}`}
           </span>
         </label>
 
@@ -324,15 +323,13 @@ export function InferencePage() {
   return (
     <MlPage
       title="Inference"
-      subtitle="Clasifica una imagen o un recorte del portal con una model version READY del registry."
+      subtitle="Clasifica una imagen o un recorte del portal con una versión del modelo registrada."
     >
       <MlResourceBoundary
         state={models}
-        emptyMessage="No hay modelos READY disponibles para inferencia."
+        emptyMessage="No hay versiones del modelo con su paquete disponible para inferencia."
       >
-        {(response) => (
-          <InferenceForm models={response.models.filter((model) => model.status === "READY")} />
-        )}
+        {(response) => <InferenceForm models={response.models.filter((model) => model.servable)} />}
       </MlResourceBoundary>
     </MlPage>
   );

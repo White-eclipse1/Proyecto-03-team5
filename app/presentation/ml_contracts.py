@@ -509,23 +509,98 @@ class EvaluationsResponse(ContractModel):
         return self
 
 
+PACKAGE_CHECKPOINT = "checkpoint/best.pt"
+
+
+class ModelFile(ContractModel):
+    """Un archivo del paquete de OPS-06 y si este servidor lo tiene con ese sha256."""
+
+    name: Label
+    sha256: Sha256Hex
+    available: bool
+
+
+class S3Object(ContractModel):
+    name: Label
+    key: Label
+    version_id: Label | None
+    sha256: Sha256Hex
+
+
+class ModelPublication(ContractModel):
+    """Publicación en S3 (OPS-07). `published` solo con cada archivo del paquete en S3
+    con el sha256 registrado; si algo no cuadra es `inconsistent` y no muestra keys."""
+
+    status: Literal["published", "not_published", "inconsistent"]
+    bucket: Label | None
+    region: Label | None
+    published_at: Timestamp | None
+    objects: list[S3Object]
+    problem: Label | None
+
+    @model_validator(mode="after")
+    def status_matches_the_evidence(self) -> Self:
+        located = (self.bucket, self.region, self.published_at)
+        if self.status == "published":
+            if None in located or not self.objects or self.problem is not None:
+                raise ValueError("published requires bucket, region, date and objects, no problem")
+            require_unique([obj.name for obj in self.objects], "one S3 object per file")
+            return self
+        if located != (None, None, None) or self.objects:
+            raise ValueError(f"{self.status} has no S3 location or objects")
+        if (self.status == "inconsistent") != (self.problem is not None):
+            raise ValueError("problem explains an inconsistent publication, and only that")
+        return self
+
+
+class ModelCardSummary(ContractModel):
+    purpose: Label
+    limitations: list[Label]
+    pretrained_weights: Label | None
+
+
+class ModelTestMetrics(ContractModel):
+    accuracy_top1: Ratio
+    f1_macro: Ratio
+
+
 class RegisteredModelVersion(ContractModel):
-    """MLflow Model Registry version, with MLflow's own status names."""
+    """APP-06: una versión del registro de OPS-06 (`reports/models/registry.json`).
+
+    `files` son los archivos del paquete y `servable` dice si este servidor los tiene
+    todos con el sha256 registrado (si no, Inference no la puede usar).
+    """
 
     model_name: Identifier
     model_version: ModelVersion
-    status: Literal["PENDING_REGISTRATION", "READY", "FAILED_REGISTRATION"]
-    aliases: list[Identifier]
     run_id: RunId
     checkpoint: Checkpoint
+    checkpoint_sha256: Sha256Hex
     dataset_version: Identifier
     manifest_hash: ManifestHash
-    created_at: Timestamp
+    architecture: Label
+    image_size: int = Field(ge=32, le=1024, multiple_of=32)
+    test_metrics: ModelTestMetrics
+    model_card: ModelCardSummary
+    files: list[ModelFile]
+    servable: bool
+    publication: ModelPublication
 
     @model_validator(mode="after")
-    def checkpoint_of_run(self) -> Self:
+    def package_is_consistent(self) -> Self:
         require_checkpoint_of_run(self.checkpoint, self.run_id)
-        require_unique(self.aliases, "aliases must be unique")
+        by_name = {file.name: file for file in self.files}
+        if len(by_name) != len(self.files):
+            raise ValueError("one entry per package file")
+        checkpoint = by_name.get(PACKAGE_CHECKPOINT)
+        if checkpoint is None or checkpoint.sha256 != self.checkpoint_sha256:
+            raise ValueError("the package checkpoint is the registered checkpoint")
+        if self.servable != all(file.available for file in self.files):
+            raise ValueError("servable means every package file is available")
+        if self.publication.status == "published":
+            published = {obj.name: obj.sha256 for obj in self.publication.objects}
+            if any(published.get(name) != file.sha256 for name, file in by_name.items()):
+                raise ValueError("published means every package file is in S3 with its sha256")
         return self
 
 
@@ -534,16 +609,11 @@ class ModelsResponse(ContractModel):
     models: list[RegisteredModelVersion]
 
     @model_validator(mode="after")
-    def unique_versions_and_aliases(self) -> Self:
+    def unique_versions(self) -> Self:
         require_unique(
             [(model.model_name, model.model_version) for model in self.models],
             "(model_name, model_version) must be unique",
         )
-        aliases = Counter(
-            (model.model_name, alias) for model in self.models for alias in model.aliases
-        )
-        if any(count > 1 for count in aliases.values()):
-            raise ValueError("an alias points to a single version per model")
         return self
 
 

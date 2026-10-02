@@ -523,24 +523,95 @@ export const evaluationOverviewSchema = z
   });
 export type EvaluationOverview = z.infer<typeof evaluationOverviewSchema>;
 
+const PACKAGE_CHECKPOINT = "checkpoint/best.pt";
+const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** Publicación en S3 (OPS-07): igual que ModelPublication en Python. */
+export const modelPublicationSchema = z
+  .strictObject({
+    status: z.enum(["published", "not_published", "inconsistent"]),
+    bucket: labelSchema.nullable(),
+    region: labelSchema.nullable(),
+    published_at: timestampSchema.nullable(),
+    objects: z.array(
+      z.strictObject({
+        name: labelSchema,
+        key: labelSchema,
+        version_id: labelSchema.nullable(),
+        sha256: sha256Schema,
+      })
+    ),
+    problem: labelSchema.nullable(),
+  })
+  .superRefine((publication, context) => {
+    const issue = (message: string) => context.addIssue({ code: "custom", message });
+    const located = [publication.bucket, publication.region, publication.published_at];
+    if (publication.status === "published") {
+      if (
+        located.includes(null) ||
+        publication.objects.length === 0 ||
+        publication.problem !== null
+      ) {
+        issue("published exige bucket, región, fecha y objetos, sin problema");
+      }
+      if (hasDuplicates(publication.objects.map((object) => object.name))) {
+        issue("Un objeto de S3 por archivo");
+      }
+      return;
+    }
+    if (located.some((value) => value !== null) || publication.objects.length > 0) {
+      issue(`${publication.status} no tiene ubicación ni objetos en S3`);
+    }
+    if ((publication.status === "inconsistent") !== (publication.problem !== null)) {
+      issue("problem explica una publicación inconsistente, y solo esa");
+    }
+  });
+export type ModelPublication = z.infer<typeof modelPublicationSchema>;
+
+/** APP-06: una versión del registro de OPS-06. Igual que RegisteredModelVersion en Python. */
 export const registeredModelVersionSchema = z
   .strictObject({
     model_name: identifierSchema,
     model_version: modelVersionSchema,
-    status: z.enum(["PENDING_REGISTRATION", "READY", "FAILED_REGISTRATION"]),
-    aliases: z.array(identifierSchema),
     run_id: runIdSchema,
     checkpoint: checkpointSchema,
+    checkpoint_sha256: sha256Schema,
     dataset_version: identifierSchema,
     manifest_hash: manifestHashSchema,
-    created_at: timestampSchema,
+    architecture: labelSchema,
+    image_size: z.number().int().min(32).max(1024).multipleOf(32),
+    test_metrics: z.strictObject({ accuracy_top1: ratioSchema, f1_macro: ratioSchema }),
+    model_card: z.strictObject({
+      purpose: labelSchema,
+      limitations: z.array(labelSchema),
+      pretrained_weights: labelSchema.nullable(),
+    }),
+    files: z.array(
+      z.strictObject({ name: labelSchema, sha256: sha256Schema, available: z.boolean() })
+    ),
+    servable: z.boolean(),
+    publication: modelPublicationSchema,
   })
   .superRefine((model, context) => {
+    const issue = (message: string) => context.addIssue({ code: "custom", message });
     if (checkpointRunId(model.checkpoint) !== model.run_id) {
-      context.addIssue({ code: "custom", message: "El checkpoint debe pertenecer al run_id" });
+      issue("El checkpoint debe pertenecer al run_id");
     }
-    if (hasDuplicates(model.aliases)) {
-      context.addIssue({ code: "custom", message: "aliases debe ser único" });
+    if (hasDuplicates(model.files.map((file) => file.name))) issue("Una entrada por archivo");
+    const checkpoint = model.files.find((file) => file.name === PACKAGE_CHECKPOINT);
+    if (checkpoint?.sha256 !== model.checkpoint_sha256) {
+      issue("El checkpoint del paquete es el checkpoint registrado");
+    }
+    if (model.servable !== model.files.every((file) => file.available)) {
+      issue("servable significa que todos los archivos del paquete están disponibles");
+    }
+    if (model.publication.status === "published") {
+      const published = new Map(
+        model.publication.objects.map((object) => [object.name, object.sha256])
+      );
+      if (model.files.some((file) => published.get(file.name) !== file.sha256)) {
+        issue("published exige cada archivo del paquete en S3 con su sha256");
+      }
     }
   });
 export type RegisteredModelVersion = z.infer<typeof registeredModelVersionSchema>;
@@ -556,12 +627,6 @@ export const modelsResponseSchema = z
     );
     if (hasDuplicates(versions)) {
       context.addIssue({ code: "custom", message: "(model_name, model_version) debe ser único" });
-    }
-    const aliases = response.models.flatMap((model) =>
-      model.aliases.map((alias) => `${model.model_name}\u0000${alias}`)
-    );
-    if (hasDuplicates(aliases)) {
-      context.addIssue({ code: "custom", message: "Un alias apunta a una sola versión" });
     }
   });
 export type ModelsResponse = z.infer<typeof modelsResponseSchema>;
