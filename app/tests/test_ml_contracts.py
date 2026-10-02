@@ -40,6 +40,7 @@ VALID = {
     "models": "models.json",
     "inference_request": "inference_request.json",
     "inference": "inference.json",
+    "inference_upload": "inference_upload.json",
     "error": "error.json",
     "training_request": "training_request.json",
     "provenance": "provenance.json",

@@ -9199,5 +9199,279 @@
       },
       "problem": null
     }
+  },
+  {
+    "name": "inference_crop_and_upload",
+    "contract": "inference",
+    "reason": "La imagen viene de un recorte o de un archivo subido, no de ambos.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": {
+        "filename": "mi-gato.jpg",
+        "content_type": "image/jpeg",
+        "size_bytes": 48213,
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        "width": 640,
+        "height": 480
+      },
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_without_image",
+    "contract": "inference",
+    "reason": "Toda inferencia dice qué imagen clasificó.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": null,
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_source_does_not_match",
+    "contract": "inference",
+    "reason": "source dice de dónde vino la imagen: upload exige el archivo.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "upload",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_checkpoint_of_another_run",
+    "contract": "inference",
+    "reason": "El checkpoint cargado pertenece al run del modelo.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/ffffffffffffffffffffffffffffffff/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_bad_checkpoint_sha256",
+    "contract": "inference",
+    "reason": "checkpoint_sha256 son 64 hex en minúsculas.",
+    "field": "checkpoint_sha256",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84D6",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_bad_image_size",
+    "contract": "inference",
+    "reason": "image_size es el del preprocesamiento de evaluación: múltiplo de 32 entre 32 y 1024.",
+    "field": "image_size",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 100,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
+    }
+  },
+  {
+    "name": "inference_upload_not_an_image",
+    "contract": "inference",
+    "reason": "Solo se aceptan PNG y JPEG.",
+    "field": "upload.content_type",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0002",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "upload",
+      "crop": null,
+      "upload": {
+        "filename": "mi-gato.jpg",
+        "content_type": "application/pdf",
+        "size_bytes": 48213,
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        "width": 640,
+        "height": 480
+      },
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.031,
+        "cat": 0.969
+      },
+      "latency_ms": 18.2
+    }
+  },
+  {
+    "name": "inference_upload_empty",
+    "contract": "inference",
+    "reason": "Un archivo vacío no es una imagen.",
+    "field": "upload.size_bytes",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0002",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "upload",
+      "crop": null,
+      "upload": {
+        "filename": "mi-gato.jpg",
+        "content_type": "image/jpeg",
+        "size_bytes": 0,
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+        "width": 640,
+        "height": 480
+      },
+      "predicted_class": "cat",
+      "probabilities": {
+        "dog": 0.031,
+        "cat": 0.969
+      },
+      "latency_ms": 18.2
+    }
+  },
+  {
+    "name": "inference_class_outside_the_model",
+    "contract": "inference",
+    "reason": "Las clases de la respuesta son las del modelo: dog y cat.",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "pet-classifier",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "bird",
+      "probabilities": {
+        "bird": 0.9,
+        "dog": 0.1
+      },
+      "latency_ms": 12.5
+    }
   }
 ]
