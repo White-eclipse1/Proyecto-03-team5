@@ -281,3 +281,29 @@ def test_crops_not_configured(tmp_path, reports):
     response = client_for(tmp_path, reports).get("/crops/img1-ann1")
     assert response.status_code == 503
     assert ErrorResponse.model_validate(response.json()).error.code == "crops_not_configured"
+
+
+# --- Datos reales del repo (ML-08 + ML-09) -------------------------------------------
+
+
+def test_real_reports_show_the_frozen_candidate_and_its_test_evaluation(tmp_path):
+    """Con `reports/` del repo: r03-sgd congelado y su evaluación final de test."""
+    candidate = json.loads(
+        (ROOT / "reports" / "candidates" / "ml08_candidate.json").read_text(encoding="utf-8")
+    )
+    client = client_for(tmp_path, ROOT / "reports")
+
+    result = overview(client)
+
+    assert result.state == "evaluated" and result.problem is None
+    assert result.candidate.run_id == candidate["run_id"]
+    evaluation = result.evaluation
+    matrix = evaluation.confusion_matrix
+    total = sum(map(sum, matrix))
+    assert total == len(evaluation.predictions)
+    assert sum(matrix[i][i] for i in range(len(matrix))) / total == (
+        evaluation.metrics.accuracy_top1
+    )
+    csv = client.get("/evaluation/predictions.csv")
+    assert csv.status_code == 200
+    assert csv.text.count("\n") == total + 1  # cabecera + un crop por línea
