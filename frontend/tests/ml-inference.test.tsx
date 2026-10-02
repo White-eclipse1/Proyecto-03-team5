@@ -97,7 +97,7 @@ describe("APP-07 Inference: imagen subida", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clasificar" }));
 
     const result = await screen.findByRole("region", { name: /resultado/i });
-    expect(within(result).getByText("cat")).toBeInTheDocument();
+    expect(within(result).getByText("Clase predicha").nextElementSibling).toHaveTextContent("cat");
     expect(within(result).getByText("96.9%")).toBeInTheDocument();
     expect(within(result).getByText("3.1%")).toBeInTheDocument();
     expect(within(result).getByText("mi-gato.jpg")).toBeInTheDocument();
