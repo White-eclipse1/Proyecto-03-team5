@@ -25,6 +25,10 @@ export function bySemverDesc(a: RegisteredModelVersion, b: RegisteredModelVersio
 
 const metric = (value: number) => value.toFixed(4);
 
+/** En la tabla, `sha256:<64 hex>` se acorta; el detalle muestra el hash completo. */
+const shortHash = (hash: string) =>
+  hash.startsWith("sha256:") ? `${hash.slice(0, "sha256:".length + 12)}…` : hash;
+
 function Field({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div>
@@ -74,7 +78,9 @@ function VersionsTable({
           <Cell mono>{model.model_version}</Cell>
           <Cell mono>{model.dataset_version}</Cell>
           <Cell mono>{model.run_id}</Cell>
-          <Cell mono>{model.manifest_hash}</Cell>
+          <Cell mono>
+            <span title={model.manifest_hash}>{shortHash(model.manifest_hash)}</span>
+          </Cell>
           <Cell>
             <Badge tone={model.servable ? "ok" : "muted"}>
               {model.servable ? "Paquete disponible" : "Paquete no descargado"}
