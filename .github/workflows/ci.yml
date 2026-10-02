@@ -404,8 +404,10 @@ jobs:
           OPS09_E2E: "1"
           OPS09_S3_ENDPOINT: http://127.0.0.1:9000
           OPS09_TRACE_OUTPUT: ${{ github.workspace }}/reports/evidence/ops09-traceability.json
-          AWS_ACCESS_KEY_ID: ci-worker
-          AWS_SECRET_ACCESS_KEY: ci-worker-${{ github.run_id }}
+          AWS_ACCESS_KEY_ID: ${{ env.MINIO_ROOT_USER }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.MINIO_ROOT_PASSWORD }}
+          AWS_SESSION_TOKEN: ""
+          AWS_SECURITY_TOKEN: ""
           AWS_DEFAULT_REGION: us-east-1
         run: uv run --locked --no-build pytest -v tests/test_p3_e2e_traceability.py
 
