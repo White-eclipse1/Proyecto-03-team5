@@ -522,3 +522,126 @@ def test_a_candidate_changed_after_the_test_is_detected(mutate, message):
     problems = frozen_problems(candidate, evaluation, tags)
 
     assert len(problems) == 1 and message in problems[0], problems
+
+
+# --- Auditoría completa (run_audit) ------------------------------------------------------
+
+
+@pytest.fixture
+def audit_inputs(tmp_path, monkeypatch, known_csv, known):
+    client, run_id = _mlflow_run(tmp_path, monkeypatch, known)
+    evaluation_id = "test-r00-20261002T000000Z"
+    candidate = {
+        "run_id": run_id,
+        "checkpoint": f"runs:/{run_id}/checkpoints/best.pt",
+        "dataset_version": "v0.1.1",
+        "manifest_hash": "sha256:" + "1" * 64,
+        "frozen_at": "2026-10-02T00:00:00.000000Z",
+    }
+    client.set_tag(run_id, "candidate", "true")
+    client.set_tag(run_id, "candidate_frozen_at", candidate["frozen_at"])
+    test_dir = tmp_path / "evaluations" / "test"
+    test_dir.mkdir(parents=True)
+    predictions = test_dir / f"{evaluation_id}.predictions.csv"
+    predictions.write_bytes(known_csv.read_bytes())
+    header = {k: candidate[k] for k in ("run_id", "checkpoint", "dataset_version", "manifest_hash")}
+    (test_dir / f"{evaluation_id}.json").write_text(
+        json.dumps(
+            {**header, "evaluation_id": evaluation_id, "created_at": "2026-10-02T01:00:00Z"}
+        ),
+        encoding="utf-8",
+    )
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    records = [
+        {"crop_id": f"img{i}-ann{a}", "source_image_id": i, "class": t, "split": "test"}
+        for i, a, t, _, _ in KNOWN
+    ]
+    manifest.write_text(json.dumps({"records": records}), encoding="utf-8")
+    crops_dir = tmp_path / "crops"
+    crops = []
+    for i, a, t, _, _ in KNOWN:
+        (crops_dir / t).mkdir(parents=True, exist_ok=True)
+        (crops_dir / t / f"img{i}-ann{a}.png").write_bytes(f"png {i}".encode())
+        crops.append({"crop_id": f"img{i}-ann{a}", "crop_path": f"{t}/img{i}-ann{a}.png"})
+    crop_report = tmp_path / "crops.json"
+    crop_report.write_text(json.dumps({"crops": crops}), encoding="utf-8")
+    overview = _overview(known_csv)
+    overview["evaluation"]["run_id"] = run_id
+
+    served = {f"/crops/{c['crop_id']}": (crops_dir / c["crop_path"]).read_bytes() for c in crops}
+
+    def fake_get(url):
+        path = url.removeprefix("http://api")
+        if path == "/evaluation":
+            return 200, "application/json", json.dumps(overview).encode()
+        if path in served:
+            return 200, "image/png", served[path]
+        return 404, "application/json", b"{}"
+
+    monkeypatch.setattr(quality_audit, "_http_get", fake_get)
+    return {
+        "client": client,
+        "predictions_path": predictions,
+        "candidate_path": candidate_path,
+        "manifest_path": manifest,
+        "crop_report_path": crop_report,
+        "crops_dir": crops_dir,
+        "api_url": "http://api",
+        "portal_html": _portal_dom(known),
+        "served": served,
+    }
+
+
+def test_a_consistent_evaluation_is_verified_by_every_source(audit_inputs):
+    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+
+    report = quality_audit.run_audit(**inputs)
+
+    assert report["verified"] is True, report["problems"]
+    assert report["problems"] == []
+    assert {row["source"] for row in report["comparisons"]} == {"MLflow", "API", "Portal"}
+    assert all(row["equal"] for row in report["comparisons"])
+    assert report["metrics"]["accuracy_fraction"] == "4/6"
+    assert {c["crop_id"] for c in report["crops"]} == {
+        e["crop_id"] for e in report["examples"]["errors"] + report["examples"]["hits"]
+    }
+    assert all(c["served"] and c["same_file"] for c in report["crops"])
+
+
+def test_an_unreachable_api_or_portal_is_reported_as_not_verified(audit_inputs, monkeypatch):
+    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+
+    def down(url):
+        raise OSError("Connection refused")
+
+    monkeypatch.setattr(quality_audit, "_http_get", down)
+    report = quality_audit.run_audit(**{**inputs, "portal_html": None})
+
+    assert report["verified"] is False
+    assert any(p.startswith("API no verificada") for p in report["problems"])
+    assert any(p.startswith("Portal no verificado") for p in report["problems"])
+    assert {row["source"] for row in report["comparisons"]} == {"MLflow"}
+
+
+def test_a_crop_served_with_other_content_is_detected(audit_inputs):
+    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    audit_inputs["served"]["/crops/img3-ann3"] = b"otra imagen"
+
+    report = quality_audit.run_audit(**inputs)
+
+    assert report["verified"] is False
+    assert "img3-ann3: la API sirve otro recorte" in report["problems"]
+
+
+def test_a_discrepancy_in_any_source_fails_the_audit(audit_inputs):
+    inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
+    inputs["client"].log_metric(
+        json.loads(inputs["candidate_path"].read_text())["run_id"], "test_f1_macro", 0.1
+    )
+
+    report = quality_audit.run_audit(**inputs)
+
+    assert report["verified"] is False
+    assert "MLflow: f1_macro distinto" in report["problems"]
