@@ -205,6 +205,20 @@ class TrainingJobQueue:
             )
             return self._job(row)
 
+    def claimed_by(self, worker_id: str) -> list[str]:
+        """IDs no terminales que quedaron reclamados por `worker_id`."""
+        query = (
+            select(jobs_table.c.job_id)
+            .where(
+                jobs_table.c.claimed.is_(True),
+                jobs_table.c.claimed_by == worker_id,
+                jobs_table.c.status.in_(("queued", "running")),
+            )
+            .order_by(jobs_table.c.claimed_at, jobs_table.c.job_id)
+        )
+        with self._engine.connect() as connection:
+            return list(connection.execute(query).scalars())
+
     def start(self, job_id: str, *, experiment_id: str, run_id: str) -> TrainingJob:
         def change(job: TrainingJob, row: RowMapping) -> dict:
             self._require(job, "queued", "start")
