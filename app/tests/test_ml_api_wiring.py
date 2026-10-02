@@ -72,3 +72,10 @@ def test_ml_api_serves_crops_read_only_for_the_evaluation_examples():
     service = _compose()["services"]["ml-api"]
     assert "./data/crops:/app/data/crops:ro" in service["volumes"]
     assert service["environment"]["CROPS_DIR"] == "/app/data/crops"
+
+
+def test_app_image_ships_the_model_code_for_inference():
+    """APP-07: ml-api carga checkpoints (classification/) con las clases de ML-01 (crops/)."""
+    dockerfile = (ROOT / "app" / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY classification/ ./classification/" in dockerfile
+    assert "COPY crops/ ./crops/" in dockerfile
