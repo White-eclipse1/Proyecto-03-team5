@@ -104,7 +104,7 @@
         "max_epochs": 50,
         "metrics": {
           "train_loss": 0.655,
-          "val_loss": 0.671,
+          "val_loss": null,
           "val_accuracy": 0.604
         },
         "updated_at": "2026-01-14T18:06:58Z"

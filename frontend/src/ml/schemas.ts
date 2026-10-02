@@ -188,7 +188,8 @@ export const trainingProgressSchema = z
   .strictObject({
     epoch: countSchema,
     max_epochs: z.number().int().min(1),
-    metrics: z.record(labelSchema, z.number()),
+    /** null = esa época registró un valor no finito (NaN o ±inf). */
+    metrics: z.record(labelSchema, z.number().nullable()),
     updated_at: timestampSchema,
   })
   .refine((progress) => progress.epoch <= progress.max_epochs, {

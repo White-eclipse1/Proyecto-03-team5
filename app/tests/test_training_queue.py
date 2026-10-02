@@ -7,7 +7,9 @@ motor real (así lo hace el job de CI de APP-03).
 """
 
 import json
+import math
 import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -179,6 +181,29 @@ def test_terminal_jobs_cannot_change(queue):
         queue.fail(job.job_id, error)
     with pytest.raises(InvalidTransitionError):
         queue.report_progress(job.job_id, epoch=3, metrics={})
+
+
+@pytest.mark.parametrize(
+    "value",
+    [math.nan, math.inf, -math.inf, sys.float_info.max],
+    ids=["nan", "inf", "-inf", "sql-clamped-inf"],
+)
+def test_non_finite_progress_metrics_are_stored_as_null_and_the_job_keeps_running(queue, value):
+    """Un val_loss=NaN en una época no debe hacer fallar el job por la validación de la cola.
+
+    El loop de ML-04 llama a report_progress dentro de su try: si la cola lanzara, el run
+    terminaría FAILED por nuestra validación y no por el entrenamiento.
+    """
+    job = started(queue)
+
+    progress = queue.report_progress(
+        job.job_id, epoch=2, metrics={"train_loss": 0.41, "val_loss": value}
+    ).progress
+
+    assert progress.metrics == {"train_loss": 0.41, "val_loss": None}
+    stored = queue.get(job.job_id)
+    assert stored.status == "running"
+    assert stored.progress.metrics["val_loss"] is None
 
 
 def test_progress_beyond_max_epochs_is_rejected(queue):
