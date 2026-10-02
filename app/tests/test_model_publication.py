@@ -355,8 +355,18 @@ def test_publish_and_recover_against_a_real_s3_endpoint(package):
     bucket = f"ops07-it-{uuid.uuid4().hex[:8]}"
     s3.create_bucket(Bucket=bucket)
     s3.put_bucket_versioning(Bucket=bucket, VersioningConfiguration={"Status": "Enabled"})
-    root = package["repo_root"]
+    try:
+        _publish_and_verify_against(s3, bucket, package)
+    finally:
+        # Solo el bucket temporal que creó esta prueba en el S3 de integración.
+        versions = s3.list_object_versions(Bucket=bucket).get("Versions", [])
+        for version in versions:
+            s3.delete_object(Bucket=bucket, Key=version["Key"], VersionId=version["VersionId"])
+        s3.delete_bucket(Bucket=bucket)
 
+
+def _publish_and_verify_against(s3, bucket, package):
+    root = package["repo_root"]
     record = publish_to_s3(
         "1.0.0",
         s3=s3,
