@@ -25,6 +25,7 @@ rule (`training_blocked_reason`), and the per-release files
 """
 
 from collections import Counter
+from datetime import datetime
 from itertools import pairwise
 from math import isclose
 from typing import Annotated, Literal, Self
@@ -416,6 +417,80 @@ class Evaluation(ContractModel):
         return self
 
 
+Sha256Hex = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+EvaluationState = Literal["candidate_not_frozen", "candidate_frozen", "evaluated"]
+
+
+def _instant(timestamp: str) -> datetime:
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+
+class FrozenCandidate(ContractModel):
+    """APP-05: candidate ML-08 chose with validation only and froze before any test."""
+
+    run_id: RunId
+    run_name: Label
+    checkpoint: Checkpoint
+    checkpoint_sha256: Sha256Hex
+    dataset_version: Identifier
+    manifest_hash: ManifestHash
+    selection_metric: Label
+    selection_value: float
+    frozen_at: Timestamp
+
+    @model_validator(mode="after")
+    def selected_with_validation(self) -> Self:
+        require_checkpoint_of_run(self.checkpoint, self.run_id)
+        if self.selection_metric.startswith("test"):
+            raise ValueError("the candidate is selected with a validation metric, never test")
+        return self
+
+
+class EvaluationOverview(ContractModel):
+    """APP-05: `GET /api/ml/evaluation`.
+
+    Test results only exist in `evaluated`, and only for the frozen candidate: same
+    run, checkpoint, release and manifest, evaluated after the freeze. Before that
+    the screen gets no test numbers at all. `problem` says why test results are
+    withheld when something does not match.
+    """
+
+    schema_version: Literal["1.0"]
+    state: EvaluationState
+    candidate: FrozenCandidate | None
+    evaluation: Evaluation | None
+    problem: Label | None
+
+    @model_validator(mode="after")
+    def test_only_after_freeze(self) -> Self:
+        if self.state == "candidate_not_frozen":
+            if self.candidate is not None or self.evaluation is not None:
+                raise ValueError("without a frozen candidate there is nothing to show")
+            return self
+        if self.candidate is None:
+            raise ValueError(f"{self.state} requires the frozen candidate")
+        if self.state == "candidate_frozen":
+            if self.evaluation is not None:
+                raise ValueError("test results are shown only in the evaluated state")
+            return self
+        evaluation, candidate = self.evaluation, self.candidate
+        if evaluation is None or self.problem is not None:
+            raise ValueError("evaluated requires the evaluation and no problem")
+        if evaluation.split != "test":
+            raise ValueError("the final evaluation is on test, never validation")
+        same = (
+            evaluation.run_id == candidate.run_id
+            and evaluation.checkpoint == candidate.checkpoint
+            and evaluation.dataset_version == candidate.dataset_version
+            and evaluation.manifest_hash == candidate.manifest_hash
+        )
+        if not same:
+            raise ValueError("the evaluation must be of the frozen candidate")
+        if _instant(evaluation.created_at) < _instant(candidate.frozen_at):
+            raise ValueError("the test is evaluated after the candidate is frozen")
+        return self
+
+
 class EvaluationsResponse(ContractModel):
     schema_version: Literal["1.0"]
     evaluations: list[Evaluation]
@@ -685,6 +760,7 @@ CONTRACTS: dict[str, type[ContractModel]] = {
     "runs": RunsResponse,
     "run_curves": RunCurvesResponse,
     "evaluations": EvaluationsResponse,
+    "evaluation_overview": EvaluationOverview,
     "models": ModelsResponse,
     "inference_request": InferenceRequest,
     "inference": InferenceResponse,

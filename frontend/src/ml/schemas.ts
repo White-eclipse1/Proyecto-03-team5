@@ -453,6 +453,80 @@ export const evaluationsResponseSchema = z
   );
 export type EvaluationsResponse = z.infer<typeof evaluationsResponseSchema>;
 
+/** APP-05: candidato que ML-08 eligió solo con validation y congeló antes del test. */
+export const frozenCandidateSchema = z
+  .strictObject({
+    run_id: runIdSchema,
+    run_name: labelSchema,
+    checkpoint: checkpointSchema,
+    checkpoint_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    dataset_version: identifierSchema,
+    manifest_hash: manifestHashSchema,
+    selection_metric: labelSchema,
+    selection_value: z.number(),
+    frozen_at: timestampSchema,
+  })
+  .superRefine((candidate, context) => {
+    if (checkpointRunId(candidate.checkpoint) !== candidate.run_id) {
+      context.addIssue({
+        code: "custom",
+        message: "El checkpoint debe pertenecer al mismo run_id",
+      });
+    }
+    if (candidate.selection_metric.startsWith("test")) {
+      context.addIssue({
+        code: "custom",
+        message: "El candidato se elige con una métrica de validation, nunca de test",
+      });
+    }
+  });
+export type FrozenCandidate = z.infer<typeof frozenCandidateSchema>;
+
+/**
+ * APP-05: `GET /api/ml/evaluation`. Solo `evaluated` trae resultados de test, y solo
+ * del candidato congelado (mismo run, checkpoint, release y manifest, evaluado
+ * después del congelamiento). Igual que EvaluationOverview en Python.
+ */
+export const evaluationOverviewSchema = z
+  .strictObject({
+    schema_version: schemaVersionSchema,
+    state: z.enum(["candidate_not_frozen", "candidate_frozen", "evaluated"]),
+    candidate: frozenCandidateSchema.nullable(),
+    evaluation: evaluationSchema.nullable(),
+    problem: labelSchema.nullable(),
+  })
+  .superRefine((overview, context) => {
+    const issue = (message: string) => context.addIssue({ code: "custom", message });
+    const { state, candidate, evaluation } = overview;
+    if (state === "candidate_not_frozen") {
+      if (candidate !== null || evaluation !== null) {
+        issue("Sin candidato congelado no hay nada que mostrar");
+      }
+      return;
+    }
+    if (candidate === null) return issue(`${state} requiere el candidato congelado`);
+    if (state === "candidate_frozen") {
+      if (evaluation !== null) issue("Los resultados de test solo se muestran en evaluated");
+      return;
+    }
+    if (evaluation === null || overview.problem !== null) {
+      return issue("evaluated requiere la evaluación y ningún problema");
+    }
+    if (evaluation.split !== "test") issue("La evaluación final es de test, nunca de validation");
+    if (
+      evaluation.run_id !== candidate.run_id ||
+      evaluation.checkpoint !== candidate.checkpoint ||
+      evaluation.dataset_version !== candidate.dataset_version ||
+      evaluation.manifest_hash !== candidate.manifest_hash
+    ) {
+      issue("La evaluación debe ser del candidato congelado");
+    }
+    if (Date.parse(evaluation.created_at) < Date.parse(candidate.frozen_at)) {
+      issue("El test se evalúa después de congelar el candidato");
+    }
+  });
+export type EvaluationOverview = z.infer<typeof evaluationOverviewSchema>;
+
 export const registeredModelVersionSchema = z
   .strictObject({
     model_name: identifierSchema,
@@ -697,6 +771,7 @@ export const ML_CONTRACTS = {
   runs: runsResponseSchema,
   run_curves: runCurvesResponseSchema,
   evaluations: evaluationsResponseSchema,
+  evaluation_overview: evaluationOverviewSchema,
   models: modelsResponseSchema,
   inference_request: inferenceRequestSchema,
   inference: inferenceResponseSchema,
