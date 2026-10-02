@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "models": [
+    {
+      "schema_version": "1.0",
+      "model_version": "1.0.0",
+      "model_name": "dog-cat-resnet18",
+      "run_id": "bb448230424146349a969253d30db43b",
+      "checkpoint": "runs:/bb448230424146349a969253d30db43b/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "v0.1.1",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "architecture": {
+        "name": "resnet18",
+        "image_size": 128,
+        "hidden_layers": [
+          128
+        ],
+        "dropout": 0.2,
+        "pretrained": true,
+        "trainable": "layer4"
+      },
+      "class_map": {
+        "dog": 0,
+        "cat": 1
+      },
+      "preprocessing": {
+        "resize": "square",
+        "image_size": 128,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "dependencies": {
+        "python": "3.12.6",
+        "torch": "2.14.0",
+        "torchvision": "0.29.0",
+        "pillow": "10.4.0",
+        "numpy": "2.5.3",
+        "pydantic": "2.13.5",
+        "lockfile": "app/uv.lock",
+        "uv.lock sha256": "7e19f0694f1e7cd268a358e1b9afc034220bbab28ce3731c5a88908b10c746cf"
+      },
+      "metrics": {
+        "accuracy_top1": 0.9577464788732394,
+        "f1_macro": 0.9548441806232775
+      },
+      "weights_origin": {
+        "weights": "ResNet18_Weights.IMAGENET1K_V1",
+        "url": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
+        "dataset": "ImageNet-1K",
+        "library": "torchvision"
+      },
+      "model_card": {
+        "purpose": "Clasificar recortes de cajas COCO (un objeto por recorte) en dog o cat dentro del portal de anotación del Proyecto 3.",
+        "dataset_release": "v0.1.1",
+        "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+        "mlflow_run_id": "bb448230424146349a969253d30db43b",
+        "test_metrics": {
+          "accuracy_top1": 0.9577464788732394,
+          "f1_macro": 0.9548441806232775,
+          "correct": 68.0,
+          "total": 71.0,
+          "precision_dog": 0.9347826086956522,
+          "recall_dog": 1.0,
+          "f1_dog": 0.9662921348314606,
+          "support_dog": 43.0,
+          "precision_cat": 1.0,
+          "recall_cat": 0.8928571428571429,
+          "f1_cat": 0.9433962264150945,
+          "support_cat": 28.0
+        },
+        "limitations": [
+          "Solo distingue dog y cat: cualquier otro objeto se asigna a una de las dos clases.",
+          "Clasifica el recorte de una caja; no imágenes completas con varios objetos.",
+          "Evaluado en el test congelado del release v0.1.1 (71 recortes); con pocas muestras por clase las métricas tienen incertidumbre alta.",
+          "Clase más débil en test: cat, recall 0.8929 (25/28). Errores de test: cat→dog: 3."
+        ],
+        "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1"
+      },
+      "package_path": "data/models/dog-cat-resnet18/1.0.0",
+      "files": {
+        "checkpoint/best.pt": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+        "model-card.md": "b3dd3e51a9e0adb70c1d94b48cbba8a08eff8fe105bfaebb5a352f5f5e7a8703",
+        "dependencies.json": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504"
+      }
+    }
+  ]
+}
