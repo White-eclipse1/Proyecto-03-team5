@@ -24,12 +24,19 @@ No escribe en MLflow ni toca la evaluación de ML-09: solo escribe el reporte.
     uv run python -m classification.quality_audit
 """
 
+import argparse
 import csv
+import hashlib
 import json
+import os
 import re
+import subprocess
+import sys
 import tempfile
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from html.parser import HTMLParser
@@ -47,6 +54,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = REPO_ROOT / "reports"
 AUDIT_PATH = REPORTS_DIR / "quality" / "ml10_quality_audit.json"
 CANDIDATE_PATH = REPORTS_DIR / "candidates" / "ml08_candidate.json"
+EXAMPLES_IMAGE = REPO_ROOT / "app" / "tests" / "evidence" / "ml-10-examples.jpg"
 TEST_EVALUATIONS_DIR = REPORTS_DIR / "evaluations" / "test"
 DEFAULT_API_URL = "http://localhost:8080/api/ml"
 DEFAULT_PORTAL_URL = "http://localhost:8080/ml/evaluation"
@@ -204,7 +212,7 @@ def recompute(predictions: list[Prediction], class_names=CLASS_NAMES) -> dict:
         "accuracy": accuracy,
         "accuracy_fraction": f"{correct}/{total}",
         "meets_target": target_met,
-        "target": f"{TARGET_ACCURACY.numerator}/{TARGET_ACCURACY.denominator}",
+        "target": str(float(TARGET_ACCURACY)),
         "f1_macro": sum(entry["f1"] for entry in per_class) / len(names),
         "per_class": per_class,
         "baseline": {
@@ -221,6 +229,7 @@ def recompute(predictions: list[Prediction], class_names=CLASS_NAMES) -> dict:
         "low_recall_classes": low_recall,
         "accuracy_hides_low_recall": target_met and bool(low_recall),
         "error_crop_ids": [p.crop_id for p in predictions if not p.correct],
+        "error_confidences": {p.crop_id: p.confidence for p in predictions if not p.correct},
     }
 
 
@@ -534,12 +543,19 @@ def portal_figures(html: str, class_names=CLASS_NAMES) -> dict[str, str]:
     if "Descargar predicciones (CSV)" in tokens:
         shown = tokens[tokens.index("Descargar predicciones (CSV)") + 1 :]
         figures["error_examples"] = ", ".join(t for t in shown if re.fullmatch(r"img\d+-ann\d+", t))
+        figures["error_confidences"] = ", ".join(
+            match.group(1) for match in _matching(shown, r"p = (\d\.\d{3})")
+        )
     return figures
 
 
+def _fixed(value: float, digits: int) -> str:
+    """`Number.prototype.toFixed(digits)`: valor binario exacto, empate hacia arriba."""
+    return str(Decimal(value).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP))
+
+
 def _fixed4(value: float) -> str:
-    """`Number.prototype.toFixed(4)`: valor binario exacto, empate hacia arriba."""
-    return str(Decimal(value).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+    return _fixed(value, 4)
 
 
 def expected_portal_figures(metrics: dict) -> dict[str, str]:
@@ -580,6 +596,291 @@ def expected_portal_figures(metrics: dict) -> dict[str, str]:
             "errors_shown": str(len(errors)),
             "hits_shown": str(metrics["correct"]),
             "error_examples": ", ".join(errors[:PORTAL_PAGE_SIZE]),
+            # `toFixed(3)` de la probabilidad de la clase predicha, en el orden de la página.
+            "error_confidences": ", ".join(
+                _fixed(metrics["error_confidences"][crop_id], 3)
+                for crop_id in errors[:PORTAL_PAGE_SIZE]
+            ),
         }
     )
     return figures
+
+
+CAPTION_HEIGHT = 54
+
+
+def write_examples_sheet(
+    examples: dict, crop_report_path: Path, crops_dir: Path, out: Path, tile: int = 224
+) -> Path:
+    """Lámina JPG con los recortes reales elegidos: tipo, crop_id, real → predicha y p."""
+    from PIL import Image, ImageDraw
+
+    paths = {
+        crop["crop_id"]: crops_dir / crop["crop_path"]
+        for crop in json.loads(crop_report_path.read_text(encoding="utf-8"))["crops"]
+    }
+    items = examples["errors"] + examples["hits"]
+    columns = min(4, len(items))
+    rows = -(-len(items) // columns)
+    sheet = Image.new("RGB", (columns * tile, rows * (tile + CAPTION_HEIGHT)), "white")
+    draw = ImageDraw.Draw(sheet)
+    for index, example in enumerate(items):
+        left = (index % columns) * tile
+        top = (index // columns) * (tile + CAPTION_HEIGHT)
+        with Image.open(paths[example["crop_id"]]) as crop:
+            crop = crop.convert("RGB")
+            crop.thumbnail((tile - 8, tile - 8))
+            sheet.paste(crop, (left + (tile - crop.width) // 2, top + (tile - crop.height) // 2))
+        color = (163, 32, 32) if example["kind"] == "error" else (30, 122, 60)
+        draw.rectangle([left + 1, top + 1, left + tile - 2, top + tile - 2], outline=color, width=3)
+        caption = [
+            f"{'ERROR' if example['kind'] == 'error' else 'ACIERTO'}  {example['crop_id']}",
+            f"real {example['true_class']} -> pred {example['predicted_class']}",
+            f"p = {example['confidence']:.3f}",
+        ]
+        for line, text in enumerate(caption):
+            draw.text((left + 6, top + tile + 4 + 16 * line), text, fill=(20, 20, 20))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out, "JPEG", quality=85)
+    return out
+
+
+# --- Auditoría completa -----------------------------------------------------------------
+
+
+def _http_get(url: str) -> tuple[int, str, bytes]:
+    """(status, content-type, cuerpo) de un GET; solo lectura."""
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return response.status, response.headers.get_content_type(), response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.headers.get_content_type(), error.read()
+
+
+def _sha256(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def render_portal(url: str, chrome: str) -> str:
+    """El DOM de la pantalla ya renderizada (con los datos de la API) en Chrome headless."""
+    result = subprocess.run(
+        [
+            chrome,
+            "--headless=new",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--virtual-time-budget=15000",
+            "--dump-dom",
+            url,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=True,
+    )
+    return result.stdout
+
+
+def candidate_run_tags(client: MlflowClient, run_id: str) -> dict[str, dict]:
+    """Tags del run congelado y de cualquier run marcado `candidate=true` en MLflow."""
+    experiments = [experiment.experiment_id for experiment in client.search_experiments()]
+    marked = client.search_runs(experiments, filter_string="tags.candidate = 'true'")
+    tags = {run.info.run_id: dict(run.data.tags) for run in marked}
+    tags[run_id] = dict(client.get_run(run_id).data.tags)
+    return tags
+
+
+def _crops(api_url: str, examples: dict, crop_report_path: Path, crops_dir: Path) -> list[dict]:
+    """Cada ejemplo: la API sirve su recorte y es el mismo archivo que el local."""
+    paths = {
+        crop["crop_id"]: crops_dir / crop["crop_path"]
+        for crop in json.loads(crop_report_path.read_text(encoding="utf-8"))["crops"]
+    }
+    checked = []
+    for example in examples["errors"] + examples["hits"]:
+        crop_id = example["crop_id"]
+        status, content_type, body = _http_get(f"{api_url}/crops/{crop_id}")
+        local = paths.get(crop_id)
+        local_sha = _sha256(local.read_bytes()) if local and local.is_file() else None
+        checked.append(
+            {
+                "crop_id": crop_id,
+                "served": status == 200 and content_type == "image/png",
+                "same_file": local_sha is not None and _sha256(body) == local_sha,
+                "sha256": local_sha,
+            }
+        )
+    return checked
+
+
+def run_audit(
+    *,
+    client: MlflowClient,
+    predictions_path: Path,
+    candidate_path: Path,
+    manifest_path: Path,
+    crop_report_path: Path,
+    crops_dir: Path,
+    api_url: str,
+    portal_html: str | None,
+) -> dict:
+    """Recalcula desde el CSV y lo contrasta con todas las fuentes. No escribe nada."""
+    predictions = read_predictions(predictions_path)
+    metrics = recompute(predictions)
+    evaluation_path = predictions_path.with_name(
+        predictions_path.name.removesuffix(".predictions.csv") + ".json"
+    )
+    # Del JSON solo se usa la cabecera (run, checkpoint, fechas): las métricas salen del CSV.
+    evaluation = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    records = json.loads(manifest_path.read_text(encoding="utf-8"))["records"]
+    problems = frozen_split_problems(predictions, records)
+    problems += frozen_problems(
+        candidate, evaluation, candidate_run_tags(client, candidate["run_id"])
+    )
+
+    flat = flat_metrics(metrics)
+    comparisons = compare_figures(
+        "MLflow",
+        {**flat, "meets_target": str(metrics["meets_target"])},
+        mlflow_figures(client, candidate["run_id"]),
+    )
+    try:
+        status, _, body = _http_get(f"{api_url}/evaluation")
+        if status != 200:
+            raise OSError(f"HTTP {status}")
+        overview = json.loads(body)
+    except (OSError, ValueError) as error:
+        problems.append(f"API no verificada: {error}")
+    else:
+        comparisons += compare_figures("API", flat, api_figures(overview))
+        problems += [f"API: {d}" for d in api_prediction_differences(predictions, overview)]
+    if portal_html is None:
+        problems.append("Portal no verificado: no se pudo renderizar la pantalla Evaluation")
+    else:
+        comparisons += compare_figures(
+            "Portal", expected_portal_figures(metrics), portal_figures(portal_html)
+        )
+    problems += [
+        f"{row['source']}: {row['metric']} distinto" for row in comparisons if not row["equal"]
+    ]
+
+    examples = choose_examples(predictions)
+    try:
+        crops = _crops(api_url, examples, crop_report_path, crops_dir)
+    except OSError as error:
+        crops = []
+        problems.append(f"Recortes no verificados: {error}")
+    for crop in crops:
+        if not crop["served"]:
+            problems.append(f"{crop['crop_id']}: la API no sirve el recorte")
+        elif not crop["same_file"]:
+            problems.append(f"{crop['crop_id']}: la API sirve otro recorte")
+
+    return {
+        "verified": not problems,
+        "problems": problems,
+        "predictions_file": predictions_path.name,
+        "predictions_sha256": _sha256(predictions_path.read_bytes()),
+        "evaluation_id": evaluation["evaluation_id"],
+        "run_id": candidate["run_id"],
+        "candidate_frozen_at": candidate["frozen_at"],
+        "evaluation_created_at": evaluation["created_at"],
+        "metrics": metrics,
+        "examples": examples,
+        "crops": crops,
+        "comparisons": comparisons,
+    }
+
+
+def _single_predictions_file(directory: Path) -> Path:
+    found = sorted(directory.glob("*.predictions.csv"))
+    if len(found) != 1:
+        raise SystemExit(f"Se esperaba un archivo de predicciones en {directory}: {len(found)}")
+    return found[0]
+
+
+def main(argv: list[str] | None = None) -> int:
+    from tracking.client import tracking_client
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--predictions", type=Path)
+    parser.add_argument("--candidate", type=Path, default=CANDIDATE_PATH)
+    parser.add_argument("--api-url", default=DEFAULT_API_URL)
+    parser.add_argument("--portal-url", default=DEFAULT_PORTAL_URL)
+    parser.add_argument("--chrome", default=os.environ.get("CHROME_BIN", DEFAULT_CHROME))
+    parser.add_argument("--out", type=Path, default=AUDIT_PATH)
+    parser.add_argument("--examples-image", type=Path, default=EXAMPLES_IMAGE)
+    args = parser.parse_args(argv)
+
+    predictions_path = args.predictions or _single_predictions_file(TEST_EVALUATIONS_DIR)
+    candidate = json.loads(args.candidate.read_text(encoding="utf-8"))
+    try:
+        portal_html = render_portal(args.portal_url, args.chrome)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"No se pudo renderizar {args.portal_url}: {error}", file=sys.stderr)
+        portal_html = None
+    report = run_audit(
+        client=tracking_client(),
+        predictions_path=predictions_path,
+        candidate_path=args.candidate,
+        manifest_path=REPORTS_DIR / "releases" / candidate["dataset_version"] / "manifest.json",
+        crop_report_path=REPORTS_DIR / "crops.json",
+        crops_dir=REPO_ROOT / "data" / "crops",
+        api_url=args.api_url.rstrip("/"),
+        portal_html=portal_html,
+    )
+    report = {
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True
+        ).stdout.strip(),
+        "api_url": args.api_url,
+        "portal_url": args.portal_url,
+        **report,
+    }
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if portal_html is not None:
+        args.out.with_name("ml10_portal_evaluation.html").write_text(portal_html, encoding="utf-8")
+    write_examples_sheet(
+        report["examples"],
+        REPORTS_DIR / "crops.json",
+        REPO_ROOT / "data" / "crops",
+        args.examples_image,
+    )
+
+    metrics = report["metrics"]
+    print(f"accuracy = {metrics['accuracy_fraction']} = {metrics['accuracy']!r}")
+    print(f"meta {metrics['target']} con enteros: {metrics['meets_target']}")
+    print(f"f1_macro = {metrics['f1_macro']!r}")
+    for entry in metrics["per_class"]:
+        print(
+            f"  {entry['class_name']}: precision={entry['precision']!r} recall={entry['recall']!r} "
+            f"f1={entry['f1']!r} support={entry['support']}"
+        )
+    print(f"matriz {metrics['class_names']} = {metrics['confusion_matrix']}")
+    baseline = metrics["baseline"]
+    print(f"baseline {baseline['classes']} = {baseline['correct']}/{baseline['total']}")
+    print(
+        f"más confundida: {metrics['most_confused_classes']}; "
+        f"pares {metrics['most_confused_pairs']}"
+    )
+    print(
+        f"recall < 0.85: {metrics['low_recall_classes']}; "
+        f"oculta: {metrics['accuracy_hides_low_recall']}"
+    )
+    for source in ("MLflow", "API", "Portal"):
+        rows = [row for row in report["comparisons"] if row["source"] == source]
+        equal = sum(row["equal"] for row in rows)
+        print(f"{source}: {equal}/{len(rows)} cifras iguales")
+    good = sum(crop["served"] and crop["same_file"] for crop in report["crops"])
+    print(f"recortes servidos e idénticos: {good}/{len(report['crops'])}")
+    print("Auditoría ML-10: verificada" if report["verified"] else "\n".join(report["problems"]))
+    print(f"Reporte: {args.out}")
+    return 0 if report["verified"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

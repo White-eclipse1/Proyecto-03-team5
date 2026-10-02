@@ -659,7 +659,9 @@ def test_a_discrepancy_in_any_source_fails_the_audit(audit_inputs):
 
 def test_the_audit_writes_nothing_and_leaves_the_candidate_unchanged(audit_inputs):
     inputs = {k: v for k, v in audit_inputs.items() if k != "served"}
-    files = [inputs["candidate_path"], *inputs["predictions_path"].parent.iterdir()]
+    test_dir = inputs["predictions_path"].parent
+    listing = sorted(test_dir.iterdir())
+    files = [inputs["candidate_path"], *listing]
     before = {path: path.read_bytes() for path in files}
     run_id = json.loads(inputs["candidate_path"].read_text())["run_id"]
     run_before = inputs["client"].get_run(run_id).data
@@ -667,6 +669,28 @@ def test_the_audit_writes_nothing_and_leaves_the_candidate_unchanged(audit_input
     quality_audit.run_audit(**inputs)
 
     assert {path: path.read_bytes() for path in files} == before
-    assert sorted(inputs["predictions_path"].parent.iterdir()) == sorted(before)
+    assert sorted(test_dir.iterdir()) == listing
     run_after = inputs["client"].get_run(run_id).data
     assert (run_after.metrics, run_after.tags) == (run_before.metrics, run_before.tags)
+
+
+def test_examples_sheet_shows_every_chosen_test_crop(tmp_path, known_csv):
+    from PIL import Image
+
+    examples = choose_examples(read_predictions(known_csv))
+    crops_dir = tmp_path / "crops"
+    crops = []
+    for example in examples["errors"] + examples["hits"]:
+        path = crops_dir / f"{example['crop_id']}.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (40, 30), "gray").save(path)
+        crops.append({"crop_id": example["crop_id"], "crop_path": path.name})
+    crop_report = tmp_path / "crops.json"
+    crop_report.write_text(json.dumps({"crops": crops}), encoding="utf-8")
+    out = tmp_path / "sheet.jpg"
+
+    quality_audit.write_examples_sheet(examples, crop_report, crops_dir, out, tile=100)
+
+    with Image.open(out) as sheet:
+        assert sheet.format == "JPEG"
+        assert sheet.size == (4 * 100, 2 * (100 + quality_audit.CAPTION_HEIGHT))
