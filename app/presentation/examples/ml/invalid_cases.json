@@ -720,7 +720,7 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
+          "model_name": "dog-cat-resnet18",
           "model_version": null,
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
@@ -877,8 +877,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -1034,8 +1034,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "train",
@@ -1191,8 +1191,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -1475,8 +1475,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -1634,8 +1634,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -1790,8 +1790,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -1947,8 +1947,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2104,8 +2104,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2261,8 +2261,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2418,8 +2418,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2575,8 +2575,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2732,8 +2732,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -2882,8 +2882,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3038,8 +3038,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3195,8 +3195,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3354,8 +3354,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3511,8 +3511,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3658,8 +3658,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3815,8 +3815,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -3972,8 +3972,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -4129,8 +4129,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -4286,8 +4286,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -4443,8 +4443,8 @@
           "evaluation_id": "eval-0002",
           "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
           "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "dataset_version": "demo-v1.0.0",
           "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
           "split": "test",
@@ -4591,12 +4591,12 @@
   {
     "name": "model_version_with_dataset_version_format",
     "contract": "models",
-    "reason": "model_version es la versión del registry (entero), no un dataset_version.",
+    "reason": "model_version es la versión semántica del modelo (MAJOR.MINOR.PATCH), no un dataset_version.",
     "document": {
       "schema_version": "1.0",
       "models": [
         {
-          "model_name": "pet-classifier",
+          "model_name": "dog-cat-resnet18",
           "model_version": "demo-v1.0.0",
           "status": "READY",
           "aliases": [
@@ -4619,8 +4619,8 @@
       "schema_version": "1.0",
       "models": [
         {
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "status": "READY",
           "aliases": [
             "champion"
@@ -4641,7 +4641,7 @@
       "schema_version": "1.0",
       "models": [
         {
-          "model_name": "pet-classifier",
+          "model_name": "dog-cat-resnet18",
           "status": "READY",
           "aliases": [
             "champion"
@@ -4663,8 +4663,8 @@
       "schema_version": "1.0",
       "models": [
         {
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "status": "READY",
           "aliases": [
             "champion"
@@ -4676,8 +4676,8 @@
           "created_at": "2026-01-14T14:00:00Z"
         },
         {
-          "model_name": "pet-classifier",
-          "model_version": "2",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "0.9.0",
           "status": "READY",
           "aliases": [
             "champion"
@@ -4699,8 +4699,8 @@
       "schema_version": "1.0",
       "models": [
         {
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "status": "READY",
           "aliases": [
             "champion"
@@ -4712,8 +4712,8 @@
           "created_at": "2026-01-14T14:00:00Z"
         },
         {
-          "model_name": "pet-classifier",
-          "model_version": "3",
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0.0",
           "status": "READY",
           "aliases": [],
           "run_id": "1234567890abcdef1234567890abcdef",
@@ -4732,8 +4732,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4768,8 +4768,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4792,8 +4792,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4816,8 +4816,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4840,8 +4840,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4863,8 +4863,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "predicted_class": "dog",
@@ -4882,7 +4882,7 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
+      "model_name": "dog-cat-resnet18",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "dataset_version": "demo-v1.0.0",
       "crop": {
@@ -4904,8 +4904,8 @@
     "reason": "Se infiere sobre un recorte seleccionado.",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
-      "model_version": "3"
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0"
     }
   },
   {
@@ -4914,8 +4914,8 @@
     "reason": "El recorte se identifica por su annotation_id COCO.",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "crop": {
         "dataset_version": "demo-v1.0.0",
         "image_id": 42
@@ -4928,8 +4928,8 @@
     "reason": "El recorte pertenece a un release concreto.",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "crop": {
         "image_id": 42,
         "annotation_id": 1007
@@ -4942,8 +4942,8 @@
     "reason": "Los IDs COCO no son negativos.",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "crop": {
         "dataset_version": "demo-v1.0.0",
         "image_id": 42,
@@ -4954,10 +4954,10 @@
   {
     "name": "inference_request_bad_model_version",
     "contract": "inference_request",
-    "reason": "model_version es la versión del registry (entero).",
+    "reason": "model_version es la versión semántica del modelo (MAJOR.MINOR.PATCH).",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
+      "model_name": "dog-cat-resnet18",
       "model_version": "demo-v1.0.0",
       "crop": {
         "dataset_version": "demo-v1.0.0",
@@ -4972,8 +4972,8 @@
     "reason": "El recorte viene de una anotación existente; no se envían bboxes nuevas.",
     "document": {
       "schema_version": "1.0",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "crop": {
         "dataset_version": "demo-v1.0.0",
         "image_id": 42,
@@ -7570,8 +7570,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -7738,8 +7738,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -7896,8 +7896,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -8212,8 +8212,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -8380,8 +8380,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -8548,8 +8548,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -8716,8 +8716,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -8885,8 +8885,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -9054,8 +9054,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -9207,8 +9207,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9243,8 +9243,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9268,8 +9268,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9297,8 +9297,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/ffffffffffffffffffffffffffffffff/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9327,8 +9327,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84D6",
@@ -9357,8 +9357,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9387,8 +9387,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0002",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9420,8 +9420,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0002",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9452,8 +9452,8 @@
     "document": {
       "schema_version": "1.0",
       "request_id": "req-0001",
-      "model_name": "pet-classifier",
-      "model_version": "3",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0.0",
       "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
       "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
       "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
@@ -9497,8 +9497,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -9666,8 +9666,8 @@
         "evaluation_id": "eval-0002",
         "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
         "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
-        "model_name": "pet-classifier",
-        "model_version": "3",
+        "model_name": "dog-cat-resnet18",
+        "model_version": "1.0.0",
         "dataset_version": "demo-v1.0.0",
         "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
         "split": "test",
@@ -9810,6 +9810,236 @@
         "created_at": "2026-01-14T14:10:00Z"
       },
       "problem": null
+    }
+  },
+  {
+    "name": "model_version_mlflow_integer",
+    "contract": "models",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '3'.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "3",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "0.9.0",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_request_version_mlflow_integer",
+    "contract": "inference_request",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '3'.",
+    "field": "model_version",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "3",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "model_version_two_parts",
+    "contract": "models",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '1.0'.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "1.0",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "0.9.0",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_request_version_two_parts",
+    "contract": "inference_request",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '1.0'.",
+    "field": "model_version",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "1.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "model_version_leading_zero",
+    "contract": "models",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '01.0.0'.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "01.0.0",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "0.9.0",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_request_version_leading_zero",
+    "contract": "inference_request",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no '01.0.0'.",
+    "field": "model_version",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "01.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "model_version_v_prefix",
+    "contract": "models",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no 'v1.0.0'.",
+    "document": {
+      "schema_version": "1.0",
+      "models": [
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "v1.0.0",
+          "status": "READY",
+          "aliases": [
+            "champion"
+          ],
+          "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+          "dataset_version": "demo-v1.0.0",
+          "manifest_hash": "md5:5d41402abc4b2a76b9719d911017c592",
+          "created_at": "2026-01-14T14:00:00Z"
+        },
+        {
+          "model_name": "dog-cat-resnet18",
+          "model_version": "0.9.0",
+          "status": "READY",
+          "aliases": [],
+          "run_id": "1234567890abcdef1234567890abcdef",
+          "checkpoint": "runs:/1234567890abcdef1234567890abcdef/checkpoints/best.pt",
+          "dataset_version": "demo-v0.9.0",
+          "manifest_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "created_at": "2026-01-10T08:20:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "inference_request_version_v_prefix",
+    "contract": "inference_request",
+    "reason": "model_version es SemVer MAJOR.MINOR.PATCH (rúbrica 5.1, OPS-06), no 'v1.0.0'.",
+    "field": "model_version",
+    "document": {
+      "schema_version": "1.0",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "v1.0.0",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      }
+    }
+  },
+  {
+    "name": "inference_version_mlflow_integer",
+    "contract": "inference",
+    "reason": "model_version es SemVer (rúbrica 5.1, OPS-06), no el entero de MLflow.",
+    "field": "model_version",
+    "document": {
+      "schema_version": "1.0",
+      "request_id": "req-0001",
+      "model_name": "dog-cat-resnet18",
+      "model_version": "3",
+      "run_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "checkpoint": "runs:/0a1b2c3d4e5f60718293a4b5c6d7e8f9/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "demo-v1.0.0",
+      "image_size": 224,
+      "source": "crop",
+      "crop": {
+        "dataset_version": "demo-v1.0.0",
+        "image_id": 42,
+        "annotation_id": 1007
+      },
+      "upload": null,
+      "predicted_class": "dog",
+      "probabilities": {
+        "dog": 0.912,
+        "cat": 0.088
+      },
+      "latency_ms": 12.5
     }
   }
 ]

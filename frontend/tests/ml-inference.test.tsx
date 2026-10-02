@@ -102,13 +102,13 @@ describe("APP-07 Inference: imagen subida", () => {
     expect(within(result).getByText("3.1%")).toBeInTheDocument();
     expect(within(result).getByText("mi-gato.jpg")).toBeInTheDocument();
     expect(within(result).getByText(SHA)).toBeInTheDocument();
-    expect(within(result).getByText("pet-classifier v3")).toBeInTheDocument();
+    expect(within(result).getByText("dog-cat-resnet18 v1.0.0")).toBeInTheDocument();
 
     const [sent] = sentTo(calls, UPLOAD_URL);
     const body = sent!.init!.body as FormData;
     expect(sent!.init!.method).toBe("POST");
-    expect(body.get("model_name")).toBe("pet-classifier");
-    expect(body.get("model_version")).toBe("3");
+    expect(body.get("model_name")).toBe("dog-cat-resnet18");
+    expect(body.get("model_version")).toBe("1.0.0");
     expect((body.get("file") as File).name).toBe("mi-gato.png");
   });
 
@@ -117,14 +117,14 @@ describe("APP-07 Inference: imagen subida", () => {
     openInference();
 
     fireEvent.change(await screen.findByLabelText(/model version/i), {
-      target: { value: "pet-classifier:2" },
+      target: { value: "dog-cat-resnet18:0.9.0" },
     });
     await chooseFile(png());
     fireEvent.click(screen.getByRole("button", { name: "Clasificar" }));
 
     const result = await screen.findByRole("region", { name: /resultado/i });
-    expect(within(result).getByText("pet-classifier v2")).toBeInTheDocument();
-    expect((sentTo(calls, UPLOAD_URL)[0]!.init!.body as FormData).get("model_version")).toBe("2");
+    expect(within(result).getByText("dog-cat-resnet18 v0.9.0")).toBeInTheDocument();
+    expect((sentTo(calls, UPLOAD_URL)[0]!.init!.body as FormData).get("model_version")).toBe("0.9.0");
   });
 
   it("rechaza en el navegador un archivo que no es PNG ni JPEG", async () => {
@@ -177,7 +177,7 @@ describe("APP-07 Inference: imagen subida", () => {
 
   it("no muestra una respuesta de otro modelo como si fuera la del elegido", async () => {
     serve(({ url }) =>
-      url === UPLOAD_URL ? json(uploadResponse({ model_version: "2" })) : json({}, 404)
+      url === UPLOAD_URL ? json(uploadResponse({ model_version: "0.9.0" })) : json({}, 404)
     );
     openInference();
 
@@ -206,8 +206,8 @@ describe("APP-07 Inference: recorte del portal", () => {
     const [sent] = sentTo(calls, CROP_URL);
     expect(JSON.parse(sent!.init!.body as string)).toEqual({
       schema_version: "1.0",
-      model_name: "pet-classifier",
-      model_version: "3",
+      model_name: "dog-cat-resnet18",
+      model_version: "1.0.0",
       crop: { dataset_version: "demo-v1.0.0", image_id: 42, annotation_id: 1007 },
     });
     expect(screen.getByRole("img", { name: "Recorte img42-ann1007" })).toHaveAttribute(

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "model_name": "pet-classifier",
-  "model_version": "3",
+  "model_name": "dog-cat-resnet18",
+  "model_version": "1.0.0",
   "crop": {
     "dataset_version": "demo-v1.0.0",
     "image_id": 42,
