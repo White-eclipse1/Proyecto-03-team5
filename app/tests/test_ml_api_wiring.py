@@ -79,3 +79,9 @@ def test_app_image_ships_the_model_code_for_inference():
     dockerfile = (ROOT / "app" / "Dockerfile").read_text(encoding="utf-8")
     assert "COPY classification/ ./classification/" in dockerfile
     assert "COPY crops/ ./crops/" in dockerfile
+
+
+def test_ci_runs_the_inference_integration_test_against_mlflow():
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    commands = " ".join(step.get("run", "") for step in ci["jobs"]["mlflow"]["steps"])
+    assert "tests/test_inference_mlflow_integration.py" in commands
