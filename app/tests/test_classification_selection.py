@@ -329,6 +329,57 @@ def test_freeze_tags_the_selected_run_in_mlflow(client, tmp_path):
     assert tags["candidate_frozen_at"] == candidate.frozen_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
+def _candidate_runs(client):
+    experiment = client.get_experiment_by_name("dogcat-classifier").experiment_id
+    return [
+        run.info.run_id
+        for run in client.search_runs([experiment], filter_string="tags.candidate = 'true'")
+    ]
+
+
+def test_replacing_the_candidate_unmarks_the_previous_run(client, tmp_path):
+    # Revisión del PR #44: al reemplazar, el run anterior conservaba candidate=true.
+    first = _trained_run(client, tmp_path, "r01", val_loss=0.10, val_accuracy=0.95)
+    path = tmp_path / "candidate.json"
+    freeze_candidate(_select(client), path, evaluations_dir=tmp_path / "ev", client=client)
+    second = _trained_run(client, tmp_path, "r02", val_loss=0.05, val_accuracy=0.96)
+
+    replaced = freeze_candidate(
+        _select(client), path, evaluations_dir=tmp_path / "ev", client=client, replace=True
+    )
+
+    assert _candidate_runs(client) == [second]
+    old = client.get_run(first).data.tags
+    assert old["candidate"] == "false"
+    assert "candidate_frozen_at" not in old
+    assert old["candidate_replaced_by"] == second
+    assert old["candidate_replaced_at"] == replaced.frozen_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    assert client.get_run(second).data.tags["candidate"] == "true"
+
+
+def test_refreezing_the_same_run_keeps_a_single_candidate(client, tmp_path):
+    run_id = _trained_run(client, tmp_path, "r01", val_loss=0.10, val_accuracy=0.95)
+    path = tmp_path / "candidate.json"
+    freeze_candidate(_select(client), path, evaluations_dir=tmp_path / "ev", client=client)
+
+    freeze_candidate(_select(client), path, evaluations_dir=tmp_path / "ev", client=client)
+
+    assert _candidate_runs(client) == [run_id]
+    assert "candidate_replaced_by" not in client.get_run(run_id).data.tags
+
+
+def test_a_refused_replacement_leaves_the_tags_untouched(client, tmp_path):
+    first = _trained_run(client, tmp_path, "r01", val_loss=0.10, val_accuracy=0.95)
+    path = tmp_path / "candidate.json"
+    freeze_candidate(_select(client), path, evaluations_dir=tmp_path / "ev", client=client)
+    _trained_run(client, tmp_path, "r02", val_loss=0.05, val_accuracy=0.96)
+
+    with pytest.raises(CandidateLockedError):
+        freeze_candidate(_select(client), path, evaluations_dir=tmp_path / "ev", client=client)
+
+    assert _candidate_runs(client) == [first]
+
+
 # --- Para ML-09: candidato obligatorio y orden temporal (Agent Test) ----------------------
 
 
