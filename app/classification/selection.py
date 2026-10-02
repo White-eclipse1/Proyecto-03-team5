@@ -10,7 +10,9 @@
    checkpoint y su sha256, manifest_hash, commits, timestamp y ranking) y marca el
    run en MLflow (`candidate=true`).
    - Congelar otra vez el mismo run no cambia nada.
-   - Cambiar de candidato exige `replace=True`.
+   - Cambiar de candidato exige `replace=True`; el run anterior queda
+     `candidate=false` con `candidate_replaced_by` y `candidate_replaced_at`, así
+     siempre hay un solo run con `candidate=true`.
    - Si ya existe **cualquier** evaluación de test en `reports/evaluations/`, ni
      se congela por primera vez ni se cambia.
 
@@ -214,6 +216,7 @@ def freeze_candidate(
     replace: bool = False,
 ) -> CandidateSelection:
     test_evaluations = _evaluations(evaluations_dir, "test")
+    previous: CandidateSelection | None = None
     if path.is_file():
         existing = load_frozen_candidate(path)
         if existing.run_id == candidate.run_id:
@@ -228,6 +231,7 @@ def freeze_candidate(
                 f"Ya hay un candidato congelado ({existing.entry}, {existing.run_id}); "
                 "usa replace=True para cambiarlo antes de evaluar test"
             )
+        previous = existing
     elif test_evaluations:
         raise CandidateLockedError(
             f"Ya existe una evaluación de test ({test_evaluations[0]['path']}): el candidato "
@@ -236,12 +240,15 @@ def freeze_candidate(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(candidate.model_dump_json(indent=2) + "\n", encoding="utf-8")
     if client is not None:
+        frozen_at = candidate.frozen_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         client.set_tag(candidate.run_id, "candidate", "true")
-        client.set_tag(
-            candidate.run_id,
-            "candidate_frozen_at",
-            candidate.frozen_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        )
+        client.set_tag(candidate.run_id, "candidate_frozen_at", frozen_at)
+        if previous is not None:
+            # Un solo run con candidate=true; el anterior conserva la traza del reemplazo.
+            client.set_tag(previous.run_id, "candidate", "false")
+            client.delete_tag(previous.run_id, "candidate_frozen_at")
+            client.set_tag(previous.run_id, "candidate_replaced_by", candidate.run_id)
+            client.set_tag(previous.run_id, "candidate_replaced_at", frozen_at)
     return candidate
 
 

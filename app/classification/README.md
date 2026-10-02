@@ -410,7 +410,9 @@ leer Experiments (APP-04), Evaluation (APP-05) y ML-09.
 Reglas del congelamiento:
 
 - Congelar otra vez el mismo run no cambia nada (conserva `frozen_at`).
-- Cambiar a otro candidato exige `replace=True`.
+- Cambiar a otro candidato exige `replace=True`. El run anterior queda
+  `candidate=false`, sin `candidate_frozen_at` y con `candidate_replaced_by` y
+  `candidate_replaced_at`: en MLflow siempre hay un solo run con `candidate=true`.
 - Si existe **cualquier** evaluación de test (`reports/evaluations/**/*.json` con
   `"split": "test"`), no se puede congelar por primera vez ni cambiar el candidato.
 
