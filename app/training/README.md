@@ -31,6 +31,9 @@ Training (navegador) ──POST /api/ml/training/jobs──▶ nginx ──▶ m
 | `GET /api/ml/evaluation` | `EvaluationOverview`: candidato congelado y su evaluación final de test (APP-05) | — (lo que no cuadra va en `problem`) |
 | `GET /api/ml/evaluation/predictions.csv` | CSV de predicciones por recorte de ML-09, como descarga | 404 `predictions_not_available` |
 | `GET /api/ml/crops/{crop_id}` | PNG del recorte `img<image_id>-ann<annotation_id>` | 400 `invalid_request`, 404 `crop_not_found`, 503 `crops_not_configured` |
+| `GET /api/ml/models` | `ModelsResponse`: versiones del registro de OPS-06 con su paquete y su publicación en S3 (APP-06) | 503 `registry_unavailable` |
+| `GET /api/ml/models/{version}` | `RegisteredModelVersion` de esa versión (APP-06) | 404 `model_not_found`, 503 como arriba |
+| `GET /api/ml/models/{version}/files/{name}` | Archivo del paquete, como descarga (APP-06) | 404 `file_not_found` (no es del paquete), 404 `file_not_available` (falta `dvc pull`), 409 `file_not_servable` (sha256 distinto) |
 | `POST /api/ml/inference` | `InferenceRequest` (recorte del portal) → `InferenceResponse` (APP-07) | 400 `invalid_json`, 422 `invalid_request`, 422 `crop_not_found`, 422 `crop_not_available`, errores del modelo (abajo) |
 | `POST /api/ml/inference/upload` | multipart `model_name`, `model_version`, `file` → `InferenceResponse` (APP-07) | 413 `image_too_large`, 415 `unsupported_image_type`, 422 `invalid_image`, 422 `invalid_request`, errores del modelo |
 
@@ -92,6 +95,26 @@ Los ejemplos muestran el recorte de ML-01: `ml-api` busca `crop_id` en
 `reports/crops.json` y sirve `CROPS_DIR/<crop_path>` (`./data/crops`, montado de
 solo lectura). El cliente nunca manda una ruta. Sin `dvc pull` de `data/crops` la
 pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
+
+## Models (APP-06)
+
+`training/models_view.py` lee `reports/models/registry.json` (OPS-06) y
+`reports/models/s3_publications.json` (OPS-07) en cada petición:
+
+- **`servable`**: este servidor tiene cada archivo del paquete
+  (`data/models/<modelo>/<versión>/`) con el sha256 registrado. Inference solo
+  ofrece versiones `servable`.
+- **Publicación:**
+  - `published` solo si cada archivo del paquete está en S3 con el sha256
+    registrado, y el `ChecksumSHA256` de S3 y la descarga de verificación coinciden;
+  - `not_published` si no hay registro de publicación;
+  - `inconsistent` si algo no cuadra (otro run o checkpoint, un archivo que falta,
+    un checksum distinto o el archivo ilegible). Explica el motivo y no muestra keys.
+- **Descargas:** solo los archivos que el registro lista para esa versión, y solo si
+  tienen su sha256.
+- **Estado real:** el estado de S3 sale de la verificación que hizo OPS-07 contra S3
+  (head-object, checksum y descarga). `ml-api` no tiene credenciales de AWS, así que
+  no vuelve a consultar S3 en cada petición.
 
 ## Inference (APP-07)
 
