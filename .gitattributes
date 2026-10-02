@@ -7,3 +7,8 @@
 # sí: con CRLF (por ejemplo, `core.autocrlf=true` en Windows) el shebang se
 # rompe y el contenedor falla con "no such file or directory" al arrancar.
 *.sh text eol=lf
+
+# ML-09: los archivos de auditoría de evaluaciones se guardan tal cual (el CSV usa
+# CRLF, RFC 4180). Así el archivo del repo es idéntico byte por byte al artefacto de
+# MLflow y al del snapshot DVC, y su sha256 se puede comparar.
+reports/evaluations/** -text
