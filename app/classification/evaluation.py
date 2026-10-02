@@ -15,7 +15,7 @@
    - `<id>.predictions.csv`: `crop_id`, `image_id`, `annotation_id`, clase real,
      clase predicha, probabilidades y acierto, por crop.
 5. Registra en el run del candidato las métricas `test_*`, los tags
-   (`test_accuracy_meets_target` compara con 0.85 **sin redondear**) y los dos
+   (`test_accuracy_meets_target` compara `aciertos/total` con 0.85 **con enteros**) y los dos
    archivos como artefactos.
 
 Si ya existe una evaluación de test, no se repite. `audit_evaluation` vuelve a
@@ -25,8 +25,13 @@ las métricas.
 `verify_against_mlflow` recalcula accuracy y F1 desde el CSV y los compara con
 MLflow (Agent Test).
 
+Si MLflow falla después de escribir los archivos, `evaluate` lo indica y no se
+repite (el test se evalúa una vez). `register_evaluation` completa el registro con
+la evaluación que ya está en disco, sin volver a inferir; después, `verify`.
+
     uv run python -m classification.evaluation evaluate
     uv run python -m classification.evaluation audit
+    uv run python -m classification.evaluation register  # solo si MLflow falló al registrar
     uv run python -m classification.evaluation verify
 """
 
@@ -38,6 +43,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from fractions import Fraction
 from pathlib import Path
 
 import torch
@@ -66,7 +72,7 @@ from presentation.ml_contracts import (
     ratio,
 )
 
-TARGET_ACCURACY = 0.85
+TARGET_ACCURACY = Fraction(85, 100)
 TEST_DIR = "test"
 CSV_FIELDS = (
     "crop_id",
@@ -138,9 +144,15 @@ def compute_metrics(true: list[str], predicted: list[str], class_names: list[str
     }
 
 
-def meets_target(accuracy: float, target: float = TARGET_ACCURACY) -> bool:
-    """Comparación exacta con la meta: sin redondear la accuracy antes."""
-    return accuracy >= target
+def meets_target(correct: int, total: int, target: Fraction = TARGET_ACCURACY) -> bool:
+    """`aciertos / total >= meta` con enteros: sin redondear ni dividir en float.
+
+    El float de `correct / total` puede redondear a 0.85 aunque la fracción exacta
+    quede por debajo (por ejemplo, 85·10^15 - 1 aciertos de 10^17).
+    """
+    if total <= 0:
+        raise ValueError(f"El total de crops de test debe ser positivo: {total}")
+    return correct * target.denominator >= target.numerator * total
 
 
 def _verified_model(client: MlflowClient, candidate: CandidateSelection) -> DogCatResNet18:
@@ -288,12 +300,13 @@ def evaluate_frozen_candidate(
     if existing:
         raise RuntimeError(
             f"Ya existe la evaluación final de test ({existing[0]['path']}): el test se evalúa "
-            "una sola vez; usa audit_evaluation para la auditoría"
+            "una sola vez; usa `audit` para la auditoría y `register` si su registro en MLflow "
+            "quedó incompleto"
         )
     rows = _predict(client, candidate, data)
     created_at = datetime.now(UTC)
     evaluation, metrics = _build_evaluation(candidate, rows, created_at)
-    target_met = meets_target(metrics["accuracy"])
+    target_met = meets_target(metrics["correct"], metrics["total"])
 
     out_dir = evaluations_dir / TEST_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -302,22 +315,14 @@ def evaluate_frozen_candidate(
     evaluation_path.write_text(evaluation.model_dump_json(indent=2) + "\n", encoding="utf-8")
     _write_predictions_csv(predictions_path, rows)
 
-    timestamp = int(time.time() * 1000)
-    client.log_batch(
-        candidate.run_id,
-        metrics=[
-            Metric(name, value, timestamp, 0) for name, value in _mlflow_metrics(metrics).items()
-        ],
-    )
-    for key, value in {
-        "test_evaluation_id": evaluation.evaluation_id,
-        "test_evaluated_at": evaluation.created_at,
-        "test_target_accuracy": str(TARGET_ACCURACY),
-        "test_accuracy_meets_target": str(target_met),
-    }.items():
-        client.set_tag(candidate.run_id, key, value)
-    for path in (evaluation_path, predictions_path):
-        client.log_artifact(candidate.run_id, str(path), f"evaluation/{TEST_DIR}")
+    try:
+        _log_to_mlflow(client, evaluation, metrics, target_met, evaluation_path, predictions_path)
+    except Exception as error:
+        raise RuntimeError(
+            f"La evaluación quedó guardada en {evaluation_path}, pero su registro en MLflow no "
+            f"terminó ({error}). El test no se vuelve a evaluar: completa MLflow sin volver a "
+            "inferir con `uv run python -m classification.evaluation register`"
+        ) from error
     return EvaluationRecord(
         evaluation=evaluation,
         evaluation_path=evaluation_path,
@@ -326,6 +331,33 @@ def evaluate_frozen_candidate(
         total=metrics["total"],
         meets_target=target_met,
     )
+
+
+def _log_to_mlflow(
+    client: MlflowClient,
+    evaluation: Evaluation,
+    metrics: dict,
+    target_met: bool,
+    evaluation_path: Path,
+    predictions_path: Path,
+) -> None:
+    """Métricas `test_*`, tags y artefactos. Repetirlo con los mismos archivos no cambia nada."""
+    timestamp = int(time.time() * 1000)
+    client.log_batch(
+        evaluation.run_id,
+        metrics=[
+            Metric(name, value, timestamp, 0) for name, value in _mlflow_metrics(metrics).items()
+        ],
+    )
+    for key, value in {
+        "test_evaluation_id": evaluation.evaluation_id,
+        "test_evaluated_at": evaluation.created_at,
+        "test_target_accuracy": str(float(TARGET_ACCURACY)),
+        "test_accuracy_meets_target": str(target_met),
+    }.items():
+        client.set_tag(evaluation.run_id, key, value)
+    for path in (evaluation_path, predictions_path):
+        client.log_artifact(evaluation.run_id, str(path), f"evaluation/{TEST_DIR}")
 
 
 def _record_differences(
@@ -378,6 +410,15 @@ def _csv_differences(path: Path, rows: list[dict]) -> list[str]:
     )
 
 
+def _stored_evaluation_path(candidate: CandidateSelection, evaluations_dir: Path) -> Path:
+    stored_files = [
+        e for e in _evaluations(evaluations_dir, "test") if e["run_id"] == candidate.run_id
+    ]
+    if len(stored_files) != 1:
+        raise RuntimeError(f"Se esperaba una evaluación de test del candidato: {len(stored_files)}")
+    return Path(stored_files[0]["path"])
+
+
 def audit_evaluation(
     *,
     client: MlflowClient,
@@ -393,12 +434,7 @@ def audit_evaluation(
     no basta: dos etiquetas reales intercambiadas pueden dejarlas iguales.
     """
     candidate = require_frozen_candidate(candidate_path)
-    stored_files = [
-        e for e in _evaluations(evaluations_dir, "test") if e["run_id"] == candidate.run_id
-    ]
-    if len(stored_files) != 1:
-        raise RuntimeError(f"Se esperaba una evaluación de test del candidato: {len(stored_files)}")
-    evaluation_path = Path(stored_files[0]["path"])
+    evaluation_path = _stored_evaluation_path(candidate, evaluations_dir)
     stored = Evaluation.model_validate_json(evaluation_path.read_text(encoding="utf-8"))
     rows = _predict(client, candidate, data)
     recomputed, _ = _build_evaluation(candidate, rows, datetime.now(UTC))
@@ -409,6 +445,94 @@ def audit_evaluation(
         if getattr(stored, field) != getattr(recomputed, field):
             differences.append(f"{field} distinto del recalculado")
     return differences
+
+
+def _stored_csv_differences(evaluation: Evaluation, path: Path) -> list[str]:
+    """El CSV guardado contra las predicciones del JSON guardado, muestra por muestra."""
+    if not path.is_file():
+        return [f"falta el CSV de predicciones {path.name}"]
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        stored_rows = list(reader)
+    if reader.fieldnames != list(CSV_FIELDS):
+        return [f"columnas del CSV {reader.fieldnames} distintas de {list(CSV_FIELDS)}"]
+    try:
+        old = {
+            int(row["annotation_id"]): {
+                "image_id": int(row["image_id"]),
+                "annotation_id": int(row["annotation_id"]),
+                "true_class": row["true_class"],
+                "predicted_class": row["predicted_class"],
+                "probabilities": {name: float(row[f"p_{name}"]) for name in CLASS_NAMES},
+                "correct": row["correct"],
+            }
+            for row in stored_rows
+        }
+    except ValueError as error:
+        return [f"CSV de predicciones ilegible: {error}"]
+    new = {
+        p.annotation_id: {**p.model_dump(), "correct": str(p.true_class == p.predicted_class)}
+        for p in evaluation.predictions
+    }
+    differences = []
+    if len(old) != len(stored_rows):
+        differences.append("annotation_id repetido en el CSV de predicciones")
+    return differences + _record_differences(
+        old,
+        new,
+        [*CropPrediction.model_fields, "correct"],
+        label="annotation_id",
+        where="el CSV de predicciones",
+        changed_in="fila del CSV distinta en",
+    )
+
+
+def register_evaluation(
+    *,
+    client: MlflowClient,
+    candidate_path: Path = CANDIDATE_PATH,
+    evaluations_dir: Path = EVALUATIONS_DIR,
+) -> EvaluationRecord:
+    """Registra en MLflow la evaluación que ya está en disco, **sin volver a inferir**.
+
+    Sirve para completar el registro si MLflow falló después de escribir los archivos
+    (la evaluación final no se repite). Exige que el JSON sea del candidato congelado y
+    que el CSV coincida con él muestra por muestra; si el run ya tiene otra evaluación
+    de test registrada, no la reemplaza. Es idempotente.
+    """
+    candidate = require_frozen_candidate(candidate_path)
+    evaluation_path = _stored_evaluation_path(candidate, evaluations_dir)
+    evaluation = Evaluation.model_validate_json(evaluation_path.read_text(encoding="utf-8"))
+    for field in ("checkpoint", "manifest_hash", "dataset_version"):
+        if getattr(evaluation, field) != getattr(candidate, field):
+            raise ValueError(f"{evaluation_path.name}: {field} distinto del candidato congelado")
+    predictions_path = evaluation_path.with_suffix(".predictions.csv")
+    differences = _stored_csv_differences(evaluation, predictions_path)
+    if differences:
+        raise ValueError(
+            "El CSV de predicciones no coincide con la evaluación: " + "; ".join(differences)
+        )
+    registered = client.get_run(candidate.run_id).data.tags.get("test_evaluation_id")
+    if registered not in (None, evaluation.evaluation_id):
+        raise RuntimeError(
+            f"El run {candidate.run_id} ya tiene registrada la evaluación de test {registered}, "
+            f"no {evaluation.evaluation_id}"
+        )
+    metrics = compute_metrics(
+        [p.true_class for p in evaluation.predictions],
+        [p.predicted_class for p in evaluation.predictions],
+        evaluation.class_names,
+    )
+    target_met = meets_target(metrics["correct"], metrics["total"])
+    _log_to_mlflow(client, evaluation, metrics, target_met, evaluation_path, predictions_path)
+    return EvaluationRecord(
+        evaluation=evaluation,
+        evaluation_path=evaluation_path,
+        predictions_path=predictions_path,
+        correct=metrics["correct"],
+        total=metrics["total"],
+        meets_target=target_met,
+    )
 
 
 def verify_against_mlflow(client: MlflowClient, predictions_path: Path, run_id: str) -> dict:
@@ -435,7 +559,7 @@ def main(argv: list[str] | None = None) -> int:
     from tracking.client import tracking_client
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["evaluate", "audit", "verify"])
+    parser.add_argument("command", choices=["evaluate", "audit", "register", "verify"])
     parser.add_argument("--candidate", type=Path, default=CANDIDATE_PATH)
     parser.add_argument("--evaluations", type=Path, default=EVALUATIONS_DIR)
     args = parser.parse_args(argv)
@@ -453,7 +577,10 @@ def main(argv: list[str] | None = None) -> int:
         evaluation = record.evaluation
         print(f"Evaluación {evaluation.evaluation_id} de {candidate.entry} ({candidate.run_id})")
         print(f"accuracy = {record.correct}/{record.total} = {evaluation.metrics.accuracy_top1!r}")
-        print(f"¿>= {TARGET_ACCURACY} sin redondear?: {record.meets_target}")
+        print(
+            f"¿{record.correct}/{record.total} >= {float(TARGET_ACCURACY)} con enteros?: "
+            f"{record.meets_target}"
+        )
         print(f"f1_macro = {evaluation.metrics.f1_macro!r}")
         print(f"confusion_matrix (filas=real, columnas=predicha {evaluation.class_names}):")
         for name, row in zip(evaluation.class_names, evaluation.confusion_matrix, strict=True):
@@ -474,8 +601,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         print("Auditoría: sin diferencias" if not differences else "\n".join(differences))
         return 0 if not differences else 1
-    stored = [e for e in _evaluations(args.evaluations, "test") if e["run_id"] == candidate.run_id]
-    predictions = Path(stored[0]["path"]).with_suffix(".predictions.csv")
+    if args.command == "register":
+        record = register_evaluation(
+            client=client, candidate_path=args.candidate, evaluations_dir=args.evaluations
+        )
+        print(
+            f"Registrada en MLflow ({candidate.run_id}) la evaluación "
+            f"{record.evaluation.evaluation_id}, sin volver a inferir: "
+            f"{record.correct}/{record.total}, meta alcanzada: {record.meets_target}"
+        )
+    predictions = _stored_evaluation_path(candidate, args.evaluations).with_suffix(
+        ".predictions.csv"
+    )
     comparison = verify_against_mlflow(client, predictions, candidate.run_id)
     for name, row in comparison.items():
         print(

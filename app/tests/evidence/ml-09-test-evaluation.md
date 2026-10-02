@@ -16,7 +16,8 @@ split `test` (71 crops).
 - Rúbrica 4.2: matriz con filas reales y columnas predichas; accuracy, F1 macro, y
   precision/recall/support por clase. Recalculados de forma independiente desde
   las predicciones y comparados con MLflow.
-- Rúbrica 4.3: `aciertos / total de crops de test` comparado con 0.85 sin redondear.
+- Rúbrica 4.3: `aciertos / total de crops de test` comparado con 0.85 sin redondear,
+  con enteros (`aciertos·20 >= 17·total`).
 - Issue #28 (ML-09): Agent Test (recalcular accuracy y F1 desde el archivo de
   predicciones y compararlos con MLflow) y TDD (métricas con predicciones conocidas).
 
@@ -52,7 +53,11 @@ confusion_matrix (filas=real, columnas=predicha ['dog', 'cat']):
 - Modo eval, sin gradiente ni optimizador; el preprocesamiento de test no tiene
   pasos aleatorios. Los tests lo comprueban: `test_evaluation_never_trains` y
   `test_evaluation_refuses_random_preprocessing`.
-- **Meta:** 68/71 = 0.9577464788732394 ≥ 0.85, comparado sin redondear.
+- **Meta:** 68/71 ≥ 0.85, comparado sin redondear. Tras la revisión del PR la
+  comparación es con enteros: 68·20 = 1360 ≥ 17·71 = 1207, `True`. Es el mismo
+  resultado que el tag `test_accuracy_meets_target = True` ya registrado, así que no
+  hubo que volver a registrar nada. (La salida de arriba es la de la corrida
+  original; ahora el CLI imprime `¿68/71 >= 0.85 con enteros?: True`.)
 
 ## 2. Agent Test: métricas desde el CSV contra MLflow
 
@@ -157,6 +162,38 @@ y `test_audit_compares_the_header_of_the_evaluation` (checkpoint, manifest_hash,
 dataset_version). Las 12 mutaciones de la auditoría mueren con estos tests, entre
 ellas comparar solo la predicción y las probabilidades (el bug original), quitar
 `true_class` o `image_id`, quitar el CSV o `correct`, y quitar campos de la cabecera.
+
+### 4.2 Meta con enteros y recuperación si MLflow falla
+
+Correcciones de la revisión del PR:
+
+1. **Meta con enteros.** `meets_target(correct, total)` compara
+   `correct·20 >= 17·total`, sin dividir. Con float, `(85·10^15 - 1) / 10^17` vale
+   exactamente `0.85` y pasaría la meta aunque esté por debajo; el test
+   `test_target_is_compared_with_integers_without_rounding` incluye ese caso límite.
+   Con 71 crops no cambia nada: 68/71 sigue siendo `True`.
+2. **MLflow falla después de escribir los archivos.** `evaluate` ahora responde con
+   un error que indica que la evaluación quedó en disco y cómo completarla:
+   `uv run python -m classification.evaluation register`. Ese comando registra la
+   evaluación que ya está en disco (métricas `test_*`, tags y artefactos) **sin volver
+   a inferir**. Antes exige que sea del candidato congelado, que el CSV coincida
+   con el JSON muestra por muestra y que el run no tenga otra evaluación de test
+   registrada. Es idempotente.
+
+Tests:
+- `test_register_completes_mlflow_after_a_failure_without_inferring_again`, con
+  MLflow fallando en `log_batch`, en `set_tag` o en `log_artifact`. Comprueba que
+  los archivos no cambian, que `evaluate` sigue negándose a repetir, que `register`
+  no infiere y que después `verify` da OK.
+- `test_register_is_idempotent_after_a_complete_evaluation`.
+- `test_register_refuses_a_predictions_csv_that_does_not_match_the_evaluation`.
+- `test_register_refuses_when_mlflow_has_another_test_evaluation`.
+- `test_register_refuses_an_evaluation_of_another_checkpoint_or_manifest`.
+- `test_register_requires_an_evaluation_on_disk`.
+
+Sobre los archivos reales, la comprobación que exige `register` (CSV contra JSON
+por muestra) da "sin diferencias". `register` **no** se ejecutó contra el MLflow
+real: la corrida real se registró completa (`verify` 12/12) y no hacía falta.
 
 ## 5. El test se consultó después del congelamiento, y el candidato quedó bloqueado
 

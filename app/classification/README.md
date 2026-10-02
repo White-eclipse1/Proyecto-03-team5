@@ -445,7 +445,8 @@ ML-08 sobre el split `test`.
 4. Registra en el run del candidato `test_accuracy`, `test_f1_macro`,
    `test_correct`, `test_total` y `test_precision_*`, `test_recall_*`,
    `test_f1_*`, `test_support_*` por clase; los tags `test_accuracy_meets_target`
-   (comparación con 0.85 **sin redondear**), `test_target_accuracy` y
+   (`aciertos / total` contra 0.85 **con enteros**: `aciertos·20 >= 17·total`, sin
+   dividir ni redondear), `test_target_accuracy` y
    `test_evaluation_id`; y los dos archivos como artefactos.
 
 ```bash
@@ -453,6 +454,22 @@ uv run python -m classification.evaluation evaluate  # una sola vez
 uv run python -m classification.evaluation audit     # re-infiere y compara cada muestra, sin escribir
 uv run python -m classification.evaluation verify    # CSV vs MLflow (Agent Test)
 ```
+
+**Si MLflow falla a mitad del registro.** `evaluate` escribe primero el JSON y el
+CSV y después registra en MLflow. Si MLflow se cae o se corta la red en ese paso,
+`evaluate` termina con un error que dice que la evaluación quedó en disco, y no se
+puede repetir porque el test se evalúa una sola vez. Para completar MLflow **sin
+volver a inferir**:
+
+```bash
+uv run python -m classification.evaluation register  # registra la evaluación que está en disco
+uv run python -m classification.evaluation verify    # debe dar OK en todas las métricas
+```
+
+`register` exige que la evaluación sea del candidato congelado (run, checkpoint,
+manifiesto y release) y que el CSV coincida con el JSON muestra por muestra. Si el
+run ya tiene otra evaluación de test registrada, no la reemplaza. Repetirlo no cambia
+las métricas ni los tags.
 
 **Resultado:** `r03-sgd` obtiene accuracy = 68/71 = **0.9577** (≥ 0.85) y F1
 macro = 0.9548 en test. El recall de `cat` es 0.893 (3 gatos predichos como

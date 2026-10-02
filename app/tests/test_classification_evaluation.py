@@ -636,13 +636,16 @@ def test_register_completes_mlflow_after_a_failure_without_inferring_again(
     client, data, frozen, tmp_path, monkeypatch, method
 ):
     mlflow = _FailingMlflow(client, monkeypatch, method)
-    with pytest.raises(RuntimeError, match="register"):
+    # tmp_path ya contiene "register" (nombre del test): se busca el comando completo.
+    with pytest.raises(
+        RuntimeError, match=r"`uv run python -m classification\.evaluation register`"
+    ):
         _evaluate(client, data, frozen, tmp_path)
     files = sorted((tmp_path / "evaluations" / "test").iterdir())
     assert [f.suffix for f in files] == [".json", ".csv"]
     contents = [f.read_bytes() for f in files]
     # La regla de evaluar una sola vez se mantiene; el error indica cómo recuperarse.
-    with pytest.raises(RuntimeError, match="register"):
+    with pytest.raises(RuntimeError, match="`register`"):
         _evaluate(client, data, frozen, tmp_path)
 
     mlflow.broken = False
@@ -713,4 +716,28 @@ def test_register_refuses_when_mlflow_has_another_test_evaluation(client, data, 
 
 def test_register_requires_an_evaluation_on_disk(client, frozen, tmp_path):
     with pytest.raises(RuntimeError, match="evaluación de test"):
+        _register(client, frozen, tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("checkpoint", lambda run_id: f"runs:/{run_id}/checkpoints/otro.pt"),
+        ("manifest_hash", lambda run_id: "sha256:" + "c" * 64),
+        ("dataset_version", lambda run_id: "p3-otro"),
+    ],
+)
+def test_register_refuses_an_evaluation_of_another_checkpoint_or_manifest(
+    client, data, frozen, tmp_path, monkeypatch, field, value
+):
+    mlflow = _FailingMlflow(client, monkeypatch, "log_batch")
+    with pytest.raises(RuntimeError):
+        _evaluate(client, data, frozen, tmp_path)
+    mlflow.broken = False
+    evaluation_path = next((tmp_path / "evaluations" / "test").glob("*.json"))
+    stored = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    stored[field] = value(stored["run_id"])
+    evaluation_path.write_text(json.dumps(stored), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=field):
         _register(client, frozen, tmp_path)
