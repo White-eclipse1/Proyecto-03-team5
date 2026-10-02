@@ -425,3 +425,37 @@ sus evaluaciones en `reports/evaluations/` con `created_at`.
 previa. Evidencia: [`tests/evidence/ml-08-candidate.md`](../tests/evidence/ml-08-candidate.md).
 
 Tests: `uv run pytest tests/test_classification_selection.py`.
+
+## ML-09 — Evaluación final sobre el test congelado
+
+`classification/evaluation.py`. Evalúa **una vez** el candidato congelado de
+ML-08 sobre el split `test`.
+
+1. Exige `reports/candidates/ml08_candidate.json` y verifica que el checkpoint
+   descargado de MLflow tenga el `checkpoint_sha256` congelado y que el
+   manifiesto sea el del candidato.
+2. Solo carga `test`, con el `image_size` del checkpoint. Se niega si el
+   preprocesamiento tuviera pasos aleatorios. Modo eval, sin gradiente ni
+   optimizador.
+3. Escribe en `reports/evaluations/test/`:
+   - `<id>.json`: contrato `Evaluation`, con la matriz (filas reales, columnas
+     predichas), las métricas por clase y las predicciones;
+   - `<id>.predictions.csv`: `crop_id`, `image_id`, `annotation_id`, clases,
+     `p_dog`, `p_cat` y acierto.
+4. Registra en el run del candidato `test_accuracy`, `test_f1_macro`,
+   `test_correct`, `test_total` y `test_precision_*`, `test_recall_*`,
+   `test_f1_*`, `test_support_*` por clase; los tags `test_accuracy_meets_target`
+   (comparación con 0.85 **sin redondear**), `test_target_accuracy` y
+   `test_evaluation_id`; y los dos archivos como artefactos.
+
+```bash
+uv run python -m classification.evaluation evaluate  # una sola vez
+uv run python -m classification.evaluation audit     # re-infiere y compara, sin escribir
+uv run python -m classification.evaluation verify    # CSV vs MLflow (Agent Test)
+```
+
+**Resultado:** `r03-sgd` obtiene accuracy = 68/71 = **0.9577** (≥ 0.85) y F1
+macro = 0.9548 en test. El recall de `cat` es 0.893 (3 gatos predichos como
+perro). Evidencia: [`tests/evidence/ml-09-test-evaluation.md`](../tests/evidence/ml-09-test-evaluation.md).
+
+Tests: `uv run pytest tests/test_classification_evaluation.py`.
