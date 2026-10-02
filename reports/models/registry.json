@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "models": [
+    {
+      "schema_version": "1.0",
+      "model_version": "1.0.0",
+      "model_name": "dog-cat-resnet18",
+      "run_id": "bb448230424146349a969253d30db43b",
+      "checkpoint": "runs:/bb448230424146349a969253d30db43b/checkpoints/best.pt",
+      "checkpoint_sha256": "84d6c88b4bd84c3e6f0229dd23f7f188ff85622bbb39e5c3988a97598fa90d52",
+      "dataset_version": "v0.1.1",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "architecture": {
+        "name": "resnet18",
+        "image_size": 128,
+        "hidden_layers": [
+          128
+        ],
+        "dropout": 0.2,
+        "pretrained": true,
+        "trainable": "layer4"
+      },
+      "class_map": {
+        "dog": 0,
+        "cat": 1
+      },
+      "preprocessing": {
+        "resize": "square",
+        "image_size": 128,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "dependencies": {
+        "python": "3.12.*",
+        "torch": "2.14.0",
+        "torchvision": "0.29.0",
+        "lockfile": "app/uv.lock"
+      },
+      "metrics": {
+        "accuracy_top1": 0.9577464788732394,
+        "f1_macro": 0.9548441806232775
+      },
+      "weights_origin": {
+        "weights": "ResNet18_Weights.IMAGENET1K_V1",
+        "dataset": "ImageNet-1K",
+        "library": "torchvision"
+      },
+      "model_card": {
+        "purpose": "Clasificar crops de imÃ¡genes en las clases dog y cat.",
+        "dataset_release": "v0.1.1",
+        "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+        "mlflow_run_id": "bb448230424146349a969253d30db43b",
+        "test_metrics": {
+          "accuracy_top1": 0.9577464788732394,
+          "f1_macro": 0.9548441806232775
+        },
+        "limitations": [
+          "El modelo solamente clasifica las clases dog y cat.",
+          "El desempeÃ±o fue evaluado sobre el release v0.1.1 y puede variar fuera de ese dominio.",
+          "El conjunto de test contiene 71 ejemplos, por lo que las mÃ©tricas deben interpretarse dentro de ese alcance."
+        ],
+        "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1"
+      }
+    }
+  ]
+}
