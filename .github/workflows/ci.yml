@@ -424,7 +424,8 @@ jobs:
         run: |
           forbidden="$(
             git ls-files |
-            grep -E '(^|/)\.env(\..+)?$|(^|/)\.dvc/config\.local$|(^|/)(mlruns|mlartifacts)/|(^|/)data/(crops|models)/|(^|/)data/raw/(images|annotations)/|\.(pt|pth|ckpt)$' \
+            grep -E '(^|/)\.env(\..+)?$|(^|/)\.dvc/config\.local$|(^|/)(mlruns|mlartifacts)/|(^|/)data/(crops|models)/|(^|/)data/raw/(images|annotations)/|\.(pt|pth|ckpt)$' |
+            grep -Ev '(^|/)\.env(\..+)?\.example$' \
             || true
           )"
 
