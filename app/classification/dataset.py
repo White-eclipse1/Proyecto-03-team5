@@ -186,6 +186,26 @@ def load_split(
     augmentation_seed: int | None = None,
 ) -> CropClassificationDataset:
     """Dataset de una partición con el `image_size` de la configuración de entrenamiento."""
+    return load_split_with_image_size(
+        manifest_path,
+        crop_report_path,
+        crops_dir=crops_dir,
+        split=split,
+        image_size=params.image_size,
+        augmentation_seed=augmentation_seed,
+    )
+
+
+def load_split_with_image_size(
+    manifest_path: Path,
+    crop_report_path: Path,
+    *,
+    crops_dir: Path,
+    split: SplitName,
+    image_size: int,
+    augmentation_seed: int | None = None,
+) -> CropClassificationDataset:
+    """Igual que `load_split`, con el `image_size` explícito (p. ej. el del checkpoint)."""
     manifest = load_manifest(manifest_path)
     report_bytes = crop_report_path.read_bytes()
     digest = "sha256:" + sha256(report_bytes).hexdigest()
@@ -200,7 +220,7 @@ def load_split(
         CropReport.model_validate_json(report_bytes),
         crops_dir=crops_dir,
         split=split,
-        image_size=params.image_size,
+        image_size=image_size,
         augmentation_seed=augmentation_seed,
     )
 
