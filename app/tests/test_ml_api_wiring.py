@@ -149,3 +149,17 @@ def test_backend_verifies_annotation_queue_traceability_against_the_reports():
     service = _compose()["services"]["backend"]
     assert "./reports:/reports:ro" in service["volumes"]
     assert service["environment"]["REPORTS_DIR"] == "/reports"
+
+
+def test_readme_explains_how_a_clean_clone_gets_the_p3_data():
+    """APP-10: siguiendo el README, el portal tiene recortes, modelo y las corridas de MLflow."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for step in (
+        "dvc pull -r prod crops",
+        "dvc pull -r prod data/models.dvc",
+        "dvc pull -r prod data/mlflow-snapshot.dvc",
+        "python -m tracking.snapshot restore",
+        "aws configure export-credentials",
+        "tests/test_app10_portal_smoke.py",
+    ):
+        assert step in readme, f"Falta en el README: {step}"

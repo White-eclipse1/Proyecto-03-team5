@@ -1,9 +1,10 @@
 import { useId, useState } from "react";
+import { Link } from "react-router-dom";
 import { API_BASE_URL } from "@/lib/api/client";
 import { Cell, DataTable } from "../components/DataTable";
 import { MlPage } from "../components/MlPage";
 import { MlResourceBoundary } from "../components/MlResourceBoundary";
-import { cropUrl, ML_ENDPOINTS, useEvaluationOverview } from "../dataSource";
+import { cropUrl, ML_ENDPOINTS, useEvaluationOverview, useRegisteredModels } from "../dataSource";
 import { type EvaluationSummary, summarizeEvaluation } from "../evaluationSummary";
 import type { Evaluation, EvaluationOverview, FrozenCandidate } from "../schemas";
 
@@ -101,10 +102,43 @@ function Stat({
   );
 }
 
+/**
+ * APP-10: ML-09 evalúa antes de que OPS-06 registre la versión, así que el JSON de la
+ * evaluación trae `model_name: null`. Se muestra la versión registrada con el mismo run y
+ * el mismo checkpoint (sha256), enlazada a Models; si no hay ninguna, "Sin registrar".
+ */
+function ModelName({
+  evaluation,
+  candidate,
+}: Readonly<{ evaluation: Evaluation; candidate: FrozenCandidate }>) {
+  const models = useRegisteredModels();
+  if (evaluation.model_name !== null) {
+    return <>{`${evaluation.model_name} v${evaluation.model_version}`}</>;
+  }
+  const registered =
+    models.status === "success"
+      ? models.data.models.find(
+          (model) =>
+            model.run_id === evaluation.run_id &&
+            model.checkpoint_sha256 === candidate.checkpoint_sha256
+        )
+      : undefined;
+  if (registered === undefined) return <span className="text-ink-muted">Sin registrar</span>;
+  return (
+    <Link
+      to="/ml/models"
+      className="font-mono text-accent-lilac underline-offset-2 hover:underline"
+    >
+      {`${registered.model_name} v${registered.model_version}`}
+    </Link>
+  );
+}
+
 function FinalMetrics({
   evaluation,
   summary,
-}: Readonly<{ evaluation: Evaluation; summary: EvaluationSummary }>) {
+  candidate,
+}: Readonly<{ evaluation: Evaluation; summary: EvaluationSummary; candidate: FrozenCandidate }>) {
   return (
     <Section title="Evaluación final en test (ML-09)">
       <dl className="mb-4 grid gap-4 sm:grid-cols-3">
@@ -112,11 +146,7 @@ function FinalMetrics({
           <span className="font-mono text-xs">{evaluation.evaluation_id}</span>
         </Field>
         <Field label="Modelo">
-          {evaluation.model_name === null ? (
-            <span className="text-ink-muted">Sin registrar</span>
-          ) : (
-            `${evaluation.model_name} v${evaluation.model_version}`
-          )}
+          <ModelName evaluation={evaluation} candidate={candidate} />
         </Field>
         <Field label="Evaluada">
           <span className="font-mono text-xs">{evaluation.created_at}</span>
@@ -391,7 +421,7 @@ function Overview({ overview }: Readonly<{ overview: EvaluationOverview }>) {
   return (
     <div className="flex flex-col gap-6">
       <CandidateCard candidate={candidate} />
-      <FinalMetrics evaluation={evaluation} summary={summary} />
+      <FinalMetrics evaluation={evaluation} summary={summary} candidate={candidate} />
       <Section title="Métricas por clase y matriz de confusión (test)">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-2">

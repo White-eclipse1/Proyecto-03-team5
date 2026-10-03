@@ -282,7 +282,8 @@ aplicación local también se necesitan Docker y Docker Compose.
 > [Cambio de imagen de MinIO (issue #36)](#cambio-de-imagen-de-minio-issue-36).
 
 Antes del primer arranque, crea el `.env` local para Compose y completa los
-dos valores de MinIO con credenciales locales:
+tres valores obligatorios (`MARIADB_ROOT_PASSWORD`, `MINIO_ROOT_USER` y
+`MINIO_ROOT_PASSWORD`) con credenciales locales:
 
 ```bash
 cp .env.example .env
@@ -316,6 +317,61 @@ Este comando levanta los servicios de MariaDB, MinIO, MLflow, backend, frontend,
 pipeline `app`, Copilot y la API de jobs de entrenamiento (`ml-api`). El backend espera a que MariaDB y MinIO estén listos, aplica las
 migraciones y siembra únicamente las categorías `dog` y `cat` antes de
 arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
+
+### Proyecto 3 completo en un clon limpio (datos, modelo y corridas)
+
+`docker compose up` levanta el portal, pero las pantallas del Proyecto 3 necesitan
+datos que no viven en git: los recortes de ML-01, el paquete del modelo publicado
+(OPS-06) y las corridas de MLflow (ML-07 a ML-09, con sus mismos run IDs). Después
+de configurar DVC y AWS (pasos 4 a 8 del [onboarding](#onboarding-de-desarrollo)),
+desde la raíz:
+
+```bash
+# 1. Datos del Proyecto 3
+dvc pull -r prod crops                       # data/crops (recortes de ML-01)
+dvc pull -r prod data/models.dvc             # data/models (paquete dog-cat-resnet18 1.0.0)
+dvc pull -r prod data/mlflow-snapshot.dvc    # data/mlflow-snapshot (corridas de MLflow)
+
+# 2. Credenciales de AWS para que Models verifique la publicación en S3 (opcional;
+#    sin ellas Models muestra "No verificable"). No se escriben en ningún archivo.
+eval "$(aws configure export-credentials --profile mlops-p2 --format env)"
+
+# 3. Levantar el stack
+export GIT_COMMIT="$(git rev-parse HEAD)"
+docker compose up -d --build --wait
+
+# 4. Cargar las corridas en el MLflow del stack (solo en un stack nuevo: reemplaza
+#    la base `mlflow` local por la del snapshot)
+cd app
+MLFLOW_TRACKING_URI=http://localhost:5000 uv run python -m tracking.snapshot restore
+```
+
+En PowerShell, los pasos 2 y 3 son
+`aws configure export-credentials --profile mlops-p2 --format powershell | Invoke-Expression`
+y `$env:GIT_COMMIT = git rev-parse HEAD`, y el paso 4
+`$env:MLFLOW_TRACKING_URI = "http://localhost:5000"; uv run python -m tracking.snapshot restore`.
+
+Con eso, en `http://localhost:8080`:
+
+| Pantalla | Qué se ve |
+|---|---|
+| Training | Release `v0.1.1` con su procedencia DVC y el manifiesto 70/20/10; lanza jobs reales |
+| Experiments | Las 12 corridas de ML-07, entre ellas el candidato `ml07-v1-r03-sgd` |
+| Evaluation | El candidato congelado y su evaluación final de test (68/71) |
+| Models | `dog-cat-resnet18 1.0.0` con su paquete y su publicación en S3 |
+| Inference | Clasifica recortes e imágenes nuevas con la versión elegida y envía el resultado a la cola de anotación |
+
+El recorrido completo, con la cadena de IDs de punta a punta, lo comprueba
+`tests/test_app10_portal_smoke.py` contra el stack levantado:
+
+```bash
+cd app
+APP10_PORTAL_URL=http://localhost:8080 uv run pytest tests/test_app10_portal_smoke.py -v
+```
+
+Detalles: snapshot de MLflow en
+[`app/classification/README.md`](app/classification/README.md#compartir-las-corridas-snapshot-de-mlflow)
+y credenciales de Models en [`app/training/README.md`](app/training/README.md#credenciales-de-aws-para-models).
 
 ### Smoke training corto de OPS-05
 
@@ -381,7 +437,7 @@ El comando falla con código distinto de cero si:
 |-----------------|-----------------------------------|
 | Frontend        | http://localhost:8080            |
 | Backend (API)   | http://localhost:3100            |
-| Consola MinIO   | http://localhost:9001 (minioadmin/minioadmin) |
+| Consola MinIO   | http://localhost:9001 (credenciales `MINIO_ROOT_*` de tu `.env`) |
 | MLflow (UI/API) | http://localhost:5000 (solo loopback; ver [OPS-03](#ops-03--mlflow-persistente)) |
 | API de entrenamiento | http://localhost:8080/api/ml/ (vía nginx; ver [APP-03](#app-03--jobs-de-entrenamiento)) |
 

@@ -245,6 +245,62 @@ describe("APP-05 Evaluation: evaluated", () => {
     expect(within(metrics).getByText(/meta 0\.85: alcanzada/i)).toBeInTheDocument();
   });
 
+  it("si la evaluación no trae la versión, muestra la registrada con el mismo run y checkpoint", async () => {
+    // ML-09 evalúa antes de que OPS-06 registre la versión: su JSON trae model_name null.
+    const overview = evaluated();
+    overview.evaluation = { ...overview.evaluation!, model_name: null, model_version: null };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === OVERVIEW_URL) return json(overview);
+        if (url === "/api/ml/models") return json(loadMlExample("models"));
+        return json({}, 404);
+      })
+    );
+    openEvaluation();
+
+    const metrics = await screen.findByRole("region", { name: /evaluación final en test/i });
+    const link = await within(metrics).findByRole("link", { name: "dog-cat-resnet18 v1.0.0" });
+    expect(link).toHaveAttribute("href", "/ml/models");
+    expect(within(metrics).queryByText("Sin registrar")).not.toBeInTheDocument();
+  });
+
+  it("sin una versión registrada del mismo checkpoint dice Sin registrar", async () => {
+    const overview = evaluated();
+    overview.evaluation = { ...overview.evaluation!, model_name: null, model_version: null };
+    const models = structuredClone(loadMlExample("models")) as {
+      models: {
+        checkpoint_sha256: string;
+        files: { name: string; sha256: string }[];
+        publication: unknown;
+      }[];
+    };
+    const other = "1".repeat(64);
+    models.models[0]!.checkpoint_sha256 = other;
+    models.models[0]!.files[0]!.sha256 = other;
+    models.models[0]!.publication = {
+      status: "not_published",
+      bucket: null,
+      region: null,
+      published_at: null,
+      objects: [],
+      problem: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === OVERVIEW_URL) return json(overview);
+        if (url === "/api/ml/models") return json(models);
+        return json({}, 404);
+      })
+    );
+    openEvaluation();
+
+    const metrics = await screen.findByRole("region", { name: /evaluación final en test/i });
+    expect(await within(metrics).findByText("Sin registrar")).toBeInTheDocument();
+    expect(within(metrics).queryByRole("link", { name: /dog-cat-resnet18/ })).not.toBeInTheDocument();
+  });
+
   it("muestra el baseline de clase mayoritaria sobre el mismo test", async () => {
     serve(evaluated());
     openEvaluation();
