@@ -11,19 +11,29 @@ const probabilitiesSchema = z
     message: 'Las probabilidades deben sumar aproximadamente 1.',
   });
 
-export const inferenceQueueMetadataSchema = z.object({
-  sourceKind: z.enum(['upload', 'crop']),
-  sourceRef: z.string().trim().min(1),
-  modelName: z.string().trim().min(1),
-  modelVersion: z
-    .string()
-    .trim()
-    .regex(/^\d+\.\d+\.\d+$/, 'modelVersion debe usar SemVer.'),
-  runId: z.string().trim().min(1),
-  checkpointSha256: z.string().regex(/^[a-f0-9]{64}$/i),
-  predictedClass: z.enum(['dog', 'cat']),
-  probabilities: probabilitiesSchema,
-});
+export const inferenceQueueMetadataSchema = z
+  .object({
+    sourceKind: z.enum(['upload', 'crop']),
+    sourceRef: z.string().trim().min(1),
+    modelName: z.string().trim().min(1),
+    modelVersion: z
+      .string()
+      .trim()
+      .regex(/^\d+\.\d+\.\d+$/, 'modelVersion debe usar SemVer.'),
+    runId: z.string().trim().min(1),
+    checkpointSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+    predictedClass: z.enum(['dog', 'cat']),
+    probabilities: probabilitiesSchema,
+  })
+  // APP-09: la clase enviada es la de mayor probabilidad, como la devuelve Inference.
+  .refine(
+    ({ predictedClass, probabilities }) =>
+      probabilities[predictedClass] === Math.max(probabilities.dog, probabilities.cat),
+    {
+      message: 'predictedClass debe ser la clase de mayor probabilidad.',
+      path: ['predictedClass'],
+    },
+  );
 
 export type InferenceQueueMetadata = z.infer<typeof inferenceQueueMetadataSchema>;
 

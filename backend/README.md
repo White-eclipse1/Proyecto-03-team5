@@ -113,7 +113,7 @@ MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=image-annotations
 
-MAX_UPLOAD_SIZE_BYTES=5242880
+MAX_UPLOAD_SIZE_BYTES=10485760
 ```
 
 Los valores reales deben almacenarse únicamente en `.env`.
@@ -275,6 +275,10 @@ El tamaño máximo se configura mediante:
 ```text
 MAX_UPLOAD_SIZE_BYTES
 ```
+
+Por defecto es 10 MiB (`10485760`), el mismo valor que usan `docker-compose.yml` y
+Inference (`MAX_UPLOAD_BYTES` en `app/training/inference.py`), así que una imagen
+clasificada en Inference también se puede enviar a la cola de anotación.
 
 El flujo de persistencia es:
 

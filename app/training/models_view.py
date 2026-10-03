@@ -10,8 +10,11 @@ Lee lo que dejan OPS-06 y OPS-07 en `reports/models/`:
 
 Una versión es `servable` si este servidor tiene cada archivo del paquete con su
 sha256. Su publicación es `published` solo si cada archivo del paquete está en S3
-con el sha256 registrado, confirmado por S3 y por la descarga; si algo no cuadra es
-`inconsistent`, se explica por qué y no se muestran keys como publicadas.
+con el sha256 registrado, confirmado por S3 y por la descarga en OPS-07 **y** ahora
+mismo por S3 (`head_object` de cada objeto con su `ChecksumSHA256`, ver
+`training.s3_verification`). Si algo no cuadra es `inconsistent`; si S3 no se puede
+consultar (sin credenciales o sin red) es `unverifiable`. En ambos casos se explica
+por qué y no se muestran keys como publicadas.
 """
 
 import hashlib
@@ -31,6 +34,7 @@ from presentation.ml_contracts import (
     RegisteredModelVersion,
     S3Object,
 )
+from training.s3_verification import S3Unverifiable, S3Verifier
 
 REGISTRY_FILE = Path("models") / "registry.json"
 PUBLICATIONS_FILE = Path("models") / "s3_publications.json"
@@ -129,7 +133,34 @@ def _publication_problem(package: ModelPackage, record: dict) -> str | None:
     return None
 
 
-def _publication(package: ModelPackage, records: dict, problem: str | None) -> ModelPublication:
+def _s3_problem(record: dict, s3: S3Verifier | None) -> tuple[str, str] | None:
+    """(estado, motivo) si S3 no confirma cada objeto con su sha256; None si lo confirma."""
+    if s3 is None:
+        return "unverifiable", "ml-api no tiene cómo consultar S3 para confirmar la publicación."
+    for name, entry in record["files"].items():
+        if not isinstance(entry.get("key"), str) or not entry["key"]:
+            return "inconsistent", "La publicación tiene campos incompletos."
+        try:
+            head = s3.head(
+                bucket=record["bucket"],
+                region=record["region"],
+                key=entry["key"],
+                version_id=entry.get("version_id"),
+            )
+        except S3Unverifiable as error:
+            return "unverifiable", f"No se pudo consultar S3: {error}"
+        if head is None:
+            return "inconsistent", f"{name} no existe en S3 en la key y versión registradas."
+        if head.checksum_sha256 is None:
+            return "inconsistent", f"{name}: S3 no devuelve su ChecksumSHA256."
+        if head.checksum_sha256 != entry["sha256"]:
+            return "inconsistent", f"{name}: el ChecksumSHA256 de S3 no es el sha256 registrado."
+    return None
+
+
+def _publication(
+    package: ModelPackage, records: dict, problem: str | None, s3: S3Verifier | None
+) -> ModelPublication:
     def unpublished(status: str, reason: str | None = None) -> ModelPublication:
         return ModelPublication(
             status=status, bucket=None, region=None, published_at=None, objects=[], problem=reason
@@ -143,6 +174,9 @@ def _publication(package: ModelPackage, records: dict, problem: str | None) -> M
     problem = _publication_problem(package, record)
     if problem is not None:
         return unpublished("inconsistent", problem)
+    found = _s3_problem(record, s3)
+    if found is not None:
+        return unpublished(*found)
     try:
         return ModelPublication(
             status="published",
@@ -164,7 +198,9 @@ def _publication(package: ModelPackage, records: dict, problem: str | None) -> M
         return unpublished("inconsistent", "La publicación tiene campos incompletos.")
 
 
-def _version(package: ModelPackage, repo_root: Path, records, problem) -> RegisteredModelVersion:
+def _version(
+    package: ModelPackage, repo_root: Path, records, problem, s3: S3Verifier | None
+) -> RegisteredModelVersion:
     files = _files(package, repo_root)
     return RegisteredModelVersion(
         model_name=package.model_name,
@@ -187,22 +223,25 @@ def _version(package: ModelPackage, repo_root: Path, records, problem) -> Regist
         ),
         files=files,
         servable=all(file.available for file in files),
-        publication=_publication(package, records, problem),
+        publication=_publication(package, records, problem, s3),
     )
 
 
-def list_models(reports_dir: Path, repo_root: Path) -> ModelsResponse:
+def list_models(reports_dir: Path, repo_root: Path, s3: S3Verifier | None = None) -> ModelsResponse:
     records, problem = _load_publications(reports_dir)
     return ModelsResponse(
         schema_version="1.0",
         models=[
-            _version(package, repo_root, records, problem) for package in load_registry(reports_dir)
+            _version(package, repo_root, records, problem, s3)
+            for package in load_registry(reports_dir)
         ],
     )
 
 
-def find_model(reports_dir: Path, repo_root: Path, version: str) -> RegisteredModelVersion | None:
-    for model in list_models(reports_dir, repo_root).models:
+def find_model(
+    reports_dir: Path, repo_root: Path, version: str, s3: S3Verifier | None = None
+) -> RegisteredModelVersion | None:
+    for model in list_models(reports_dir, repo_root, s3).models:
         if model.model_version == version:
             return model
     return None

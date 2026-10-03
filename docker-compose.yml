@@ -109,9 +109,13 @@ services:
       MINIO_BUCKET: image-annotations
       MAX_UPLOAD_SIZE_BYTES: 10485760
       PIPELINE_CONFIG_ROOT: /pipeline
+      # APP-09: la cola de anotación (APP-08) verifica modelo, checkpoint y recorte
+      # contra reports/models/registry.json y reports/crops.json.
+      REPORTS_DIR: /reports
     volumes:
       - ./app/policies:/pipeline/policies
       - ./app/splits:/pipeline/splits
+      - ./reports:/reports:ro
     ports:
       - "3100:3100"
     restart: on-failure:5
@@ -173,6 +177,18 @@ services:
       # APP-05: recortes de ML-01 (`dvc pull`) para los ejemplos de Evaluation. Sin
       # ellos la pantalla funciona igual y muestra cada ejemplo sin imagen.
       CROPS_DIR: /app/data/crops
+      # APP-06/09: Models confirma en S3 (head-object + ChecksumSHA256) cada objeto que
+      # OPS-07 publicó. Credenciales opcionales, desde el entorno de quien levanta el
+      # stack (nunca en el repo ni en .env), p. ej.:
+      #   eval "$(aws configure export-credentials --profile mlops-p2 --format env)"
+      #   docker compose up -d ml-api
+      # Vacías (por defecto), boto3 las ignora y Models muestra "No verificable".
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      # Fuera de EC2 no hay metadata service: sin esto, cada consulta sin credenciales
+      # esperaría su timeout antes de responder "No verificable".
+      AWS_EC2_METADATA_DISABLED: ${AWS_EC2_METADATA_DISABLED:-true}
     volumes:
       - ./reports:/app/reports:ro
       - ./data/crops:/app/data/crops:ro

@@ -49,6 +49,7 @@ beforeAll(async () => {
       NotFoundError: MockNotFoundError,
       searchImages: vi.fn(),
       setImageStatus: vi.fn(),
+      TraceabilityUnavailableError: class MockTraceabilityUnavailableError extends Error {},
       updateAnnotation: vi.fn(),
       uploadImage: vi.fn(),
       ValidationError: MockValidationError,
