@@ -7,6 +7,7 @@ import {
   createSettingsService,
   deleteAnnotation,
   deleteImage,
+  enqueueInferenceResult,
   exportCocoDataset,
   getAnnotationsForImage,
   getCategories,
@@ -142,6 +143,53 @@ app.post('/images', upload.single('image'), async (req, res) => {
     res.status(201).json(image);
   } catch (error) {
     sendError(res, error, 'Error desconocido al cargar la imagen.');
+  }
+});
+
+/**
+ * APP-08 — envía un resultado de Inference a la cola real de anotación.
+ *
+ * multipart/form-data:
+ * - image: archivo PNG/JPEG
+ * - metadata: JSON con trazabilidad ML
+ */
+app.post('/images/from-inference', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({
+      error: 'Debe enviarse una imagen.',
+    });
+    return;
+  }
+
+  let metadata: unknown;
+
+  try {
+    metadata = JSON.parse(String(req.body?.metadata ?? ''));
+  } catch {
+    res.status(400).json({
+      error: 'metadata debe ser JSON válido.',
+    });
+    return;
+  }
+
+  try {
+    const result = await enqueueInferenceResult({
+      image: {
+        filename: req.file.originalname,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        buffer: req.file.buffer,
+      },
+      metadata: metadata as never,
+    });
+
+    res.status(result.created ? 201 : 200).json({
+      imageId: result.imageId,
+      created: result.created,
+      idempotencyKey: result.idempotencyKey,
+    });
+  } catch (error) {
+    sendError(res, error, 'No se pudo enviar la inferencia a la cola de anotación.');
   }
 });
 

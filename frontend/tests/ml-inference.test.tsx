@@ -254,3 +254,155 @@ describe("APP-07 Inference: recorte del portal", () => {
     await waitFor(() => expect(sentTo(calls, CROP_URL)).toHaveLength(0));
   });
 });
+
+describe("APP-08 Inference → annotation queue", () => {
+  it("envía una inferencia real a la cola y conserva la trazabilidad", async () => {
+    const calls = serve(({ url, init }) => {
+      if (url === UPLOAD_URL) {
+        const version = (init?.body as FormData).get("model_version");
+        return json(uploadResponse({ model_version: version }));
+      }
+
+      if (url === "/api/images/from-inference") {
+        return json(
+          {
+            imageId: 321,
+            created: true,
+            idempotencyKey: "a".repeat(64),
+          },
+          201
+        );
+      }
+
+      return json({}, 404);
+    });
+
+    openInference();
+
+    await chooseFile(png());
+    fireEvent.click(screen.getByRole("button", { name: "Clasificar" }));
+
+    await screen.findByRole("region", { name: /resultado/i });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /enviar a cola de anotación/i,
+      })
+    );
+
+    expect(await screen.findByText(/enviado a la cola de anotación/i)).toBeVisible();
+
+    const queueCalls = sentTo(calls, "/api/images/from-inference");
+    expect(queueCalls).toHaveLength(1);
+
+    const body = queueCalls[0]!.init!.body as FormData;
+    expect(body.get("image")).toBeInstanceOf(File);
+
+    const metadata = JSON.parse(String(body.get("metadata")));
+
+    expect(metadata).toMatchObject({
+      sourceKind: "upload",
+      modelName: "dog-cat-resnet18",
+      modelVersion: "1.0.0",
+      runId: "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      predictedClass: "cat",
+    });
+
+    expect(metadata.sourceRef).toMatch(/^sha256:/);
+    expect(metadata.probabilities).toEqual({
+      dog: 0.031,
+      cat: 0.969,
+    });
+  });
+
+  it("doble click no crea dos requests mientras el primero sigue activo", async () => {
+    let resolveQueue!: (response: Response) => void;
+
+    const queuePromise = new Promise<Response>((resolve) => {
+      resolveQueue = resolve;
+    });
+
+    const calls = serve(({ url, init }) => {
+      if (url === UPLOAD_URL) {
+        const version = (init?.body as FormData).get("model_version");
+        return json(uploadResponse({ model_version: version }));
+      }
+
+      if (url === "/api/images/from-inference") {
+        return queuePromise;
+      }
+
+      return json({}, 404);
+    });
+
+    openInference();
+
+    await chooseFile(png());
+    fireEvent.click(screen.getByRole("button", { name: "Clasificar" }));
+
+    await screen.findByRole("region", { name: /resultado/i });
+
+    const button = screen.getByRole("button", {
+      name: /enviar a cola de anotación/i,
+    });
+
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+
+    fireEvent.click(button);
+
+    expect(sentTo(calls, "/api/images/from-inference")).toHaveLength(1);
+
+    resolveQueue(
+      new Response(
+        JSON.stringify({
+          imageId: 321,
+          created: true,
+          idempotencyKey: "a".repeat(64),
+        }),
+        {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    expect(await screen.findByText(/enviado a la cola de anotación/i)).toBeVisible();
+  });
+
+  it("muestra al usuario un fallo del backend", async () => {
+    serve(({ url, init }) => {
+      if (url === UPLOAD_URL) {
+        const version = (init?.body as FormData).get("model_version");
+        return json(uploadResponse({ model_version: version }));
+      }
+
+      if (url === "/api/images/from-inference") {
+        return json(
+          {
+            error: "No se pudo crear la entrada.",
+          },
+          500
+        );
+      }
+
+      return json({}, 404);
+    });
+
+    openInference();
+
+    await chooseFile(png());
+    fireEvent.click(screen.getByRole("button", { name: "Clasificar" }));
+
+    await screen.findByRole("region", { name: /resultado/i });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /enviar a cola de anotación/i,
+      })
+    );
+
+    expect(await screen.findByRole("alert")).toBeVisible();
+  });
+});
