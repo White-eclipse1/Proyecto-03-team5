@@ -184,4 +184,30 @@ describe("APP-06 Models: detalle de una versión", () => {
     expect(within(version).queryByRole("table", { name: /objetos en s3/i })).not.toBeInTheDocument();
     expect(within(version).queryByText(/models\/dog-cat-resnet18/)).not.toBeInTheDocument();
   });
+
+  it("una publicación que no se pudo verificar en S3 dice No verificable y por qué, sin keys", async () => {
+    const body = example();
+    body.models[0]!.publication = {
+      status: "unverifiable",
+      bucket: null,
+      region: null,
+      published_at: null,
+      objects: [],
+      problem: "No se pudo consultar S3: ml-api no tiene credenciales de AWS.",
+    };
+    serve(body);
+    openModels();
+
+    const table = await versionsTable();
+    const current = within(table).getByRole("row", { name: /1\.0\.0/ });
+    expect(within(current).getByText("No verificable")).toBeInTheDocument();
+    expect(within(current).queryByText("Publicado en S3")).not.toBeInTheDocument();
+    const version = detail("1.0.0");
+    expect(within(version).getByRole("alert")).toHaveTextContent(
+      /no se pudo confirmar en S3.*ml-api no tiene credenciales de AWS/i
+    );
+    expect(within(version).queryByRole("table", { name: /objetos en s3/i })).not.toBeInTheDocument();
+    expect(within(version).queryByText(/models\/dog-cat-resnet18/)).not.toBeInTheDocument();
+    expect(within(version).queryByText("mlops-p2-dvc-cache-280764207006")).not.toBeInTheDocument();
+  });
 });

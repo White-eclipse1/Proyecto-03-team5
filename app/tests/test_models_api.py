@@ -5,6 +5,10 @@ y la publicación en S3 de OPS-07 (`reports/models/s3_publications.json`).
 
 TDD Requirement del issue #23: model version → artifact resolution. Agent Test: dos
 versiones resuelven checkpoints (y sha256) distintos.
+
+`published` exige además que S3 confirme cada objeto (head-object con su
+ChecksumSHA256). Aquí S3 es `FakeS3`, una foto de lo que se subió; el verificador real
+(`training.s3_verification`) tiene sus propias pruebas.
 """
 
 import json
@@ -17,10 +21,31 @@ from starlette.testclient import TestClient
 from presentation.ml_contracts import ErrorResponse, ModelsResponse, RegisteredModelVersion
 from tests._model_registry import BUCKET, MODEL, ROOT, Registry, make_checkpoint, sha256
 from training.queue import TrainingJobQueue
+from training.s3_verification import S3Head, S3Unverifiable
 from training.server import create_app
 
 RUN_A = "a" * 32
 RUN_B = "b" * 32
+
+
+class FakeS3:
+    """S3 en memoria: (bucket, key, version_id) → sha256 que S3 devolvería."""
+
+    def __init__(self, publications: list[dict] = ()):
+        self.objects = {
+            (record["bucket"], entry["key"], entry["version_id"]): entry["sha256"]
+            for record in publications
+            for entry in record["files"].values()
+        }
+        self.error: str | None = None
+        self.calls: list[tuple] = []
+
+    def head(self, *, bucket: str, region: str, key: str, version_id: str | None):
+        self.calls.append((bucket, region, key, version_id))
+        if self.error is not None:
+            raise S3Unverifiable(self.error)
+        checksum = self.objects.get((bucket, key, version_id))
+        return None if checksum is None else S3Head(checksum_sha256=checksum)
 
 
 @pytest.fixture(scope="module")
@@ -40,12 +65,20 @@ def registry(tmp_path, checkpoints) -> Registry:
     return built
 
 
-def client_for(tmp_path: Path, registry: Registry) -> TestClient:
+_UPLOADED = object()
+
+
+def client_for(tmp_path: Path, registry: Registry, s3=_UPLOADED) -> TestClient:
+    """Por defecto S3 tiene exactamente lo que el registro de OPS-07 dice que se subió."""
+    if s3 is _UPLOADED:
+        s3 = FakeS3(json.loads(json.dumps(registry.publications)))
     queue = TrainingJobQueue(create_engine(f"sqlite:///{tmp_path / 'jobs.db'}"))
     queue.create_tables()
     reports = registry.root / "reports"
     reports.mkdir(parents=True, exist_ok=True)
-    return TestClient(create_app(queue=queue, reports_dir=reports, repo_root=registry.root))
+    return TestClient(
+        create_app(queue=queue, reports_dir=reports, repo_root=registry.root, s3_verifier=s3)
+    )
 
 
 def models(client: TestClient) -> dict[str, RegisteredModelVersion]:
@@ -213,6 +246,144 @@ def test_unreadable_publications_do_not_hide_the_models(tmp_path, registry):
     assert "s3_publications.json" in publication.problem
 
 
+# --- Lo que S3 dice de verdad (revisión del PR #63, rúbrica 6.4) ----------------------
+
+
+def _uploaded(registry: Registry) -> FakeS3:
+    return FakeS3(json.loads(json.dumps(registry.publications)))
+
+
+def _assert_not_shown_as_published(publication, status: str, *fragments: str) -> None:
+    assert publication.status == status
+    assert publication.objects == [] and publication.bucket is None
+    assert publication.region is None and publication.published_at is None
+    for fragment in fragments:
+        assert fragment in publication.problem
+    assert "models/" not in publication.problem, "el problema no muestra keys"
+
+
+def test_every_published_object_is_asked_to_s3_with_its_region_and_version(tmp_path, registry):
+    record = registry.publish("1.0.0")
+    record["files"]["checkpoint/best.pt"]["version_id"] = "v-checkpoint"
+    registry.save_publications()
+    s3 = _uploaded(registry)
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    assert publication.status == "published"
+    asked = {(bucket, region, key, version) for bucket, region, key, version in s3.calls}
+    expected = {
+        (BUCKET, "us-east-1", entry["key"], entry["version_id"])
+        for entry in record["files"].values()
+    }
+    assert asked == expected
+
+
+def test_a_key_that_does_not_exist_in_s3_is_inconsistent(tmp_path, registry):
+    """Regresión del revisor: otra key para model-card.md (404 en S3) seguía published."""
+    record = registry.publish("1.0.0")
+    s3 = _uploaded(registry)
+    record["files"]["model-card.md"]["key"] = f"models/{MODEL}/1.0.0/no-existe.md"
+    registry.save_publications()
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "inconsistent", "model-card.md", "no existe en S3")
+
+
+def test_an_object_deleted_from_s3_is_inconsistent(tmp_path, registry):
+    registry.publish("1.0.0")
+    s3 = _uploaded(registry)
+    s3.objects.pop(next(key for key in s3.objects if key[1].endswith("checkpoint/best.pt")))
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "inconsistent", "checkpoint/best.pt")
+
+
+def test_another_version_id_of_the_object_is_not_the_published_one(tmp_path, registry):
+    record = registry.publish("1.0.0")
+    record["files"]["model-card.md"]["version_id"] = "v1"
+    registry.save_publications()
+    s3 = _uploaded(registry)
+    record["files"]["model-card.md"]["version_id"] = "v2"
+    registry.save_publications()
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "inconsistent", "model-card.md")
+
+
+def test_an_object_whose_s3_checksum_is_not_the_registered_sha256_is_inconsistent(
+    tmp_path, registry
+):
+    registry.publish("1.0.0")
+    s3 = _uploaded(registry)
+    card = next(key for key in s3.objects if key[1].endswith("model-card.md"))
+    s3.objects[card] = "0" * 64
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "inconsistent", "model-card.md", "ChecksumSHA256")
+
+
+def test_an_object_without_checksum_in_s3_is_not_published(tmp_path, registry):
+    registry.publish("1.0.0")
+
+    class NoChecksum(FakeS3):
+        def head(self, **kwargs):
+            found = super().head(**kwargs)
+            return None if found is None else S3Head(checksum_sha256=None)
+
+    s3 = NoChecksum(json.loads(json.dumps(registry.publications)))
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "inconsistent", "ChecksumSHA256")
+
+
+def test_without_aws_credentials_the_publication_is_unverifiable(tmp_path, registry):
+    registry.publish("1.0.0")
+    s3 = _uploaded(registry)
+    s3.error = "ml-api no tiene credenciales de AWS."
+
+    listed = models(client_for(tmp_path, registry, s3))
+
+    _assert_not_shown_as_published(listed["1.0.0"].publication, "unverifiable", "credenciales")
+    assert listed["1.1.0"].publication.status == "not_published", "sin registro no se consulta S3"
+
+
+def test_without_a_verifier_nothing_is_shown_as_published(tmp_path, registry):
+    registry.publish("1.0.0")
+
+    publication = models(client_for(tmp_path, registry, None))["1.0.0"].publication
+
+    _assert_not_shown_as_published(publication, "unverifiable", "S3")
+
+
+def test_a_local_inconsistency_is_reported_before_asking_s3(tmp_path, registry):
+    record = registry.publish("1.0.0", run_id="f" * 32)
+    s3 = _uploaded(registry)
+    s3.error = "sin credenciales"
+
+    publication = models(client_for(tmp_path, registry, s3))["1.0.0"].publication
+
+    assert publication.status == "inconsistent" and record["run_id"] in publication.problem
+    assert s3.calls == []
+
+
+def test_the_detail_endpoint_verifies_s3_too(tmp_path, registry):
+    record = registry.publish("1.0.0")
+    s3 = _uploaded(registry)
+    record["files"]["model-card.md"]["key"] = f"models/{MODEL}/1.0.0/no-existe.md"
+    registry.save_publications()
+
+    response = client_for(tmp_path, registry, s3).get("/models/1.0.0")
+
+    publication = RegisteredModelVersion.model_validate(response.json()).publication
+    assert publication.status == "inconsistent"
+
+
 # --- Descargas autorizadas -----------------------------------------------------------
 
 
@@ -269,13 +440,24 @@ def test_altered_or_missing_file_is_not_served(tmp_path, registry, checkpoints):
 # --- Datos reales del repo (OPS-06 + OPS-07) -----------------------------------------
 
 
-def test_real_registry_and_s3_publication(tmp_path):
+def _real_client(tmp_path: Path, s3) -> TestClient:
     queue = TrainingJobQueue(create_engine(f"sqlite:///{tmp_path / 'jobs.db'}"))
     queue.create_tables()
-    client = TestClient(create_app(queue=queue, reports_dir=ROOT / "reports", repo_root=ROOT))
+    return TestClient(
+        create_app(queue=queue, reports_dir=ROOT / "reports", repo_root=ROOT, s3_verifier=s3)
+    )
+
+
+def _real_publications() -> list[dict]:
+    path = ROOT / "reports" / "models" / "s3_publications.json"
+    return json.loads(path.read_text("utf-8"))["publications"]
+
+
+def test_real_registry_and_s3_publication(tmp_path):
+    """Con S3 confirmando cada objeto de la publicación real de OPS-07 → published."""
     registry = json.loads((ROOT / "reports" / "models" / "registry.json").read_text("utf-8"))
 
-    listed = models(client)
+    listed = models(_real_client(tmp_path, FakeS3(_real_publications())))
 
     entry = registry["models"][0]
     model = listed[entry["model_version"]]
@@ -283,3 +465,12 @@ def test_real_registry_and_s3_publication(tmp_path):
     assert model.publication.status == "published"
     assert model.publication.bucket == BUCKET
     assert {obj.name for obj in model.publication.objects} >= set(entry["files"])
+
+
+def test_real_publication_without_aws_is_unverifiable(tmp_path):
+    s3 = FakeS3(_real_publications())
+    s3.error = "ml-api no tiene credenciales de AWS."
+
+    for model in models(_real_client(tmp_path, s3)).values():
+        assert model.publication.status != "published"
+        assert model.publication.objects == []

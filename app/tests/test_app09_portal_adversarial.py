@@ -221,6 +221,21 @@ def test_models_lists_the_real_registered_version(models):
         assert model.servable, "el stack monta el paquete de data/models"
 
 
+def test_models_only_says_published_after_asking_s3(models):
+    """Revisión del PR #63: ml-api confirma cada objeto en S3; sin credenciales de AWS
+    la publicación registrada es `unverifiable` (con su motivo), nunca `published` a ciegas."""
+    publications = json.loads(
+        (ROOT / "reports" / "models" / "s3_publications.json").read_text("utf-8")
+    )["publications"]
+    listed = {model.model_version: model for model in models.models}
+
+    for record in publications:
+        publication = listed[record["model_version"]].publication
+        assert publication.status in {"published", "unverifiable", "inconsistent"}
+        if publication.status != "published":
+            assert publication.problem and publication.objects == []
+
+
 def test_published_objects_really_exist_in_s3(models):
     profile = os.environ.get("APP09_AWS_PROFILE")
     if not profile:
@@ -424,6 +439,43 @@ def test_annotation_queue_rejects_a_class_that_is_not_the_most_probable(api, que
     response = send_to_queue(api, queued["image"], {**queued["metadata"], "predictedClass": wrong})
 
     assert 400 <= response.status_code < 500, response.text
+
+
+def test_annotation_queue_accepts_the_largest_image_that_inference_accepts(api, models):
+    """Revisión del PR #63: un PNG válido de casi 10 MiB pasaba por Inference (200) y nginx
+    cortaba con un 413 en HTML el envío a la cola (`/api/` tenía client_max_body_size 10m)."""
+    import hashlib
+
+    side = 1866
+    image = Image.frombytes("RGB", (side, side), os.urandom(side * side * 3))
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG", compress_level=0)
+    data = buffer.getvalue()
+    assert 10 * 1024 * 1024 - 256 * 1024 < len(data) <= 10 * 1024 * 1024, len(data)
+    model = models.models[0]
+
+    classified = api.post(
+        "/inference/upload",
+        data={"model_name": model.model_name, "model_version": model.model_version},
+        files={"file": ("casi-10mib.png", data, "image/png")},
+    )
+    assert classified.status_code == 200, classified.text[:200]
+    result = InferenceResponse.model_validate(classified.json())
+    metadata = {
+        "sourceKind": "upload",
+        "sourceRef": "sha256:" + hashlib.sha256(data).hexdigest(),
+        "modelName": result.model_name,
+        "modelVersion": result.model_version,
+        "runId": result.run_id,
+        "checkpointSha256": result.checkpoint_sha256,
+        "predictedClass": result.predicted_class,
+        "probabilities": result.probabilities,
+    }
+
+    response = send_to_queue(api, data, metadata, name="casi-10mib.png")
+
+    assert response.status_code in (200, 201), response.text[:200]
+    assert response.json()["imageId"]
 
 
 def test_annotation_queue_checks_the_uploaded_image_against_its_sha256(api, queued):
