@@ -146,23 +146,23 @@ stages:
       nfiles: 600
     - path: analyzers
       hash: md5
-      md5: b041a16a09d52ff3aa2a674211006f19.dir
-      size: 65146
-      nfiles: 17
+      md5: e40324666fcdc4965dd640bf550e7ada.dir
+      size: 36189
+      nfiles: 9
     - path: dvc_quality_report_stage.py
       hash: md5
       md5: fbc5e23fc611e984b3504f326e898b21
       size: 785
     - path: ingestion
       hash: md5
-      md5: 7f179b044c74968bdbfb4419bbfd2b6f.dir
-      size: 18574
-      nfiles: 7
+      md5: b555a364cb8d4cebec40734232234424.dir
+      size: 8594
+      nfiles: 4
     - path: policies
       hash: md5
-      md5: 51373d82c3e1895e25d15f891ef2e684.dir
-      size: 8499
-      nfiles: 10
+      md5: 46c2dbb80ff6ca6f51e733c3fbb31abe.dir
+      size: 5233
+      nfiles: 8
     - path: presentation/contracts.py
       hash: md5
       md5: 24a51d6f65165cc4377911bf659dbaf2
@@ -217,9 +217,9 @@ stages:
       size: 7
     - path: analyzers
       hash: md5
-      md5: b041a16a09d52ff3aa2a674211006f19.dir
-      size: 65146
-      nfiles: 17
+      md5: e40324666fcdc4965dd640bf550e7ada.dir
+      size: 36189
+      nfiles: 9
     - path: dvc_gate_stage.py
       hash: md5
       md5: 75ed4c9299c5c526be827e6c5386e929
@@ -230,14 +230,14 @@ stages:
       size: 1459
     - path: ingestion
       hash: md5
-      md5: 7f179b044c74968bdbfb4419bbfd2b6f.dir
-      size: 18574
-      nfiles: 7
+      md5: b555a364cb8d4cebec40734232234424.dir
+      size: 8594
+      nfiles: 4
     - path: policies
       hash: md5
-      md5: 51373d82c3e1895e25d15f891ef2e684.dir
-      size: 8499
-      nfiles: 10
+      md5: 46c2dbb80ff6ca6f51e733c3fbb31abe.dir
+      size: 5233
+      nfiles: 8
     - path: presentation/contracts.py
       hash: md5
       md5: 24a51d6f65165cc4377911bf659dbaf2
@@ -252,9 +252,9 @@ stages:
       size: 1514
     - path: splits
       hash: md5
-      md5: 929b6e04ec67e3c5a0eda04acc557430.dir
-      size: 46499
-      nfiles: 8
+      md5: c04d5e5f04ebd6fdd2f6cdbe5486ad25.dir
+      size: 23378
+      nfiles: 5
     - path: storage/settings.py
       hash: md5
       md5: 23ac3844ef81d577c85f493d141eb0c8
