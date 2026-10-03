@@ -93,3 +93,31 @@ def test_inference_does_not_depend_on_the_mlflow_model_registry():
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "test_inference_mlflow_integration.py" not in ci
     assert not (ROOT / "app" / "tests" / "test_inference_mlflow_integration.py").exists()
+
+
+def test_every_endpoint_the_portal_calls_is_served_by_ml_api():
+    """APP-09: ninguna pantalla de modelos llama a una ruta sin backend (placeholder)."""
+    data_source = (ROOT / "frontend" / "src" / "ml" / "dataSource.ts").read_text(encoding="utf-8")
+    block = re.search(r"export const ML_ENDPOINTS = \{(.*?)\} as const;", data_source, re.S)
+    assert block, "dataSource.ts no tiene ML_ENDPOINTS"
+    endpoints = re.findall(r'"/ml(/[^"]*)"', block.group(1))
+    server = (ROOT / "app" / "training" / "server.py").read_text(encoding="utf-8")
+    routes = set(re.findall(r'Route\("([^"]+)"', server))
+    prefixes = {route.split("{")[0].rstrip("/") for route in routes}
+
+    assert endpoints
+    for endpoint in endpoints:
+        assert endpoint in routes or endpoint in prefixes, f"{endpoint} no está en ml-api"
+
+
+def test_nginx_accepts_the_uploads_that_inference_allows():
+    """APP-09 (bug): nginx cortaba con 413 (1 MB por defecto) imágenes válidas de <10 MB."""
+    from training.inference import MAX_UPLOAD_BYTES
+
+    nginx = (ROOT / "frontend" / "docker" / "nginx.conf").read_text(encoding="utf-8")
+    block = re.search(r"location /api/ml/ \{(.*?)\}", nginx, re.S)
+    limit = re.search(r"client_max_body_size\s+(\d+)m;", block.group(1)) if block else None
+
+    assert limit, "location /api/ml/ debe fijar client_max_body_size"
+    # El multipart agrega cabeceras y los campos model_name/model_version.
+    assert int(limit.group(1)) * 1024 * 1024 > MAX_UPLOAD_BYTES
