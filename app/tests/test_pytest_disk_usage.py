@@ -8,8 +8,11 @@ suite con errores ajenos al código (`No space left on device`).
 import pytest
 
 
-def test_only_failed_tests_keep_their_temporary_directories(request):
-    assert request.config.getini("tmp_path_retention_policy") == "failed"
+def test_pytest_keeps_every_tmp_path_directory_so_names_are_never_reused(request):
+    # Con tmp_path_retention_policy = "failed" pytest borra el directorio de un test que
+    # pasa y reusa su nombre en el siguiente test parametrizado; MLflow guarda en caché el
+    # store de esa ruta y falla. Por eso se vacía el contenido y se conserva el directorio.
+    assert request.config.getini("tmp_path_retention_policy") == "all"
 
 
 def test_a_passed_test_frees_its_tmp_path_right_away(request):
@@ -28,5 +31,7 @@ def test_writes_into_its_tmp_path(tmp_path, seen):
     seen["path"] = tmp_path
 
 
-def test_the_previous_tmp_path_was_already_removed(seen):
-    assert not seen["path"].exists()
+def test_the_previous_tmp_path_was_already_emptied(seen):
+    # Vacío pero presente: pytest no reusa su nombre en el siguiente test.
+    assert seen["path"].is_dir()
+    assert list(seen["path"].iterdir()) == []
