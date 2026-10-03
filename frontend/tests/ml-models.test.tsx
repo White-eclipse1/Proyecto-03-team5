@@ -151,6 +151,20 @@ describe("APP-06 Models: detalle de una versión", () => {
     expect(screen.queryByRole("region", { name: "dog-cat-resnet18 1.0.0" })).not.toBeInTheDocument();
   });
 
+  it("una versión anterior sin evaluación de test lo dice en vez de mostrar métricas (OPS-10)", async () => {
+    const body = example();
+    const previous = body.models.find((model) => model.model_version === "0.9.0")!;
+    previous.test_metrics = null;
+    serve(body);
+    openModels();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Ver 0.9.0" }));
+
+    const version = detail("0.9.0");
+    expect(within(version).getAllByText("Sin evaluación en test")).toHaveLength(2);
+    expect(within(version).queryByText(/^0\.\d{4}$/)).not.toBeInTheDocument();
+  });
+
   it("una versión sin paquete no ofrece descargas ni Inference", async () => {
     serve();
     openModels();
