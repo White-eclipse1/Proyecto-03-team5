@@ -332,7 +332,7 @@ desde la raíz y **en la misma terminal** de principio a fin (el paso 4 usa el
 #    `docker compose up --wait` falla) y los del Proyecto 3
 dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
 dvc pull -r prod crops                       # data/crops (recortes de ML-01)
-dvc pull -r prod data/models.dvc             # data/models (paquete dog-cat-resnet18 1.0.0)
+dvc pull -r prod data/models.dvc             # data/models (dog-cat-resnet18 1.0.0 y 0.9.0)
 dvc pull -r prod data/mlflow-snapshot.dvc    # data/mlflow-snapshot (corridas de MLflow)
 
 # 2. Credenciales de AWS para que Models verifique la publicación en S3 (opcional;
@@ -361,7 +361,7 @@ Con eso, en `http://localhost:8080`:
 | Training | Release `v0.1.1` con su procedencia DVC y el manifiesto 70/20/10; lanza jobs reales |
 | Experiments | Las 12 corridas de ML-07, entre ellas el candidato `ml07-v1-r03-sgd` |
 | Evaluation | El candidato congelado y su evaluación final de test (68/71) |
-| Models | `dog-cat-resnet18 1.0.0` con su paquete y su publicación en S3 |
+| Models | `dog-cat-resnet18 1.0.0` (candidato, vigente) y `0.9.0` (versión anterior), cada una con su paquete y su publicación en S3; elegir otra versión cambia el checkpoint que usa Inference |
 | Inference | Clasifica recortes e imágenes nuevas con la versión elegida y envía el resultado a la cola de anotación |
 
 El recorrido completo, con la cadena de IDs de punta a punta, lo comprueba

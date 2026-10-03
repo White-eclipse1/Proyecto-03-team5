@@ -560,6 +560,7 @@ El paquete pesa ~45 MB, así que se versiona con DVC (`data/models.dvc`, remote
 dvc pull -r prod data/models.dvc
 cd app && uv run python -m classification.registry resolve 1.0.0   # checkpoint verificado
 uv run python -m classification.registry verify 1.0.0              # Agent Test (con MLflow)
+uv run python -m classification.registry publish-previous 0.9.0 --run-id <run>  # versión anterior
 uv run python -m classification.registry publish 1.1.0             # nueva versión
 ```
 
@@ -571,6 +572,13 @@ exit 1 si algo no cuadra.
 Evidencia: [`tests/evidence/ops-06-model-registry.md`](../tests/evidence/ops-06-model-registry.md).
 Tests: `uv run pytest tests/test_model_registry.py`.
 
+**Versión anterior (OPS-10).** `publish-previous` empaqueta **otro** run
+`FINISHED` de la misma matriz, con el mismo release y manifest que el candidato, como
+una versión SemVer menor que la vigente. Se rechaza si el run tiene métricas de test.
+Su tarjeta dice que no es el candidato y que no se evaluó en test, y por eso no trae
+métricas de test: el test se usa una sola vez. `0.9.0` es `ml07-v1-r07-img224`
+(segundo por `best_val_loss`, 224×224), y `1.0.0` sigue siendo el candidato `r03-sgd`.
+
 ## OPS-07 — Modelo publicado en AWS S3
 
 `classification/publication.py`. Publica el paquete de OPS-06 de una model version
@@ -579,6 +587,7 @@ en AWS S3 y demuestra que se recupera y funciona desde un entorno limpio.
 | Model version | Bucket | Prefijo |
 |---|---|---|
 | `1.0.0` | `mlops-p2-dvc-cache-280764207006` (us-east-1) | `models/dog-cat-resnet18/1.0.0/` |
+| `0.9.0` (anterior) | `mlops-p2-dvc-cache-280764207006` (us-east-1) | `models/dog-cat-resnet18/0.9.0/` |
 
 El prefijo `models/` queda separado del `files/` que usa DVC. El registro de cada
 objeto está en `reports/models/s3_publications.json`: bucket, key, `VersionId`,
