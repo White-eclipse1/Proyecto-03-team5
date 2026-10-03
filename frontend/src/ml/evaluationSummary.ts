@@ -9,6 +9,8 @@ export type ClassSummary = {
   recall: number;
   f1: number;
   support: number;
+  /** Recortes de la clase predichos correctamente (diagonal de la matriz). */
+  hits: number;
   /** recall < 0.85, comparado con enteros (hits·100 < 85·support). */
   lowRecall: boolean;
 };
@@ -57,7 +59,15 @@ export function summarizeEvaluation(evaluation: Evaluation): EvaluationSummary {
     const precision = ratio(hits, columnTotals[index] ?? 0);
     const recall = ratio(hits, support);
     const f1 = precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
-    return { className, precision, recall, f1, support, lowRecall: !reachesTarget(hits, support) };
+    return {
+      className,
+      precision,
+      recall,
+      f1,
+      support,
+      hits,
+      lowRecall: !reachesTarget(hits, support),
+    };
   });
 
   const majority = names.reduce(
