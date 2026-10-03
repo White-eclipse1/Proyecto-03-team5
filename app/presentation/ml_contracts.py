@@ -529,9 +529,11 @@ class S3Object(ContractModel):
 
 class ModelPublication(ContractModel):
     """Publicación en S3 (OPS-07). `published` solo con cada archivo del paquete en S3
-    con el sha256 registrado; si algo no cuadra es `inconsistent` y no muestra keys."""
+    con el sha256 registrado, confirmado por S3 al responder; si algo no cuadra es
+    `inconsistent` y si S3 no se pudo consultar es `unverifiable`. Ninguno de los dos
+    muestra keys y ambos explican el motivo en `problem`."""
 
-    status: Literal["published", "not_published", "inconsistent"]
+    status: Literal["published", "not_published", "inconsistent", "unverifiable"]
     bucket: Label | None
     region: Label | None
     published_at: Timestamp | None
@@ -548,8 +550,9 @@ class ModelPublication(ContractModel):
             return self
         if located != (None, None, None) or self.objects:
             raise ValueError(f"{self.status} has no S3 location or objects")
-        if (self.status == "inconsistent") != (self.problem is not None):
-            raise ValueError("problem explains an inconsistent publication, and only that")
+        explained = self.status in ("inconsistent", "unverifiable")
+        if explained != (self.problem is not None):
+            raise ValueError("problem explains an inconsistent or unverifiable publication")
         return self
 
 

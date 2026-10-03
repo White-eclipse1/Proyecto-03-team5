@@ -1,15 +1,18 @@
+import { join } from 'node:path';
+import { env } from '../config/env.js';
 import {
   createInferenceQueueEntry,
   findImageById,
   findInferenceQueueEntryByKey,
 } from '../data/index.js';
-
+import { ValidationError } from './errors.js';
 import { deleteImage, type UploadImageInput, uploadImage } from './image-upload.service.js';
 import {
   buildInferenceQueueKey,
   type InferenceQueueMetadata,
   inferenceQueueMetadataSchema,
 } from './inference-queue.validation.js';
+import { verifyInferenceTraceability } from './inference-traceability.js';
 
 export interface EnqueueInferenceInput {
   image: UploadImageInput;
@@ -34,7 +37,22 @@ export interface EnqueueInferenceResult {
 export async function enqueueInferenceResult(
   input: EnqueueInferenceInput,
 ): Promise<EnqueueInferenceResult> {
-  const metadata = inferenceQueueMetadataSchema.parse(input.metadata);
+  const parsed = inferenceQueueMetadataSchema.safeParse(input.metadata);
+  if (!parsed.success) {
+    // APP-09: metadatos inválidos son un error del cliente (400), no un 500.
+    throw new ValidationError(
+      `Metadatos de inferencia inválidos: ${parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || 'metadata'}: ${issue.message}`)
+        .join('; ')}`,
+    );
+  }
+  const metadata = parsed.data;
+  // APP-09: antes de cualquier búsqueda o upload, la trazabilidad debe ser la real.
+  // Con la imagen atada a `sourceRef`, la misma clave implica la misma imagen.
+  verifyInferenceTraceability(metadata, input.image.buffer, {
+    registryPath: join(env.REPORTS_DIR, 'models', 'registry.json'),
+    cropsReportPath: join(env.REPORTS_DIR, 'crops.json'),
+  });
   const idempotencyKey = buildInferenceQueueKey(metadata);
 
   // Retry o doble click después de que la primera petición terminó.

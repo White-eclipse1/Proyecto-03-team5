@@ -133,6 +133,33 @@ describe("APP-01 contratos de modelos (espejo Zod de ml_contracts.py)", () => {
     expect(modelsResponseSchema.safeParse(swapped).success).toBe(false);
   });
 
+  it("acepta una publicación no verificable con su problema y sin keys, como Python", () => {
+    const parsed = modelsResponseSchema.parse(loadMlExample("models"));
+    const model = parsed.models[0]!;
+    const unverifiable = {
+      status: "unverifiable" as const,
+      bucket: null,
+      region: null,
+      published_at: null,
+      objects: [],
+      problem: "No se pudo consultar S3: ml-api no tiene credenciales de AWS.",
+    };
+    const withPublication = (publication: object) => ({
+      ...parsed,
+      models: [{ ...model, publication }],
+    });
+    expect(modelsResponseSchema.safeParse(withPublication(unverifiable)).success).toBe(true);
+    for (const changes of [
+      { problem: null },
+      { bucket: "mlops-p2-dvc-cache-280764207006" },
+      { objects: model.publication.objects },
+    ]) {
+      expect(
+        modelsResponseSchema.safeParse(withPublication({ ...unverifiable, ...changes })).success
+      ).toBe(false);
+    }
+  });
+
   it("acepta métricas redondeadas a 3 decimales y rechaza desvíos mayores", () => {
     const parsed = evaluationsResponseSchema.parse(loadMlExample("evaluations"));
     const withAccuracy = (accuracy_top1: number) => ({

@@ -26,6 +26,10 @@ Los runs se leen de MLflow en cada petición (sin caché). Si MLflow no responde
 `mlflow_unavailable` (reintentable); si el servicio no tiene `MLFLOW_TRACKING_URI`,
 503 `mlflow_not_configured`.
 
+`/models` confirma en S3 cada objeto que OPS-07 registró (head-object con su
+ChecksumSHA256, `training.s3_verification`, caché de 60 s). Sin credenciales de AWS
+la publicación es `unverifiable`, nunca `published` ni un 500.
+
 Desde `app/`:
 
     uv run python -m training.server
@@ -87,6 +91,7 @@ from training.models_view import (
 )
 from training.queue import TrainingJobQueue
 from training.releases import load_release, published_releases
+from training.s3_verification import BotoS3Verifier, S3Verifier
 
 logger = logging.getLogger("ml-api")
 
@@ -128,6 +133,7 @@ def create_app(
     max_upload_bytes: int = MAX_UPLOAD_BYTES,
     max_image_pixels: int = MAX_IMAGE_PIXELS,
     repo_root: Path | None = None,
+    s3_verifier: S3Verifier | None = None,
 ) -> Starlette:
     # `package_path` de OPS-06 es relativo a la raíz del repo (`/app` en Docker).
     root = repo_root if repo_root is not None else reports_dir.parent
@@ -256,7 +262,7 @@ def create_app(
 
     async def get_models(_request: Request) -> JSONResponse:
         try:
-            response = await run_in_threadpool(list_models, reports_dir, root)
+            response = await run_in_threadpool(list_models, reports_dir, root, s3_verifier)
         except RegistryUnavailable:
             return registry_unavailable()
         return JSONResponse(response.model_dump())
@@ -264,7 +270,7 @@ def create_app(
     async def get_model(request: Request) -> JSONResponse:
         version = request.path_params["version"]
         try:
-            model = await run_in_threadpool(find_model, reports_dir, root, version)
+            model = await run_in_threadpool(find_model, reports_dir, root, version, s3_verifier)
         except RegistryUnavailable:
             return registry_unavailable()
         if model is None:
@@ -423,6 +429,9 @@ def main() -> None:
             settings.reports_dir / "models" / "registry.json",
             repo_root=settings.reports_dir.parent,
         ),
+        # Models confirma en S3 (head-object + ChecksumSHA256) lo que OPS-07 registró;
+        # credenciales de la cadena por defecto de AWS, región la de cada publicación.
+        s3_verifier=BotoS3Verifier(),
     )
     uvicorn.run(app, host=settings.ml_api_host, port=settings.ml_api_port)
 

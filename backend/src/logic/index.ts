@@ -41,7 +41,7 @@ export type {
 export { buildDashboardSummary, buildThumbnailUrl } from './dashboard.builder.js';
 export { getDashboardSummary } from './dashboard.service.js';
 // Errores tipados: la capa UI los mapea a códigos HTTP (SPEC-VALID-001).
-export { NotFoundError, ValidationError } from './errors.js';
+export { NotFoundError, TraceabilityUnavailableError, ValidationError } from './errors.js';
 export type { HealthStatus } from './health.service.js';
 export { checkHealth } from './health.service.js';
 export type { ImageFile } from './image-file.service.js';

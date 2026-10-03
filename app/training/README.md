@@ -106,15 +106,47 @@ pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
   ofrece versiones `servable`.
 - **Publicación:**
   - `published` solo si cada archivo del paquete está en S3 con el sha256
-    registrado, y el `ChecksumSHA256` de S3 y la descarga de verificación coinciden;
+    registrado, el `ChecksumSHA256` de S3 y la descarga de verificación de OPS-07
+    coinciden **y** S3 lo confirma al responder (ver "Estado real");
   - `not_published` si no hay registro de publicación;
   - `inconsistent` si algo no cuadra (otro run o checkpoint, un archivo que falta,
-    un checksum distinto o el archivo ilegible). Explica el motivo y no muestra keys.
+    un checksum distinto, el archivo ilegible, o un objeto que S3 no tiene o cuyo
+    `ChecksumSHA256` no es el registrado). Explica el motivo y no muestra keys;
+  - `unverifiable` ("No verificable") si S3 no se pudo consultar: sin credenciales de
+    AWS, acceso denegado, token vencido o sin red. Explica el motivo y no muestra keys.
 - **Descargas:** solo los archivos que el registro lista para esa versión, y solo si
   tienen su sha256.
-- **Estado real:** el estado de S3 sale de la verificación que hizo OPS-07 contra S3
-  (head-object, checksum y descarga). `ml-api` no tiene credenciales de AWS, así que
-  no vuelve a consultar S3 en cada petición.
+- **Estado real:** `ml-api` hace `head_object` (con `ChecksumMode=ENABLED` y el
+  `VersionId` registrado) de cada objeto de la publicación, en la región registrada
+  (`training/s3_verification.py`). Las respuestas se guardan 60 s por
+  (bucket, key, version_id). Sin credenciales responde `unverifiable`, nunca un 500.
+
+### Credenciales de AWS para Models
+
+Son opcionales y no se escriben en el repo ni en `.env`: `docker-compose.yml` pasa a
+`ml-api` `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN` desde el
+entorno de quien levanta el stack (vacías por defecto; boto3 las ignora y Models
+muestra "No verificable"). Con el perfil SSO del equipo:
+
+```bash
+# Git Bash / Linux / macOS
+eval "$(aws configure export-credentials --profile mlops-p2 --format env)"
+docker compose up -d ml-api
+```
+
+```powershell
+# PowerShell
+aws configure export-credentials --profile mlops-p2 --format powershell | Invoke-Expression
+docker compose up -d ml-api
+```
+
+Las credenciales temporales del SSO vencen: cuando vencen, Models vuelve a mostrar
+"No verificable" (token vencido) hasta repetir los dos pasos. Basta con permiso
+`s3:GetObject` sobre el prefijo `models/` del bucket (`s3:GetObjectVersion` si la
+publicación registra `VersionId`); sin `s3:ListBucket`, S3 responde
+403 en vez de 404 a una key inexistente y Models lo muestra como "No verificable".
+Fuera de Docker (`uv run python -m training.server`) se usa la cadena por defecto de
+AWS, por ejemplo `AWS_PROFILE=mlops-p2`.
 
 ## Inference (APP-07)
 
@@ -148,6 +180,19 @@ pantalla funciona igual y cada ejemplo dice "Recorte no disponible".
 Docker, la raíz del repo en local). `tests/test_inference_real_model.py` comprueba,
 con el paquete real `1.0.0`, que la inferencia reproduce las probabilidades de ML-09
 en los 71 recortes de test (se omite si no hay `data/models` ni `data/crops`).
+
+### Enviar a la cola de anotación (APP-08)
+
+"Enviar a cola de anotación" manda el resultado al backend de Node
+(`POST /api/images/from-inference`). Desde APP-09, el backend comprueba antes de
+guardar:
+
+- que modelo, versión, run y checkpoint estén en `reports/models/registry.json`;
+- que el recorte tenga el sha256 de `reports/crops.json`, o que la imagen subida tenga
+  el sha256 de `sourceRef`;
+- que la clase sea la de mayor probabilidad.
+
+Si algo no cuadra responde 400 con el motivo (`backend/src/logic/inference-traceability.ts`).
 
 ## Interfaz para el worker (OPS-04)
 
