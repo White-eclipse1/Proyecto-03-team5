@@ -61,7 +61,7 @@ function sendError(res: express.Response, error: unknown, fallback: string): voi
  * La UI nunca accede directamente a MariaDB ni a MinIO;
  * únicamente se comunica con la capa Logic.
  */
-const app = express();
+export const app = express();
 // Sin la cabecera `X-Powered-By: Express`: no hace falta anunciar el framework ni su versión.
 app.disable('x-powered-by');
 const port = env.PORT;
@@ -434,7 +434,9 @@ async function startServer(): Promise<void> {
   });
 }
 
-startServer().catch((error: unknown) => {
-  console.error('Error al iniciar la aplicación:', error);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  startServer().catch((error: unknown) => {
+    console.error('Error al iniciar la aplicación:', error);
+    process.exit(1);
+  });
+}

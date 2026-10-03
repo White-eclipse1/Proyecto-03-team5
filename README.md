@@ -502,7 +502,7 @@ MINIO_USE_SSL=false
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=image-annotations
-MAX_UPLOAD_SIZE_BYTES=5242880
+MAX_UPLOAD_SIZE_BYTES=10485760
 ```
 
 No pongas credenciales AWS en `backend/.env` tampoco. Si cambias el puerto
@@ -582,7 +582,7 @@ ignora todo `.env*` salvo las plantillas de ejemplo.
 | `MINIO_ACCESS_KEY`      | Credencial de acceso                           |
 | `MINIO_SECRET_KEY`      | Credencial secreta                             |
 | `MINIO_BUCKET`          | Bucket donde se guardan las imágenes           |
-| `MAX_UPLOAD_SIZE_BYTES` | Tamaño máximo por imagen (5 MiB por defecto)   |
+| `MAX_UPLOAD_SIZE_BYTES` | Tamaño máximo por imagen (10 MiB por defecto)   |
 | `MLFLOW_TRACKING_URI`   | Servidor MLflow (`http://mlflow:5000` dentro de Compose, `http://localhost:5000` desde el host) |
 | `MLFLOW_PORT`           | Puerto del host para la UI de MLflow (opcional, 5000 por defecto) |
 
