@@ -163,3 +163,26 @@ def test_readme_explains_how_a_clean_clone_gets_the_p3_data():
         "tests/test_app10_portal_smoke.py",
     ):
         assert step in readme, f"Falta en el README: {step}"
+
+
+def test_the_clean_clone_section_alone_starts_the_whole_stack():
+    """OPS-10 (M1): sin `data/raw`, el servicio `app` (compuerta P2) falla y `up --wait` también.
+
+    La sección del clon limpio debe bastar por sí sola, en una misma shell: dataset P2,
+    datos de P3, `GIT_COMMIT` y el restore de MLflow.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    start = readme.index("### Proyecto 3 completo en un clon limpio")
+    section = readme[start : readme.index("\n### ", start + 1)]
+    for step in (
+        "dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc",
+        "dvc pull -r prod crops",
+        "dvc pull -r prod data/models.dvc",
+        "dvc pull -r prod data/mlflow-snapshot.dvc",
+        'export GIT_COMMIT="$(git rev-parse HEAD)"',
+        "docker compose up -d --build --wait",
+        "python -m tracking.snapshot restore",
+        "misma terminal",
+    ):
+        assert step in section, f"Falta en la sección del clon limpio: {step}"
+    assert section.index("data/raw/images.dvc") < section.index("docker compose up")
