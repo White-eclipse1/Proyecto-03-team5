@@ -149,6 +149,19 @@ Docker, la raíz del repo en local). `tests/test_inference_real_model.py` compru
 con el paquete real `1.0.0`, que la inferencia reproduce las probabilidades de ML-09
 en los 71 recortes de test (se omite si no hay `data/models` ni `data/crops`).
 
+### Enviar a la cola de anotación (APP-08)
+
+"Enviar a cola de anotación" manda el resultado al backend de Node
+(`POST /api/images/from-inference`). Desde APP-09, el backend comprueba antes de
+guardar:
+
+- que modelo, versión, run y checkpoint estén en `reports/models/registry.json`;
+- que el recorte tenga el sha256 de `reports/crops.json`, o que la imagen subida tenga
+  el sha256 de `sourceRef`;
+- que la clase sea la de mayor probabilidad.
+
+Si algo no cuadra responde 400 con el motivo (`backend/src/logic/inference-traceability.ts`).
+
 ## Interfaz para el worker (OPS-04)
 
 ```python
