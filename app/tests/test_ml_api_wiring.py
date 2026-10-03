@@ -8,6 +8,7 @@ paquete `training/`.
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -110,17 +111,37 @@ def test_every_endpoint_the_portal_calls_is_served_by_ml_api():
         assert endpoint in routes or endpoint in prefixes, f"{endpoint} no está en ml-api"
 
 
-def test_nginx_accepts_the_uploads_that_inference_allows():
-    """APP-09 (bug): nginx cortaba con 413 (1 MB por defecto) imágenes válidas de <10 MB."""
+@pytest.mark.parametrize("location", ["/api/ml/", "/api/"])
+def test_nginx_accepts_the_uploads_that_inference_allows(location):
+    """APP-09 (bug): nginx cortaba con 413 (1 MB por defecto) imágenes válidas de <10 MB.
+
+    `/api/` (backend de Node) recibe la misma imagen en "Enviar a cola de anotación"
+    (`POST /api/images/from-inference`), más el campo `metadata`: con 10m cortaba una
+    imagen de exactamente 10 MiB que Inference sí acepta (revisión del PR #63).
+    """
     from training.inference import MAX_UPLOAD_BYTES
 
     nginx = (ROOT / "frontend" / "docker" / "nginx.conf").read_text(encoding="utf-8")
-    block = re.search(r"location /api/ml/ \{(.*?)\}", nginx, re.S)
+    block = re.search(rf"location {re.escape(location)} \{{(.*?)\}}", nginx, re.S)
     limit = re.search(r"client_max_body_size\s+(\d+)m;", block.group(1)) if block else None
 
-    assert limit, "location /api/ml/ debe fijar client_max_body_size"
-    # El multipart agrega cabeceras y los campos model_name/model_version.
+    assert limit, f"location {location} debe fijar client_max_body_size"
+    # El multipart agrega cabeceras y campos (model_name/model_version o metadata).
     assert int(limit.group(1)) * 1024 * 1024 > MAX_UPLOAD_BYTES
+
+
+def test_ml_api_can_receive_aws_credentials_without_secrets_in_the_repo():
+    """Revisión del PR #63: Models confirma en S3 lo publicado; las credenciales son
+    opcionales y salen del entorno de quien levanta el stack (vacías por defecto)."""
+    env = _compose()["services"]["ml-api"]["environment"]
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        assert env[name] == f"${{{name}:-}}", f"{name} viene del entorno, vacío por defecto"
+    assert env["AWS_EC2_METADATA_DISABLED"] == "${AWS_EC2_METADATA_DISABLED:-true}"
+
+
+def test_ml_api_confirms_publications_against_the_real_s3():
+    server = (ROOT / "app" / "training" / "server.py").read_text(encoding="utf-8")
+    assert "s3_verifier=BotoS3Verifier()" in server
 
 
 def test_backend_verifies_annotation_queue_traceability_against_the_reports():

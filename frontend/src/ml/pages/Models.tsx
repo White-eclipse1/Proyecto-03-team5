@@ -10,6 +10,7 @@ const PUBLICATION_LABEL: Record<ModelPublication["status"], string> = {
   published: "Publicado en S3",
   not_published: "No publicado",
   inconsistent: "Inconsistente",
+  unverifiable: "No verificable",
 };
 
 /** Más nueva primero, comparando MAJOR.MINOR.PATCH como números (0.10.0 > 0.9.0). */
@@ -52,7 +53,12 @@ function Badge({ tone, children }: Readonly<{ tone: "ok" | "warn" | "muted"; chi
 }
 
 function PublicationBadge({ publication }: Readonly<{ publication: ModelPublication }>) {
-  const tone = { published: "ok", not_published: "muted", inconsistent: "warn" } as const;
+  const tone = {
+    published: "ok",
+    not_published: "muted",
+    inconsistent: "warn",
+    unverifiable: "warn",
+  } as const;
   return <Badge tone={tone[publication.status]}>{PUBLICATION_LABEL[publication.status]}</Badge>;
 }
 
@@ -117,6 +123,14 @@ function Publication({ publication }: Readonly<{ publication: ModelPublication }
       </p>
     );
   }
+  if (publication.status === "unverifiable") {
+    return (
+      <p role="alert" className="rounded-xl bg-status-pending-soft px-4 py-3 text-sm text-ink">
+        <span className="font-medium text-status-pending">No se pudo confirmar en S3: </span>
+        {publication.problem}
+      </p>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <dl className="grid gap-4 sm:grid-cols-3">
@@ -141,7 +155,8 @@ function Publication({ publication }: Readonly<{ publication: ModelPublication }
         ))}
       </DataTable>
       <p className="text-xs text-ink-muted">
-        Cada archivo se verificó con el ChecksumSHA256 de S3 y con una descarga (OPS-07).
+        S3 confirmó cada objeto con su ChecksumSHA256 al responder esta página, y OPS-07 lo verificó
+        además con una descarga.
       </p>
     </div>
   );

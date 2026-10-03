@@ -293,6 +293,31 @@ class ClassificationContractTests(unittest.TestCase):
 
         self.assertEqual(tuple(PET_CLASSES), tuple(CLASS_NAMES))
 
+    def test_unverifiable_publication_explains_why_and_shows_no_keys(self):
+        """APP-09: si ml-api no puede consultar S3, la publicación es `unverifiable`."""
+        document = load("models.json")
+        unverifiable = {
+            "status": "unverifiable",
+            "bucket": None,
+            "region": None,
+            "published_at": None,
+            "objects": [],
+            "problem": "No se pudo consultar S3: ml-api no tiene credenciales de AWS.",
+        }
+        document["models"][0]["publication"] = unverifiable
+        parsed = ModelsResponse.model_validate(document)
+        self.assertEqual(parsed.models[0].publication.status, "unverifiable")
+
+        for changes in (
+            {"problem": None},
+            {"bucket": "mlops-p2-dvc-cache-280764207006"},
+            {"objects": load("models.json")["models"][0]["publication"]["objects"]},
+        ):
+            with self.subTest(changes=changes):
+                document["models"][0]["publication"] = {**unverifiable, **changes}
+                with self.assertRaises(ValidationError):
+                    ModelsResponse.model_validate(document)
+
     def test_upload_inference_names_the_file_and_not_a_crop(self):
         response = InferenceResponse.model_validate(load("inference_upload.json"))
         self.assertEqual((response.source, response.crop), ("upload", None))
