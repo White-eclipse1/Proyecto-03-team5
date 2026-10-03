@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { TraceabilityUnavailableError, ValidationError } from '../src/logic/errors.js';
-import { verifyInferenceTraceability } from '../src/logic/inference-traceability.js';
 import type { InferenceQueueMetadata } from '../src/logic/inference-queue.validation.js';
+import { verifyInferenceTraceability } from '../src/logic/inference-traceability.js';
 
 /**
  * APP-09 (hallazgo en APP-08): la cola de anotación guardaba la trazabilidad que mandaba

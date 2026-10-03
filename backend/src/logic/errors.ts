@@ -25,3 +25,14 @@ export class NotFoundError extends Error {
     this.name = 'NotFoundError';
   }
 }
+
+/**
+ * No se pueden leer los reportes contra los que se verifica la trazabilidad de una
+ * inferencia (registro de modelos o recortes). La capa UI responde 503.
+ */
+export class TraceabilityUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TraceabilityUnavailableError';
+  }
+}

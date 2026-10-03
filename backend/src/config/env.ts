@@ -32,6 +32,13 @@ const envSchema = z.object({
 
   MINIO_BUCKET: z.string().min(3),
 
+  // APP-09: reportes con los que se verifica la trazabilidad de la cola de anotación
+  // (models/registry.json y crops.json). En Docker, ./reports montado de solo lectura.
+  REPORTS_DIR: z
+    .string()
+    .min(1)
+    .default(fileURLToPath(new URL('../../../reports/', import.meta.url))),
+
   MAX_UPLOAD_SIZE_BYTES: z.coerce
     .number()
     .int()

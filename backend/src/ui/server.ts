@@ -19,6 +19,7 @@ import {
   NotFoundError,
   searchImages,
   setImageStatus,
+  TraceabilityUnavailableError,
   updateAnnotation,
   uploadImage,
   ValidationError,
@@ -48,6 +49,11 @@ function sendError(res: express.Response, error: unknown, fallback: string): voi
 
   if (error instanceof ValidationError) {
     res.status(400).json({ error: error.message });
+    return;
+  }
+
+  if (error instanceof TraceabilityUnavailableError) {
+    res.status(503).json({ error: error.message });
     return;
   }
 
