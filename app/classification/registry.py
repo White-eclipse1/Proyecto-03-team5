@@ -235,20 +235,11 @@ def build_model_package(
     if checkpoint_sha256 != candidate["checkpoint_sha256"]:
         raise ValueError("El sha256 del checkpoint local no coincide con el candidato congelado")
 
-    checkpoint = torch.load(
-        checkpoint_path,
-        map_location="cpu",
-        weights_only=True,
-    )
-
-    architecture = {
-        "name": checkpoint["architecture"],
-        **checkpoint["config"],
-    }
-
-    preprocessing = checkpoint["preprocessing"]
-    class_map = checkpoint["class_map"]
-    weights_origin = checkpoint.get("weights_origin")
+    fields = _checkpoint_fields(checkpoint_path)
+    architecture = fields["architecture"]
+    preprocessing = fields["preprocessing"]
+    class_map = fields["class_map"]
+    weights_origin = fields["weights_origin"]
 
     metrics = {
         "accuracy_top1": evaluation["metrics"]["accuracy_top1"],
@@ -285,6 +276,17 @@ def build_model_package(
             ),
         ),
     )
+
+
+def _checkpoint_fields(checkpoint_path: Path) -> dict:
+    """Arquitectura, class map, preprocesamiento y origen de pesos del checkpoint."""
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    return {
+        "architecture": {"name": checkpoint["architecture"], **checkpoint["config"]},
+        "preprocessing": checkpoint["preprocessing"],
+        "class_map": checkpoint["class_map"],
+        "weights_origin": checkpoint.get("weights_origin"),
+    }
 
 
 def _test_details(evaluation: dict) -> dict[str, float]:
@@ -377,7 +379,10 @@ def _model_card_markdown(package: ModelPackage) -> str:
             "",
             "## Métricas de test",
             "",
-            *[f"- {name}: {value!r}" for name, value in card.test_metrics.items()],
+            *(
+                [f"- {name}: {value!r}" for name, value in card.test_metrics.items()]
+                or ["Sin evaluación en test (ver limitaciones)."]
+            ),
             "",
             "## Limitaciones",
             "",
@@ -482,35 +487,159 @@ def publish_model_version(
             evaluation_path=Path(evaluations[0]["path"]),
             dependencies=runtime_dependencies(),
         )
-        staging = Path(tmp) / "package"
-        materialize_model_package(package, checkpoint_path=checkpoint, output_dir=staging)
-        package_dir = packages_root / package.model_name / str(version)
-        final = ModelPackage.model_validate(
-            {
-                **package.model_dump(),
-                "package_path": package_dir.relative_to(repo_root).as_posix(),
-                "files": {rel: _sha256_file(staging / rel) for rel in PACKAGE_FILES},
-            }
-        )
-        (staging / "package.json").write_text(
-            final.model_dump_json(indent=2) + "\n", encoding="utf-8"
+        return _materialize_and_register(
+            package,
+            checkpoint,
+            staging=Path(tmp) / "package",
+            registry_path=registry_path,
+            packages_root=packages_root,
+            repo_root=repo_root,
         )
 
-        existing = _registered(registry_path, version)
-        if existing is not None:
-            if existing == final:
-                resolve_checkpoint(str(version), registry_path=registry_path, repo_root=repo_root)
-                return existing
-            raise ValueError(
-                f"La model_version {version} ya está registrada con otro contenido: "
-                "publica una versión nueva"
-            )
-        if package_dir.exists():
-            raise FileExistsError(f"{package_dir} existe pero no está en el registro")
-        package_dir.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(staging, package_dir)
+
+def _materialize_and_register(
+    package: ModelPackage,
+    checkpoint: Path,
+    *,
+    staging: Path,
+    registry_path: Path,
+    packages_root: Path,
+    repo_root: Path,
+) -> ModelPackage:
+    """Materializa el paquete verificado y lo registra; una versión no se reescribe."""
+    version = package.model_version
+    materialize_model_package(package, checkpoint_path=checkpoint, output_dir=staging)
+    package_dir = packages_root / package.model_name / str(version)
+    final = ModelPackage.model_validate(
+        {
+            **package.model_dump(),
+            "package_path": package_dir.relative_to(repo_root).as_posix(),
+            "files": {rel: _sha256_file(staging / rel) for rel in PACKAGE_FILES},
+        }
+    )
+    (staging / "package.json").write_text(final.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+    existing = _registered(registry_path, version)
+    if existing is not None:
+        if existing == final:
+            resolve_checkpoint(str(version), registry_path=registry_path, repo_root=repo_root)
+            return existing
+        raise ValueError(
+            f"La model_version {version} ya está registrada con otro contenido: "
+            "publica una versión nueva"
+        )
+    if package_dir.exists():
+        raise FileExistsError(f"{package_dir} existe pero no está en el registro")
+    package_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(staging, package_dir)
     register_model(final, registry_path)
     return final
+
+
+def _semver(version: ModelVersion) -> tuple[int, ...]:
+    return tuple(int(part) for part in str(version).split("."))
+
+
+def publish_previous_version(
+    model_version: str,
+    *,
+    client: MlflowClient,
+    run_id: str,
+    candidate_path: Path = CANDIDATE_PATH,
+    registry_path: Path = REGISTRY_PATH,
+    packages_root: Path = PACKAGES_ROOT,
+    repo_root: Path = REPO_ROOT,
+) -> ModelPackage:
+    """Versión anterior: otro run terminado de la matriz, nunca evaluado en test.
+
+    La versión vigente es el candidato congelado (ML-08), evaluado una vez en test
+    (ML-09). Una versión anterior empaqueta otro run de la misma matriz, release y
+    manifest para poder volver a ella y comparar artefactos; no trae métricas de test
+    porque el test no se usa para evaluar ni comparar otros modelos.
+    """
+    version = ModelVersion(root=model_version)
+    candidate = require_frozen_candidate(candidate_path)
+    if run_id == candidate.run_id:
+        raise ValueError("Ese run es el candidato congelado: publícalo con publish_model_version")
+    current = [p for p in _load_registry(registry_path).models if p.run_id == candidate.run_id]
+    if not current:
+        raise ValueError("Publica primero la versión vigente (el candidato congelado)")
+    if _semver(version) >= min(_semver(p.model_version) for p in current):
+        raise ValueError(
+            f"{version} no es anterior a la versión vigente "
+            f"{min((p.model_version for p in current), key=_semver)}"
+        )
+    run = client.get_run(run_id)
+    if run.info.status != "FINISHED":
+        raise ValueError(f"El run {run_id} está {run.info.status}, no FINISHED")
+    tags = run.data.tags
+    expected = {
+        "dataset_version": candidate.dataset_version,
+        "manifest_hash": candidate.manifest_hash,
+        "experiment_matrix": candidate.matrix_id,
+    }
+    for tag, value in expected.items():
+        if tags.get(tag) != value:
+            raise ValueError(f"El run {run_id} tiene {tag}={tags.get(tag)}, no {value}")
+    tested = sorted(name for name in run.data.metrics if name.startswith("test_"))
+    if tested:
+        raise ValueError(f"El run {run_id} tiene métricas de test {tested}: no se publica")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        checkpoint = Path(client.download_artifacts(run_id, CHECKPOINT_ARTIFACT, tmp))
+        fields = _checkpoint_fields(checkpoint)
+        metrics = run.data.metrics
+        validation = (
+            f"best_val_loss {metrics.get('best_val_loss', float('nan')):.4f} en validation"
+            f" (época {int(metrics.get('best_epoch', 0))})"
+        )
+        entry = tags.get("matrix_entry", run.info.run_name or run_id)
+        package = ModelPackage(
+            model_version=str(version),
+            model_name="dog-cat-resnet18",
+            run_id=run_id,
+            checkpoint=f"runs:/{run_id}/{CHECKPOINT_ARTIFACT}",
+            checkpoint_sha256=_sha256_file(checkpoint),
+            dataset_version=candidate.dataset_version,
+            manifest_hash=candidate.manifest_hash,
+            architecture=fields["architecture"],
+            class_map=fields["class_map"],
+            preprocessing=fields["preprocessing"],
+            dependencies=runtime_dependencies(),
+            metrics={},
+            weights_origin=fields["weights_origin"],
+            model_card=ModelCard(
+                purpose=(
+                    "Versión anterior del clasificador dog/cat: otro run de la misma matriz "
+                    f"de experimentos ({entry}), para poder volver a ella y comparar artefactos."
+                ),
+                dataset_release=candidate.dataset_version,
+                manifest_hash=candidate.manifest_hash,
+                mlflow_run_id=run_id,
+                test_metrics={},
+                limitations=[
+                    f"{entry} no es el candidato congelado de ML-08 "
+                    f"({candidate.entry}, elegido por {candidate.metric}); {validation}.",
+                    "no se evaluó en test: el test se usa una sola vez, para el candidato, "
+                    "y no para evaluar ni comparar otros modelos.",
+                    "Solo distingue dog y cat: cualquier otro objeto se asigna a una de las dos.",
+                    "Clasifica el recorte de una caja; no imágenes completas con varios objetos.",
+                ],
+                pretrained_weights=(
+                    fields["weights_origin"].get("weights")
+                    if isinstance(fields["weights_origin"], dict)
+                    else None
+                ),
+            ),
+        )
+        return _materialize_and_register(
+            package,
+            checkpoint,
+            staging=Path(tmp) / "package",
+            registry_path=registry_path,
+            packages_root=packages_root,
+            repo_root=repo_root,
+        )
 
 
 def resolve_checkpoint(
@@ -599,16 +728,22 @@ def main(argv: list[str] | None = None) -> int:
     from tracking.client import tracking_client
 
     parser = argparse.ArgumentParser(description="OPS-06: paquete y registro de modelos")
-    parser.add_argument("command", choices=["publish", "resolve", "verify"])
+    parser.add_argument("command", choices=["publish", "publish-previous", "resolve", "verify"])
     parser.add_argument("version")
+    parser.add_argument("--run-id", help="publish-previous: run de la matriz a empaquetar")
     args = parser.parse_args(argv)
 
     if args.command == "resolve":
         print(resolve_checkpoint(args.version))
         return 0
     client = tracking_client()
-    if args.command == "publish":
-        package = publish_model_version(args.version, client=client)
+    if args.command in ("publish", "publish-previous"):
+        if args.command == "publish":
+            package = publish_model_version(args.version, client=client)
+        else:
+            if not args.run_id:
+                parser.error("publish-previous necesita --run-id")
+            package = publish_previous_version(args.version, client=client, run_id=args.run_id)
         print(f"{package.model_name} {package.model_version} → {package.package_path}")
         for relpath, sha256 in (package.files or {}).items():
             print(f"  {relpath}: {sha256}")

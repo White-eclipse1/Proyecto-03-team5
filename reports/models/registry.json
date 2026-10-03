@@ -91,6 +91,81 @@
         "model-card.md": "b3dd3e51a9e0adb70c1d94b48cbba8a08eff8fe105bfaebb5a352f5f5e7a8703",
         "dependencies.json": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504"
       }
+    },
+    {
+      "schema_version": "1.0",
+      "model_version": "0.9.0",
+      "model_name": "dog-cat-resnet18",
+      "run_id": "83e5a40ad86942478269c49a66d1d04b",
+      "checkpoint": "runs:/83e5a40ad86942478269c49a66d1d04b/checkpoints/best.pt",
+      "checkpoint_sha256": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+      "dataset_version": "v0.1.1",
+      "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+      "architecture": {
+        "name": "resnet18",
+        "image_size": 224,
+        "hidden_layers": [
+          128
+        ],
+        "dropout": 0.2,
+        "pretrained": true,
+        "trainable": "layer4"
+      },
+      "class_map": {
+        "dog": 0,
+        "cat": 1
+      },
+      "preprocessing": {
+        "resize": "square",
+        "image_size": 224,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "dependencies": {
+        "python": "3.12.6",
+        "torch": "2.14.0",
+        "torchvision": "0.29.0",
+        "pillow": "10.4.0",
+        "numpy": "2.5.3",
+        "pydantic": "2.13.5",
+        "lockfile": "app/uv.lock",
+        "uv.lock sha256": "7e19f0694f1e7cd268a358e1b9afc034220bbab28ce3731c5a88908b10c746cf"
+      },
+      "metrics": {},
+      "weights_origin": {
+        "weights": "ResNet18_Weights.IMAGENET1K_V1",
+        "url": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
+        "dataset": "ImageNet-1K",
+        "library": "torchvision"
+      },
+      "model_card": {
+        "purpose": "Versión anterior del clasificador dog/cat: otro run de la misma matriz de experimentos (r07-img224), para poder volver a ella y comparar artefactos.",
+        "dataset_release": "v0.1.1",
+        "manifest_hash": "sha256:178b28bddb1bef5c05975fc7150710658627e31af08a1a12d94b98f9e99cb2b2",
+        "mlflow_run_id": "83e5a40ad86942478269c49a66d1d04b",
+        "test_metrics": {},
+        "limitations": [
+          "r07-img224 no es el candidato congelado de ML-08 (r03-sgd, elegido por best_val_loss); best_val_loss 0.0574 en validation (época 1).",
+          "no se evaluó en test: el test se usa una sola vez, para el candidato, y no para evaluar ni comparar otros modelos.",
+          "Solo distingue dog y cat: cualquier otro objeto se asigna a una de las dos.",
+          "Clasifica el recorte de una caja; no imágenes completas con varios objetos."
+        ],
+        "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1"
+      },
+      "package_path": "data/models/dog-cat-resnet18/0.9.0",
+      "files": {
+        "checkpoint/best.pt": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+        "model-card.md": "80b7e5a77a597e16ca93d833779f6901a429fe7c320f06df2d2d92d8ed3e9c7f",
+        "dependencies.json": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504"
+      }
     }
   ]
 }

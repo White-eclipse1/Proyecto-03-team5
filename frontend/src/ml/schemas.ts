@@ -582,7 +582,8 @@ export const registeredModelVersionSchema = z
     manifest_hash: manifestHashSchema,
     architecture: labelSchema,
     image_size: z.number().int().min(32).max(1024).multipleOf(32),
-    test_metrics: z.strictObject({ accuracy_top1: ratioSchema, f1_macro: ratioSchema }),
+    // null en una versión anterior que no es el candidato: el test se evalúa una sola vez.
+    test_metrics: z.strictObject({ accuracy_top1: ratioSchema, f1_macro: ratioSchema }).nullable(),
     model_card: z.strictObject({
       purpose: labelSchema,
       limitations: z.array(labelSchema),

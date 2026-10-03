@@ -355,6 +355,21 @@ describe("APP-05 Evaluation: evaluated", () => {
     expect(within(errors).getByText(/el accuracy global oculta/i)).toBeInTheDocument();
   });
 
+  it("explica que el accuracy no oculta recall bajo y nombra la clase más débil (OPS-10, rúbrica 4.4)", async () => {
+    // Matriz real de ML-09: dog 43/43, cat 25/28 (recall 0.8929 ≥ 0.85).
+    serve(withMatrix(evaluated(), [[43, 0], [3, 25]]));
+    openEvaluation();
+
+    const errors = await screen.findByRole("region", { name: /interpretación de errores/i });
+    expect(
+      within(errors).getByText(
+        "Ninguna clase tiene recall por debajo de 0.85: el accuracy global no oculta un recall bajo."
+      )
+    ).toBeInTheDocument();
+    expect(within(errors).getByText("La clase más débil es cat: recall 0.8929 (25 de 28).")).toBeInTheDocument();
+    expect(within(errors).queryByText(/oculta recall bajo: alcanza/i)).not.toBeInTheDocument();
+  });
+
   it("muestra ejemplos incorrectos y correctos con su recorte, clase real y predicha", async () => {
     serve(evaluated());
     openEvaluation();

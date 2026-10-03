@@ -583,7 +583,8 @@ class RegisteredModelVersion(ContractModel):
     manifest_hash: ManifestHash
     architecture: Label
     image_size: int = Field(ge=32, le=1024, multiple_of=32)
-    test_metrics: ModelTestMetrics
+    # None en una versión anterior que no es el candidato: el test se evalúa una sola vez.
+    test_metrics: ModelTestMetrics | None
     model_card: ModelCardSummary
     files: list[ModelFile]
     servable: bool

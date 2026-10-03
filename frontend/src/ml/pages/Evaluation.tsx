@@ -264,6 +264,13 @@ function ConfusionMatrix({
 
 function ErrorAnalysis({ summary }: Readonly<{ summary: EvaluationSummary }>) {
   const low = summary.perClass.filter((entry) => entry.lowRecall);
+  // OPS-10 (rúbrica 4.4): aunque ninguna clase quede bajo 0.85, se dice cuál es la más débil.
+  const weakest = summary.perClass
+    .filter((entry) => entry.support > 0)
+    .reduce<(typeof summary.perClass)[number] | undefined>(
+      (worst, entry) => (worst === undefined || entry.recall < worst.recall ? entry : worst),
+      undefined
+    );
   const confused = summary.mostConfused;
   return (
     <Section title="Interpretación de errores">
@@ -278,6 +285,17 @@ function ErrorAnalysis({ summary }: Readonly<{ summary: EvaluationSummary }>) {
             El recall de {entry.className} es {metric(entry.recall)}, por debajo de 0.85.
           </li>
         ))}
+        {low.length === 0 && weakest !== undefined && (
+          <>
+            <li>
+              Ninguna clase tiene recall por debajo de 0.85: el accuracy global no oculta un recall
+              bajo.
+            </li>
+            <li>
+              {`La clase más débil es ${weakest.className}: recall ${metric(weakest.recall)} (${weakest.hits} de ${weakest.support}).`}
+            </li>
+          </>
+        )}
         {summary.meetsTarget && low.length > 0 && (
           <li className="font-medium text-status-pending">
             El accuracy global oculta recall bajo: alcanza 0.85, pero no en todas las clases.

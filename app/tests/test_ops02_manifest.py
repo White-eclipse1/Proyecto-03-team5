@@ -260,3 +260,36 @@ def test_rejects_crop_split_outside_five_percentage_point_tolerance():
 
     with pytest.raises(ValueError, match="crop ratio"):
         _validate_crop_split_tolerance(records)
+
+
+def test_declared_duplicates_share_group_and_split():
+    """OPS-10 (rúbrica 7.1): imágenes declaradas duplicadas quedan en el mismo grupo y split.
+
+    El test anterior solo comprueba que cada `duplicate_group` del manifiesto no cruce
+    splits; si el generador dejara de unir los duplicados, cada imagen tendría su propio
+    grupo y seguiría pasando. Con 30 pares, quedar juntos por azar es imposible.
+    """
+    from manifests.generate import generate_manifest
+
+    crops = [
+        {
+            "crop_id": f"img{image_id}-ann{image_id}",
+            "source_image_id": image_id,
+            "class_name": "dog" if image_id % 2 else "cat",
+        }
+        for image_id in range(1, 201)
+    ]
+    pairs = [[image_id, image_id + 100] for image_id in range(1, 61, 2)]
+
+    manifest = generate_manifest(
+        crops=crops,
+        dataset_version="v0.1.1",
+        seed=42,
+        duplicate_groups=pairs,
+        manifest_version="p3-v1",
+    )
+
+    record = {r.source_image_id: r for r in manifest.records}
+    for first, second in pairs:
+        assert record[first].duplicate_group == record[second].duplicate_group
+        assert record[first].split == record[second].split

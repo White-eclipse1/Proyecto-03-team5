@@ -47,6 +47,53 @@
           "etag": "276857efa4019352f6ff180d592f6a36"
         }
       }
+    },
+    {
+      "model_version": "0.9.0",
+      "model_name": "dog-cat-resnet18",
+      "run_id": "83e5a40ad86942478269c49a66d1d04b",
+      "checkpoint_sha256": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+      "bucket": "mlops-p2-dvc-cache-280764207006",
+      "region": "us-east-1",
+      "published_at": "2026-10-03T04:54:36Z",
+      "files": {
+        "checkpoint/best.pt": {
+          "key": "models/dog-cat-resnet18/0.9.0/checkpoint/best.pt",
+          "version_id": null,
+          "size": 45043841,
+          "sha256": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+          "s3_checksum_sha256": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+          "download_sha256": "db64816aaf6062fff6bafde464f33c9433f33eb03ca3a0ee5f97cc191515e097",
+          "etag": "19946d774ae8a58b9811a35b98268ab4"
+        },
+        "model-card.md": {
+          "key": "models/dog-cat-resnet18/0.9.0/model-card.md",
+          "version_id": null,
+          "size": 1585,
+          "sha256": "80b7e5a77a597e16ca93d833779f6901a429fe7c320f06df2d2d92d8ed3e9c7f",
+          "s3_checksum_sha256": "80b7e5a77a597e16ca93d833779f6901a429fe7c320f06df2d2d92d8ed3e9c7f",
+          "download_sha256": "80b7e5a77a597e16ca93d833779f6901a429fe7c320f06df2d2d92d8ed3e9c7f",
+          "etag": "765968a84ef5d9d6b5873f2f48353018"
+        },
+        "package.json": {
+          "key": "models/dog-cat-resnet18/0.9.0/package.json",
+          "version_id": null,
+          "size": 2648,
+          "sha256": "bcad7701368b5f065435fe48d8dc5009139c785ab92535452a4b3717280728fb",
+          "s3_checksum_sha256": "bcad7701368b5f065435fe48d8dc5009139c785ab92535452a4b3717280728fb",
+          "download_sha256": "bcad7701368b5f065435fe48d8dc5009139c785ab92535452a4b3717280728fb",
+          "etag": "afcc9f3ba10e7d746c779372e3319628"
+        },
+        "dependencies.json": {
+          "key": "models/dog-cat-resnet18/0.9.0/dependencies.json",
+          "version_id": null,
+          "size": 256,
+          "sha256": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504",
+          "s3_checksum_sha256": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504",
+          "download_sha256": "71e0bddd72fbf056bf1d80d454cf046e634ec9ae81708d3ee58031785d732504",
+          "etag": "276857efa4019352f6ff180d592f6a36"
+        }
+      }
     }
   ]
 }

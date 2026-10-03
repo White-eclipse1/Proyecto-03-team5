@@ -16,8 +16,8 @@
 *.tfstate.*
 *.tfplan
 
-# Marcador interno de la compuerta DVC; se recrea en cada repro aprobado.
-reports/.quality_gate.passed
+# reports/.quality_gate.passed (salida cache: false de quality_gate) se versiona con git,
+# como las demás salidas sin cache: así `dvc status` de un clon limpio no cambia (OPS-10).
 
 # Pesos y checkpoints del clasificador (ML-03+): se publican en S3/MLflow, nunca en Git.
 *.pt
