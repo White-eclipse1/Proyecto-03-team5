@@ -337,3 +337,105 @@ def test_inference_uses_the_chosen_version_and_reproduces_ml09(api, models):
     assert result.predicted_class == expected.predicted_class
     assert result.probabilities == pytest.approx(expected.probabilities, abs=1e-5)
     assert sum(result.probabilities.values()) == pytest.approx(1.0, abs=1e-6)
+
+
+# --- Cola de anotación (APP-08) ------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def queued(api, models):
+    """Resultado real de Inference sobre un recorte de test, como lo arma el portal."""
+    model = models.models[0]
+    overview = EvaluationOverview.model_validate(api.get("/evaluation").json())
+    crop = overview.evaluation.predictions[1]
+    result = InferenceResponse.model_validate(
+        api.post(
+            "/inference",
+            json={
+                "schema_version": "1.0",
+                "model_name": model.model_name,
+                "model_version": model.model_version,
+                "crop": {
+                    "dataset_version": overview.evaluation.dataset_version,
+                    "image_id": crop.image_id,
+                    "annotation_id": crop.annotation_id,
+                },
+            },
+        ).json()
+    )
+    image = api.get(f"/crops/img{crop.image_id}-ann{crop.annotation_id}").content
+    metadata = {
+        "sourceKind": "crop",
+        "sourceRef": f"{result.crop.dataset_version}:img{crop.image_id}-ann{crop.annotation_id}",
+        "modelName": result.model_name,
+        "modelVersion": result.model_version,
+        "runId": result.run_id,
+        "checkpointSha256": result.checkpoint_sha256,
+        "predictedClass": result.predicted_class,
+        "probabilities": result.probabilities,
+    }
+    return {"image": image, "metadata": metadata, "result": result}
+
+
+def send_to_queue(api, image: bytes, metadata: dict, name: str = "crop.png"):
+    return api.session.post(
+        api.base.removesuffix("/ml") + "/images/from-inference",
+        files={"image": (name, image, "image/png")},
+        data={"metadata": json.dumps(metadata)},
+        timeout=60,
+    )
+
+
+def test_send_to_annotation_queue_creates_a_real_record_once(api, queued):
+    first = send_to_queue(api, queued["image"], queued["metadata"])
+    again = send_to_queue(api, queued["image"], queued["metadata"])
+
+    assert first.status_code in (200, 201), first.text
+    assert again.status_code == 200 and again.json()["created"] is False
+    assert again.json()["imageId"] == first.json()["imageId"]
+    stored = api.session.get(
+        api.base.removesuffix("/ml") + f"/images/{first.json()['imageId']}/file", timeout=60
+    )
+    assert stored.status_code == 200 and stored.content == queued["image"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"modelVersion": "9.9.9"},
+        {"checkpointSha256": "0" * 64},
+        {"modelName": "otro-modelo"},
+        {"runId": "f" * 32},
+    ],
+    ids=["unknown-version", "fake-checkpoint", "other-model", "other-run"],
+)
+def test_annotation_queue_rejects_traceability_that_is_not_in_the_registry(api, queued, changes):
+    """Hallazgo de APP-09: la cola guardaba metadatos de modelo inventados."""
+    response = send_to_queue(api, queued["image"], {**queued["metadata"], **changes})
+
+    assert 400 <= response.status_code < 500, response.text
+
+
+def test_annotation_queue_rejects_a_class_that_is_not_the_most_probable(api, queued):
+    """Hallazgo de APP-09: predictedClass no se comparaba con las probabilidades."""
+    probabilities = queued["metadata"]["probabilities"]
+    wrong = min(probabilities, key=probabilities.get)
+
+    response = send_to_queue(api, queued["image"], {**queued["metadata"], "predictedClass": wrong})
+
+    assert 400 <= response.status_code < 500, response.text
+
+
+def test_annotation_queue_checks_the_uploaded_image_against_its_sha256(api, queued):
+    """Hallazgo de APP-09: sourceRef sha256 no se comparaba con la imagen recibida."""
+    other = io.BytesIO()
+    Image.new("RGB", (48, 48), (10, 200, 30)).save(other, format="PNG")
+    metadata = {
+        **queued["metadata"],
+        "sourceKind": "upload",
+        "sourceRef": "sha256:" + "1" * 64,
+    }
+
+    response = send_to_queue(api, other.getvalue(), metadata, name="otra.png")
+
+    assert 400 <= response.status_code < 500, response.text
