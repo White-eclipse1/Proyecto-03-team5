@@ -529,7 +529,7 @@ const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 /** Publicación en S3 (OPS-07): igual que ModelPublication en Python. */
 export const modelPublicationSchema = z
   .strictObject({
-    status: z.enum(["published", "not_published", "inconsistent"]),
+    status: z.enum(["published", "not_published", "inconsistent", "unverifiable"]),
     bucket: labelSchema.nullable(),
     region: labelSchema.nullable(),
     published_at: timestampSchema.nullable(),
@@ -562,8 +562,10 @@ export const modelPublicationSchema = z
     if (located.some((value) => value !== null) || publication.objects.length > 0) {
       issue(`${publication.status} no tiene ubicación ni objetos en S3`);
     }
-    if ((publication.status === "inconsistent") !== (publication.problem !== null)) {
-      issue("problem explica una publicación inconsistente, y solo esa");
+    const explained =
+      publication.status === "inconsistent" || publication.status === "unverifiable";
+    if (explained !== (publication.problem !== null)) {
+      issue("problem explica una publicación inconsistente o no verificable, y solo esas");
     }
   });
 export type ModelPublication = z.infer<typeof modelPublicationSchema>;
