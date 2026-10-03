@@ -269,7 +269,11 @@ describe("APP-05 Evaluation: evaluated", () => {
     const overview = evaluated();
     overview.evaluation = { ...overview.evaluation!, model_name: null, model_version: null };
     const models = structuredClone(loadMlExample("models")) as {
-      models: { checkpoint_sha256: string; files: { name: string; sha256: string }[] }[];
+      models: {
+        checkpoint_sha256: string;
+        files: { name: string; sha256: string }[];
+        publication: unknown;
+      }[];
     };
     const other = "1".repeat(64);
     models.models[0]!.checkpoint_sha256 = other;
@@ -281,7 +285,7 @@ describe("APP-05 Evaluation: evaluated", () => {
       published_at: null,
       objects: [],
       problem: null,
-    } as never;
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
