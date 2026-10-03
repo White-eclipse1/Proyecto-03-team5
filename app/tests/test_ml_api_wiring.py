@@ -163,4 +163,3 @@ def test_readme_explains_how_a_clean_clone_gets_the_p3_data():
         "tests/test_app10_portal_smoke.py",
     ):
         assert step in readme, f"Falta en el README: {step}"
-
