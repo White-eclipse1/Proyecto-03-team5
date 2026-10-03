@@ -56,6 +56,15 @@ describe('APP-08 - inference → annotation queue', () => {
     ).toThrow();
   });
 
+  it('rechaza una clase que no es la más probable (hallazgo de APP-09)', () => {
+    expect(() =>
+      inferenceQueueMetadataSchema.parse({
+        ...base,
+        predictedClass: 'dog',
+      }),
+    ).toThrow();
+  });
+
   it('genera la misma clave para un retry o doble click', () => {
     const first = buildInferenceQueueKey(base);
     const retry = buildInferenceQueueKey({ ...base });

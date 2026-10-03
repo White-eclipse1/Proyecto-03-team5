@@ -121,3 +121,10 @@ def test_nginx_accepts_the_uploads_that_inference_allows():
     assert limit, "location /api/ml/ debe fijar client_max_body_size"
     # El multipart agrega cabeceras y los campos model_name/model_version.
     assert int(limit.group(1)) * 1024 * 1024 > MAX_UPLOAD_BYTES
+
+
+def test_backend_verifies_annotation_queue_traceability_against_the_reports():
+    """APP-09: la cola de APP-08 compara la trazabilidad con registry.json y crops.json."""
+    service = _compose()["services"]["backend"]
+    assert "./reports:/reports:ro" in service["volumes"]
+    assert service["environment"]["REPORTS_DIR"] == "/reports"
