@@ -5,6 +5,7 @@ import {
   findImageById,
   findInferenceQueueEntryByKey,
 } from '../data/index.js';
+import { ValidationError } from './errors.js';
 import { deleteImage, type UploadImageInput, uploadImage } from './image-upload.service.js';
 import {
   buildInferenceQueueKey,
@@ -36,7 +37,16 @@ export interface EnqueueInferenceResult {
 export async function enqueueInferenceResult(
   input: EnqueueInferenceInput,
 ): Promise<EnqueueInferenceResult> {
-  const metadata = inferenceQueueMetadataSchema.parse(input.metadata);
+  const parsed = inferenceQueueMetadataSchema.safeParse(input.metadata);
+  if (!parsed.success) {
+    // APP-09: metadatos inválidos son un error del cliente (400), no un 500.
+    throw new ValidationError(
+      `Metadatos de inferencia inválidos: ${parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || 'metadata'}: ${issue.message}`)
+        .join('; ')}`,
+    );
+  }
+  const metadata = parsed.data;
   // APP-09: antes de cualquier búsqueda o upload, la trazabilidad debe ser la real.
   // Con la imagen atada a `sourceRef`, la misma clave implica la misma imagen.
   verifyInferenceTraceability(metadata, input.image.buffer, {
