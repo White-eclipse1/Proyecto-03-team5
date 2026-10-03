@@ -185,4 +185,6 @@ def test_the_clean_clone_section_alone_starts_the_whole_stack():
         "misma terminal",
     ):
         assert step in section, f"Falta en la sección del clon limpio: {step}"
-    assert section.index("data/raw/images.dvc") < section.index("docker compose up")
+    assert section.index("data/raw/images.dvc") < section.index(
+        "docker compose up -d --build --wait"
+    )

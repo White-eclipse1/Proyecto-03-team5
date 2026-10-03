@@ -323,11 +323,14 @@ arrancar; no crea imágenes demo ni hace falta ejecutar otro paso manual.
 `docker compose up` levanta el portal, pero las pantallas del Proyecto 3 necesitan
 datos que no viven en git: los recortes de ML-01, el paquete del modelo publicado
 (OPS-06) y las corridas de MLflow (ML-07 a ML-09, con sus mismos run IDs). Después
-de configurar DVC y AWS (pasos 4 a 8 del [onboarding](#onboarding-de-desarrollo)),
-desde la raíz:
+de configurar DVC y AWS (pasos 4 a 7 del [onboarding](#onboarding-de-desarrollo)),
+desde la raíz y **en la misma terminal** de principio a fin (el paso 4 usa el
+`GIT_COMMIT` del paso 3):
 
 ```bash
-# 1. Datos del Proyecto 3
+# 1. Datos: el release P2 (lo exige el servicio `app`, la compuerta de calidad; sin él
+#    `docker compose up --wait` falla) y los del Proyecto 3
+dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc
 dvc pull -r prod crops                       # data/crops (recortes de ML-01)
 dvc pull -r prod data/models.dvc             # data/models (paquete dog-cat-resnet18 1.0.0)
 dvc pull -r prod data/mlflow-snapshot.dvc    # data/mlflow-snapshot (corridas de MLflow)
