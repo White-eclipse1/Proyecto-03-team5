@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluación de proyecto 3 — team5</title>
+<style>
+:root {
+  --iteso-azul: #003C71; --iteso-azul-medio: #0067A5; --iteso-azul-claro: #9BC4E2;
+  --gris-texto: #333333; --gris-borde: #DDE3E9; --fondo: #FFFFFF;
+  --ok: #1E7A3C; --parcial: #B8860B; --fallo: #A32020;
+  --fuente: "Gotham", "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--gris-texto); font-family: var(--fuente); line-height: 1.5; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+header { border-bottom: 3px solid var(--iteso-azul); padding-bottom: 16px; margin-bottom: 24px; }
+.logo { color: var(--iteso-azul); font-weight: 700; letter-spacing: .08em; font-size: 28px; }
+h1, h2, h3 { color: var(--iteso-azul); }
+h1 { font-size: 24px; margin: 8px 0; }
+h2 { font-size: 20px; border-bottom: 1px solid var(--gris-borde); padding-bottom: 4px; margin-top: 32px; }
+h3 { font-size: 16px; color: var(--iteso-azul-medio); }
+.meta { font-size: 14px; }
+.tarjeta { border: 2px solid var(--iteso-azul); border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+.nota { font-size: 48px; font-weight: 700; color: var(--iteso-azul); }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; }
+.badge.ok { background: var(--ok); } .badge.parcial { background: var(--parcial); } .badge.fallo { background: var(--fallo); }
+.seccion { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 64px; gap: 12px; align-items: center; margin: 6px 0; font-size: 14px; }
+.barra { background: var(--gris-borde); border-radius: 6px; height: 12px; overflow: hidden; }
+.relleno { background: var(--iteso-azul-medio); height: 100%; }
+.tabla { overflow-x: auto; margin: 8px 0 16px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { background: var(--iteso-azul); color: #fff; text-align: left; padding: 6px 8px; }
+td { border-bottom: 1px solid var(--gris-borde); padding: 6px 8px; vertical-align: top; }
+code { font-family: Menlo, Consolas, monospace; font-size: 12px; background: #f3f6f9; padding: 0 3px; border-radius: 3px; word-break: break-all; }
+pre { white-space: pre-wrap; background: #f3f6f9; border: 1px solid var(--gris-borde); padding: 12px; font-size: 12px; border-radius: 6px; }
+button.imprimir { background: var(--iteso-azul); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+footer { border-top: 1px solid var(--gris-borde); margin-top: 32px; padding-top: 12px; font-size: 13px; }
+@media (max-width: 640px) { .seccion { grid-template-columns: 1fr; } }
+@media print {
+  button.imprimir { display: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr { break-inside: avoid; }
+  @page { size: A4; margin: 15mm; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <!-- Logotipo: sustituir este texto por el archivo oficial de ITESO embebido en base64 (altura ~48 px). -->
+  <div class="logo">ITESO</div>
+  <div class="meta">MLOps</div>
+  <h1>Evaluación de proyecto 3 — Clasificador de imágenes</h1>
+  <div class="meta">Equipo: <strong>team5</strong> · Repositorio: <code>White-eclipse1/Proyecto-03-team5</code> · Commit evaluado: <code>eb9966a</code><br>
+  Release de dataset: <code>v0.1.1</code> · Versión de modelo: <code>dog-cat-resnet18 1.0.0</code> · Fecha: 2026-10-03</div>
+  <p><button class="imprimir" onclick="window.print()">Imprimir</button></p>
+</header>
+
+<section class="tarjeta">
+  <div><div class="meta">Calificación final</div><div class="nota">100</div></div>
+  <div><div class="meta">Escala</div><strong>Excelente (90-100)</strong></div>
+  <div><div class="meta">Compuerta</div><span class="badge ok">NO ACTIVADA</span></div>
+  <div><div class="meta">Meta de 85% en test</div><span class="badge ok">Alcanzada</span></div>
+</section>
+
+<h2>Resumen por sección</h2>
+<div class="seccion"><div class="sec-nombre">1. Integración y datos de entrenamiento</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">14 / 14</div></div><div class="seccion"><div class="sec-nombre">2. Modelo, entrenamiento y reproducibilidad</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">18 / 18</div></div><div class="seccion"><div class="sec-nombre">3. Experimentos y MLflow</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">14 / 14</div></div><div class="seccion"><div class="sec-nombre">4. Evaluación final y calidad del clasificador</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">18 / 18</div></div><div class="seccion"><div class="sec-nombre">5. Versión, tarjeta y publicación en S3</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">10 / 10</div></div><div class="seccion"><div class="sec-nombre">6. Portal integrado de extremo a extremo</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">18 / 18</div></div><div class="seccion"><div class="sec-nombre">7. Pruebas, CI y disciplina de repositorio</div><div class="barra"><div class="relleno" style="width:100%"></div></div><div class="sec-puntos">8 / 8</div></div>
+
+<h2>A. Requisitos mínimos</h2>
+<div class="tabla"><table><thead><tr><th>Estado</th><th>Requisito</th><th>Evidencia</th></tr></thead><tbody><tr><td><span class="badge ok">CUMPLE</span></td><td>M1 — El clon arranca siguiendo el README</td><td>Clon limpio (worktree en <code>eb9966a</code>) siguiendo solo «Proyecto 3 completo en un clon limpio»: 4 <code>dvc pull</code>, credenciales exportadas, <code>GIT_COMMIT</code>, <code>docker compose up -d --build --wait</code> → 9 servicios <code>Healthy</code>, exit 0; <code>tracking.snapshot restore</code> → 12 runs OK. Portal <code>/</code> (Tablero) y <code>/ml/training</code> cargan; un job real <code>job-771b5a16…</code> llegó a <code>succeeded</code> (APP-10).</td></tr><tr><td><span class="badge ok">CUMPLE</span></td><td>M2 — Consume un release P2 aprobado y versionado</td><td><code>v0.1.1</code> (gate <code>warning</code>, aprobado; <code>v0.1.0</code> <code>failed</code> → 409). Hashes DVC de <code>data/raw/{images,annotations}.dvc</code> (<code>951150dd…</code>, <code>c7cb86ae…</code>) = <code>provenance</code> del manifiesto = tags del run candidato. <code>dvc status</code>: «Data and pipelines are up to date».</td></tr><tr><td><span class="badge ok">CUMPLE</span></td><td>M3 — Train, validación y prueba aislados</td><td>Intersecciones en el manifiesto real: <code>crop_id</code>, <code>source_image_id</code> y <code>duplicate_group</code> = 0 en los tres pares. Transforms aleatorios solo en train (<code>RandomResizedCrop</code>, <code>RandomHorizontalFlip</code>, <code>ColorJitter</code>); validation/test vacíos. Candidato elegido con <code>best_val_loss</code> en validation y congelado antes del test.</td></tr><tr><td><span class="badge ok">CUMPLE</span></td><td>M4 — Modelo recargable para inferencia</td><td><code>aws s3api get-object</code> de <code>models/dog-cat-resnet18/1.0.0/checkpoint/best.pt</code> → SHA-256 <code>84d6c88b…0d52</code> (= registrado); cargado en un proceso nuevo con su class map y preprocesamiento: <code>dog/img218-ann249</code> → dog 1.0.</td></tr></tbody></table></div>
+<p><strong>Compuerta:</strong> <code>NO ACTIVADA</code></p>
+
+<h2>B. Tabla de calificación</h2>
+<h3>1. Integración y datos de entrenamiento</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>4 / 4</td><td>1.1 Traspaso real desde Proyecto 2</td><td>— (Training lista <code>v0.1.0</code> (gate <code>failed</code>) y <code>v0.1.1</code> (<code>warning</code>); cambiar a <code>v0.1.0</code> muestra otro reporte y split P2 y el POST de un job responde 409 <code>training_blocked</code>; <code>v0.1.1</code> trae procedencia DVC, referencia de calidad y manifiesto.)</td></tr><tr><td>5 / 5</td><td>1.2 Recortes COCO y selección de clases previa</td><td>— (<code>reports/crops.json</code>: <code>image_id</code>, <code>annotation_id</code>, categoría, bbox y <code>crop_box</code> por recorte; 0 rechazos en <code>v0.1.1</code>; dog 300 y cat 301 imágenes originales. 6/6 recortes muestreados idénticos píxel a píxel a su caja del COCO.)</td></tr><tr><td>5 / 5</td><td>1.3 Manifiesto 70/20/10 reproducible y sin fuga</td><td>— (469/128/71 recortes (0.702/0.192/0.106); dog/cat 221/248, 61/67, 43/28; 420/120/60 originales. Dos generaciones con seed 42: mismos IDs y mismo <code>manifest_hash</code> <code>sha256:178b28bd…</code>. Grupos indivisibles: intersecciones 0.)</td></tr><tr><td>14 / 14</td><td>Subtotal Integración y datos de entrenamiento</td><td></td></tr></tbody></table></div><h3>2. Modelo, entrenamiento y reproducibilidad</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>5 / 5</td><td>2.1 Clasificador entrenado por el equipo</td><td>— (ResNet18 <code>IMAGENET1K_V1</code> (torchvision), <code>layer4</code> + cabeza entrenables, class map dog=0/cat=1 (<code>test_trainable_policy_freezes_the_rest</code>, <code>test_optimizer_steps_change_trainable_weights_and_keep_frozen_ones</code>).)</td></tr><tr><td>4 / 4</td><td>2.2 Minibatches y parámetros configurables</td><td>— (Un paso de optimizador por minibatch (<code>test_optimizer_steps_once_per_minibatch</code>); 8 peticiones inválidas por API → 422/409 sin crear jobs (APP-09) y validación del formulario (vitest, 35 tests).)</td></tr><tr><td>4 / 4</td><td>2.3 Semillas y aumentación controlada</td><td>— (Cada run registra <code>seed_split</code>, <code>seed_dataloader</code>, <code>seed_augmentation</code>, <code>seed_weight_init</code>, versiones y plataforma; mismo orden de muestras con la misma semilla (<code>test_two_short_runs_with_the_same_seed_see_the_same_sample_order</code>).)</td></tr><tr><td>5 / 5</td><td>2.4 Curvas, early stopping y mejor checkpoint</td><td>— (Curvas <code>curves/</code> por run; <code>patience</code>/<code>min_delta</code>; secuencia inyectada fuerza la parada y restaura la mejor época (<code>test_injected_metrics_force_early_stopping_and_restore_the_best_epoch</code>).)</td></tr><tr><td>18 / 18</td><td>Subtotal Modelo, entrenamiento y reproducibilidad</td><td></td></tr></tbody></table></div><h3>3. Experimentos y MLflow</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>6 / 6</td><td>3.1 Diez experimentos válidos</td><td>— (12 runs <code>FINISHED</code> de <code>ml07-v1</code>; los 7 parámetros varían (3–4 valores cada uno); mismo manifest y clases. 10 válidas listadas abajo (r12 se excluye por coincidir en <code>best_val_loss</code> con r01).)</td></tr><tr><td>5 / 5</td><td>3.2 Registro completo en MLflow</td><td>— (Por run (API de MLflow): parámetros, 4 semillas, <code>git_commit</code>, hashes DVC, <code>manifest_hash</code>, <code>classes</code>, historia por época de <code>val_loss</code> y artefactos <code>curves/</code> y <code>checkpoints/best.pt</code>: completo en 12/12.)</td></tr><tr><td>3 / 3</td><td>3.3 Comparación y elección reproducible</td><td>— (<code>reports/candidates/ml08_candidate.json</code>: <code>r03-sgd</code> por <code>best_val_loss</code> (validation), congelado <code>2026-10-02T00:37:26Z</code> &lt; evaluación <code>01:26:33Z</code>; único run con <code>candidate=true</code>.)</td></tr><tr><td>14 / 14</td><td>Subtotal Experimentos y MLflow</td><td></td></tr></tbody></table></div><h3>4. Evaluación final y calidad del clasificador</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>5 / 5</td><td>4.1 Protocolo de prueba congelado</td><td>— (Una sola evaluación del checkpoint congelado (sha256 verificado) sobre los 71 recortes de test; CSV y JSON por muestra con probabilidades; auditoría reproducible sin escribir.)</td></tr><tr><td>4 / 4</td><td>4.2 Matriz y métricas correctas</td><td>— (Recalculado desde el CSV: matriz <code>[[43,0],[3,25]]</code> (suma 71), accuracy 0.9577464788732394, F1 macro 0.9548441806232775, P/R/support por clase; igual en MLflow 17/17, API 16/16 y portal 32/32 (ML-10).)</td></tr><tr><td>6 / 6</td><td>4.3 Umbral de 85% en test</td><td>— (68/71 ≥ 0.85 con enteros (1360 ≥ 1207); IDs = test congelado; dog y cat cubiertas.)</td></tr><tr><td>3 / 3</td><td>4.4 Interpretación de errores</td><td>— (Evaluation muestra los 3 errores y los aciertos con recorte, real, predicha y p; clase más confundida <code>cat → dog: 3</code>; baseline 43/71 = 0.6056; explica que el accuracy no oculta un recall bajo y nombra la clase más débil (cat 0.8929).)</td></tr><tr><td>18 / 18</td><td>Subtotal Evaluación final y calidad del clasificador</td><td></td></tr></tbody></table></div><h3>5. Versión, tarjeta y publicación en S3</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>4 / 4</td><td>5.1 Paquete de modelo completo</td><td>— (<code>data/models/dog-cat-resnet18/1.0.0/</code>: checkpoint, <code>package.json</code> (arquitectura, class map, preprocesamiento), <code>dependencies.json</code> (versiones + sha256 de <code>uv.lock</code>) y tarjeta con propósito, release P2, manifest hash, run, métricas de test, limitaciones y pesos preentrenados.)</td></tr><tr><td>4 / 4</td><td>5.2 AWS S3 real y recuperable</td><td>— (<code>head-object</code>/<code>get-object</code> de pesos y tarjeta (1.0.0 y 0.9.0): SHA-256 local = registrado, <code>ChecksumSHA256</code> de S3 coincide, ETag ≠ SHA-256 y registrado aparte; <code>VersionId</code> = null (bucket sin versionado: «si existe»); inferencia con lo descargado en un proceso limpio.)</td></tr><tr><td>2 / 2</td><td>5.3 Registro y versionado navegables</td><td>— (Models resuelve <code>1.0.0</code> (run <code>bb448230</code>, checkpoint <code>84d6c88b</code>, 128 px) y la versión anterior <code>0.9.0</code> (run <code>83e5a40a</code>, checkpoint <code>db64816a</code>, 224 px); Inference con cada una carga su artefacto: <code>img369-ann355</code> → cat 0.6321 vs 0.9946.)</td></tr><tr><td>10 / 10</td><td>Subtotal Versión, tarjeta y publicación en S3</td><td></td></tr></tbody></table></div><h3>6. Portal integrado de extremo a extremo</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>4 / 4</td><td>6.1 Training</td><td>— (Release aprobado, procedencia y split, formulario con los 7 parámetros, job fuera del request (202 + worker), estado/logs/checkpoint persistentes; rechaza gate fallido (409) y manifest ajeno.)</td></tr><tr><td>3 / 3</td><td>6.2 Experiments</td><td>— (12 corridas reales de MLflow con curvas; un <code>log_metric</code> directo en MLflow cambia la UI (APP-09).)</td></tr><tr><td>3 / 3</td><td>6.3 Evaluation</td><td>— (Candidato, release, métricas, matriz y ejemplos reales; sin candidato congelado no revela test (APP-05); exporta el CSV por muestra.)</td></tr><tr><td>4 / 4</td><td>6.4 Models</td><td>— (Lista 1.0.0 y 0.9.0 con tarjeta, trazabilidad y descargas; «Publicado en S3» solo tras <code>head-object</code> + <code>ChecksumSHA256</code>; key inexistente → <code>inconsistent</code>; sin credenciales → «No verificable»; versión de dataset y de modelo separadas.)</td></tr><tr><td>4 / 4</td><td>6.5 Inference</td><td>— (Acepta imagen nueva y recorte; rechaza PDF/SVG/WebP/vacío/truncado; usa la versión elegida y el preprocesamiento de evaluación; probabilidades suman 1; «Enviar a cola» crea un registro real verificado contra el registro.)</td></tr><tr><td>18 / 18</td><td>Subtotal Portal integrado de extremo a extremo</td><td></td></tr></tbody></table></div><h3>7. Pruebas, CI y disciplina de repositorio</h3><div class="tabla"><table class=""><thead><tr><th>Puntos obtenidos</th><th>Requisito</th><th>Lo que falta</th></tr></thead><tbody><tr><td>4 / 4</td><td>7.1 Pruebas que detectan fallas reales y TDD</td><td>— (Ciclos Red → Green en los commits de P3. En copia aislada: matriz traspuesta → falla; predicción cambiada en el CSV → 3 tests fallan; duplicados sin unir → falla (test agregado en esta auditoría).)</td></tr><tr><td>2 / 2</td><td>7.2 Prueba de integración del recorrido</td><td>— (<code>tests/test_app10_portal_smoke.py</code>: release → job → run → candidato → versión → inferencia → cola con IDs trazables (1 passed en el clon limpio); OPS-09 E2E en CI.)</td></tr><tr><td>2 / 2</td><td>7.3 CI, lint y secretos</td><td>— (CI: Ruff check/format, pytest, Biome, tsc, tests y build de backend y frontend, Gitleaks sobre HEAD e historial, sin <code>continue-on-error</code>; <code>.gitignore</code> excluye <code>.env</code>, <code>*.pt</code>, datos; 0 claves con forma de access key en todo el historial.)</td></tr><tr><td>8 / 8</td><td>Subtotal Pruebas, CI y disciplina de repositorio</td><td></td></tr></tbody></table></div>
+
+<h2>C. Trazabilidad de extremo a extremo</h2>
+<div class="tabla"><table class=""><thead><tr><th>Release DVC y hash</th><th>Manifiesto 70/20/10 y hash</th><th>Run MLflow elegido</th><th>Checkpoint</th><th>Versión de modelo</th><th>S3 bucket/key y hash</th><th>Predicción de prueba</th></tr></thead><tbody><tr><td><code>v0.1.1</code> · images <code>951150dd…dir</code> · annotations <code>c7cb86ae…dir</code></td><td><code>p3-v1</code> · <code>sha256:178b28bd…cb2b2</code></td><td><code>ml07-v1-r03-sgd</code> · <code>bb448230424146349a969253d30db43b</code></td><td><code>runs:/bb448230…/checkpoints/best.pt</code> · sha256 <code>84d6c88b…0d52</code></td><td><code>dog-cat-resnet18 1.0.0</code> (anterior: <code>0.9.0</code>)</td><td><code>s3://mlops-p2-dvc-cache-280764207006/models/dog-cat-resnet18/1.0.0/checkpoint/best.pt</code> · SHA-256 <code>84d6c88b…0d52</code></td><td><code>img107-ann135</code> → dog 0.99995 (<code>inf-50a6a0f5…</code>) · cola: imagen registrada</td></tr></tbody></table></div>
+
+<h2>D. Contraste de métricas</h2>
+<div class="tabla"><table class=""><thead><tr><th>Métrica</th><th>Reportado por el equipo</th><th>Verificado por el evaluador</th><th>¿Coincide?</th></tr></thead><tbody><tr><td>Corridas válidas de MLflow</td><td>12</td><td>12 FINISHED (10 listadas como válidas)</td><td>Sí</td></tr><tr><td>Train / val / test (recortes y originales)</td><td>469/128/71 · 420/120/60</td><td>469/128/71 · 420/120/60</td><td>Sí</td></tr><tr><td>Accuracy top-1 en test</td><td>0.9577</td><td>68/71 = 0.9577464788732394</td><td>Sí</td></tr><tr><td>F1 macro en test</td><td>0.9548</td><td>0.9548441806232775</td><td>Sí</td></tr><tr><td>Total de la matriz de confusión</td><td>71</td><td>71</td><td>Sí</td></tr></tbody></table></div>
+<h3>Diez corridas válidas</h3>
+<div class="tabla"><table class=""><thead><tr><th>Run ID</th><th>Entrada</th><th>Parámetros que cambian</th><th>Mejor val_loss</th><th>Estado</th></tr></thead><tbody><tr><td>bb448230…</td><td>r03-sgd</td><td>sgd, lr 0.01</td><td>0.0406</td><td>FINISHED (candidato)</td></tr><tr><td>83e5a40a…</td><td>r07-img224</td><td>image 224</td><td>0.0574</td><td>FINISHED (versión 0.9.0)</td></tr><tr><td>e6921aea…</td><td>r06-lr3e-4-ep15</td><td>lr 3e-4, épocas 15</td><td>0.0719</td><td>FINISHED</td></tr><tr><td>1d571224…</td><td>r02-adamw</td><td>adamw</td><td>0.0802</td><td>FINISHED</td></tr><tr><td>f0cd9825…</td><td>r01-base</td><td>base (adam, 32, 10, 1e-3, 128, [128], 0.2)</td><td>0.0814</td><td>FINISHED</td></tr><tr><td>06fc1940…</td><td>r11-adamw-img160-head256-drop0.5</td><td>adamw, lr 3e-4, ép 15, 160, [256], 0.5</td><td>0.0850</td><td>FINISHED</td></tr><tr><td>306817e8…</td><td>r04-batch16</td><td>batch 16</td><td>0.1315</td><td>FINISHED</td></tr><tr><td>137244d2…</td><td>r10-no-hidden-drop0</td><td>sin capas ocultas, dropout 0</td><td>0.1516</td><td>FINISHED</td></tr><tr><td>21db27c7…</td><td>r09-head256-64-drop0.3</td><td>[256,64], dropout 0.3</td><td>0.1583</td><td>FINISHED</td></tr><tr><td>f6b548b4…</td><td>r05-batch64</td><td>batch 64</td><td>0.1646</td><td>FINISHED</td></tr></tbody></table></div>
+
+<h2>E. Resultado final</h2>
+<pre>Suma de secciones:      100 / 100
+Compuerta aplicada:     no
+CALIFICACIÓN FINAL:     100
+Meta de 85% en test:    alcanzada
+Escala:                 Excelente (90-100)</pre>
+
+<h2>F. Comentario para el equipo</h2>
+<ul><li>Aciertos: (1) la cadena release → manifest → run → checkpoint → versión → S3 → inferencia es real y verificable con hashes en cada paso; (2) la evaluación final es reproducible desde el CSV y coincide al bit con MLflow, API y portal; (3) el portal integra las cinco pantallas con datos reales y se prueba de forma adversarial.</li><li>Correcciones hechas en esta auditoría: <code>dvc status</code> de un clon limpio marcaba el pipeline cambiado (marcador sin versionar y <code>__pycache__</code> en los hashes); solo existía una versión del modelo (se publicó <code>0.9.0</code>, otro run real de la matriz, sin métricas de test); la suite no detectaba duplicados separados entre particiones ni una predicción alterada en los artefactos versionados, y llenaba el disco con ~17 GB de temporales (tests de regresión y <code>conftest.py</code>).</li><li>Riesgos residuales: el bucket de S3 no tiene versionado (VersionId null; habilitarlo protegería contra sobrescrituras externas); Models necesita credenciales de AWS en <code>ml-api</code> para mostrar «Publicado» (sin ellas, «No verificable»); vulnerabilidades npm moderadas en dependencias de producción (minio, react-router) cuya corrección exige un cambio mayor.</li></ul>
+
+<h2>G. Anexo de verificación</h2>
+<pre>$ git rev-parse --short HEAD          # clon limpio
+eb9966a
+$ dvc pull -r prod data/raw/images.dvc data/raw/annotations.dvc   → 612 files fetched
+$ dvc pull -r prod crops                                         → 669 files fetched
+$ dvc pull -r prod data/models.dvc                               → 8 files fetched
+$ dvc pull -r prod data/mlflow-snapshot.dvc                      → 44 files fetched
+$ dvc status                                                     → Data and pipelines are up to date.
+$ docker compose -p ops10rc up -d --build --wait                 → 9 servicios Healthy, exit 0
+$ uv run python -m tracking.snapshot restore                     → 12/12 runs OK
+$ pytest tests/test_app10_portal_smoke.py                        → 1 passed
+$ pytest tests/test_app09_portal_adversarial.py (S3 real)        → 30 passed
+$ python -m classification.quality_audit                         → MLflow 17/17 · API 16/16 · Portal 32/32 · recortes 7/7
+$ GET /api/ml/models                                             → 1.0.0 (sha 84d6c88b, 128 px, published) · 0.9.0 (sha db64816a, 224 px, published, sin test)
+$ POST /api/ml/inference img369-ann355                           → 1.0.0: cat 0.6321 · 0.9.0: cat 0.9946
+$ POST /api/ml/training/jobs dataset_version=v0.1.0              → HTTP 409
+$ aws s3api head-object / get-object (1.0.0 y 0.9.0, pesos y tarjeta) → SHA-256 = registrado; ETag ≠ SHA-256; VersionId null
+$ python -m classification.publication infer &lt;best.pt descargado&gt; → proceso limpio: dog 1.0 (ambas versiones)
+$ intersecciones M3 (crop_id, source_image_id, duplicate_group)   → 0, 0, 0
+$ build_release_manifest ×2 (seed 42)                            → mismos IDs y mismo manifest_hash
+$ 6 recortes vs COCO original                                    → 6/6 idénticos píxel a píxel
+$ pytest (suite completa, estado final)                         → 1156 passed, 53 skipped (pico de temporales 301 MB)
+$ vitest frontend / backend                                      → 513 / 121 passed; tsc, Biome y build OK
+$ git log --all -p | grep (AKIA|ASIA)[A-Z0-9]{16}                → 0 coincidencias
+
+Datos malos inyectados (copia aislada, restaurada):
+- generador sin unir duplicados → `test_declared_duplicates_share_group_and_split` falla (antes la suite pasaba: se agregó el test)
+- matriz traspuesta en ML-09 → la suite falla
+- predicción cambiada en el CSV de test → 3 tests de integridad fallan (antes la suite pasaba: se agregaron)
+- key inexistente en s3_publications.json → Models «inconsistent» (APP-09)
+
+No verificado y por qué:
+- GPU: no disponible; no aplica (las corridas ya están persistidas y el entrenamiento corre en CPU).
+- Clics en el navegador: las pantallas se leyeron renderizadas en Chrome headless y por API; la procedencia que aparece al elegir el release en Training se cubre con los tests del formulario.
+- Puertos: el stack se levantó con un proyecto de Compose aislado y puertos propios porque los de por defecto estaban ocupados; los pasos del README no cambian.
+
+Hallazgo de entorno corregido: una corrida completa de pytest dejaba ~17 GB de temporales y pytest conserva las tres últimas; el disco se llenó y la suite falló con «No space left on device». `tests/conftest.py` vacía el `tmp_path` de cada test que pasa (pico 301 MB) sin reusar rutas.
+
+Estado final: el stack aislado se desmontó (`down -v`), los worktrees se borraron y el repositorio quedó limpio.</pre>
+
+<footer>
+  Docente: auditoría interna del equipo (OPS-10) · Materia: MLOps · Ciclo escolar: Otoño 2026<br>
+  <em>Reporte generado automáticamente a partir del estado del repositorio en el commit indicado. La calificación es revisable a solicitud del equipo.</em>
+</footer>
+</main>
+</body>
+</html>
