@@ -9,6 +9,9 @@
     GET  /evaluation                     EvaluationOverview: candidato y test (APP-05)
     GET  /evaluation/predictions.csv     predicciones por recorte de ML-09 (APP-05)
     GET  /crops/{crop_id}                imagen del recorte (APP-05)
+    GET  /models                         ModelsResponse: versiones de OPS-06 y su S3 (APP-06)
+    GET  /models/{version}               RegisteredModelVersion de esa versión (APP-06)
+    GET  /models/{version}/files/{name}  archivo del paquete, verificado (APP-06)
     POST /inference                      InferenceRequest (recorte) → InferenceResponse (APP-07)
     POST /inference/upload               multipart model_name, model_version, file → ídem
     GET  /health
@@ -75,6 +78,13 @@ from training.inference import (
     read_crop,
     read_upload,
 )
+from training.models_view import (
+    FileRejected,
+    RegistryUnavailable,
+    find_model,
+    list_models,
+    package_file,
+)
 from training.queue import TrainingJobQueue
 from training.releases import load_release, published_releases
 
@@ -117,7 +127,11 @@ def create_app(
     models: ModelResolver | None = None,
     max_upload_bytes: int = MAX_UPLOAD_BYTES,
     max_image_pixels: int = MAX_IMAGE_PIXELS,
+    repo_root: Path | None = None,
 ) -> Starlette:
+    # `package_path` de OPS-06 es relativo a la raíz del repo (`/app` en Docker).
+    root = repo_root if repo_root is not None else reports_dir.parent
+
     async def list_jobs(_request: Request) -> JSONResponse:
         response = TrainingJobsResponse(schema_version="1.0", jobs=queue.list_jobs())
         return JSONResponse(response.model_dump())
@@ -237,6 +251,36 @@ def create_app(
             return _error(404, "crop_not_found", "No existe ese recorte.")
         return FileResponse(path, media_type="image/png")
 
+    def registry_unavailable() -> JSONResponse:
+        return _error(503, "registry_unavailable", "No se pudo leer reports/models/registry.json.")
+
+    async def get_models(_request: Request) -> JSONResponse:
+        try:
+            response = await run_in_threadpool(list_models, reports_dir, root)
+        except RegistryUnavailable:
+            return registry_unavailable()
+        return JSONResponse(response.model_dump())
+
+    async def get_model(request: Request) -> JSONResponse:
+        version = request.path_params["version"]
+        try:
+            model = await run_in_threadpool(find_model, reports_dir, root, version)
+        except RegistryUnavailable:
+            return registry_unavailable()
+        if model is None:
+            return _error(404, "model_not_found", f"No existe la versión {version}.")
+        return JSONResponse(model.model_dump())
+
+    async def get_model_file(request: Request):
+        version, name = request.path_params["version"], request.path_params["name"]
+        try:
+            path = await run_in_threadpool(package_file, reports_dir, root, version, name)
+        except RegistryUnavailable:
+            return registry_unavailable()
+        except FileRejected as exc:
+            return _error(exc.status, exc.code, exc.message)
+        return FileResponse(path, filename=f"{version}-{path.name}")
+
     def infer(
         model_name: str,
         model_version: str,
@@ -345,6 +389,9 @@ def create_app(
             Route("/evaluation", get_evaluation, methods=["GET"]),
             Route("/evaluation/predictions.csv", get_predictions_csv, methods=["GET"]),
             Route("/crops/{crop_id:path}", get_crop, methods=["GET"]),
+            Route("/models", get_models, methods=["GET"]),
+            Route("/models/{version}", get_model, methods=["GET"]),
+            Route("/models/{version}/files/{name:path}", get_model_file, methods=["GET"]),
             Route("/inference", infer_crop, methods=["POST"]),
             Route("/inference/upload", infer_upload, methods=["POST"]),
         ]

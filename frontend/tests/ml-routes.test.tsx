@@ -157,8 +157,8 @@ describe("APP-01 estados de carga y error", () => {
   it.each([
     ["/ml/training", "jobs", "Todavía no hay jobs de entrenamiento."],
     ["/ml/experiments", "runs", "Todavía no hay runs registrados en MLflow."],
-    ["/ml/models", "models", "Todavía no hay modelos registrados."],
-    ["/ml/inference", "models", "No hay modelos READY disponibles para inferencia."],
+    ["/ml/models", "models", "Todavía no hay versiones registradas del modelo."],
+    ["/ml/inference", "models", "No hay versiones del modelo con su paquete disponible para inferencia."],
   ])("%s muestra un estado vacío explícito", async (path, key, message) => {
     serve(() => json({ schema_version: "1.0", [key]: [] }));
     openAt(path);
@@ -210,23 +210,19 @@ describe("APP-01 consumidores de los contratos (IDs reales)", () => {
     expect(screen.queryByText("mAP50")).not.toBeInTheDocument();
   });
 
-  it("Models muestra versión del registry, aliases y dataset de origen", async () => {
+  it("Models separa model_version (SemVer) de dataset_version", async () => {
     serveExamples();
     openAt("/ml/models");
 
-    const row = (await screen.findByText("champion")).closest("tr")!;
-    expect(within(row).getByText("dog-cat-resnet18")).toBeInTheDocument();
+    const table = await screen.findByRole("table", { name: /versiones del modelo/i });
+    const row = within(table).getByRole("row", { name: /1\.0\.0/ });
     expect(within(row).getByText("1.0.0")).toBeInTheDocument();
     expect(within(row).getByText("demo-v1.0.0")).toBeInTheDocument();
-    expect(within(row).getByText("READY")).toBeInTheDocument();
   });
 
-  it("Inference solo ofrece modelos READY", async () => {
-    const models = structuredClone(EXAMPLES["/api/ml/models"]) as {
-      models: { status: string }[];
-    };
-    models.models[1]!.status = "PENDING_REGISTRATION";
-    serve(() => json(models));
+  it("Inference solo ofrece versiones con su paquete en el servidor", async () => {
+    // En el ejemplo, 0.9.0 no tiene el paquete descargado (servable: false).
+    serveExamples();
     openAt("/ml/inference");
 
     expect(await screen.findByText("dog-cat-resnet18 v1.0.0")).toBeVisible();

@@ -36,11 +36,23 @@ function cropResponse(changes: Json = {}): Json {
 
 type Call = { url: string; init?: RequestInit };
 
+/** Las dos versiones del ejemplo con su paquete en el servidor (en el corpus, 0.9.0 no). */
+function bothServable() {
+  const models = structuredClone(loadMlExample("models")) as {
+    models: { servable: boolean; files: { available: boolean }[] }[];
+  };
+  for (const model of models.models) {
+    model.servable = true;
+    for (const file of model.files) file.available = true;
+  }
+  return models;
+}
+
 function serve(handler: (call: Call) => Promise<Response> = defaultHandler) {
   const calls: Call[] = [];
   const fetcher = vi.fn((url: string, init?: RequestInit) => {
     calls.push({ url, init });
-    if (url === MODELS_URL) return json(loadMlExample("models"));
+    if (url === MODELS_URL) return json(bothServable());
     return handler({ url, init });
   });
   vi.stubGlobal("fetch", fetcher);
@@ -214,6 +226,13 @@ describe("APP-07 Inference: recorte del portal", () => {
       "src",
       "/api/ml/crops/img42-ann1007"
     );
+  });
+
+  it("abre con la model version indicada en la URL (enlace desde Models)", async () => {
+    serve();
+    openInference("/ml/inference?model_version=0.9.0");
+
+    expect(await screen.findByLabelText(/model version/i)).toHaveValue("dog-cat-resnet18:0.9.0");
   });
 
   it("abre con el recorte indicado en la URL", async () => {

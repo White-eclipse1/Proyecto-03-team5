@@ -45,8 +45,9 @@ const noJobs = (response: TrainingJobsResponse) => response.jobs.length === 0;
 const noRuns = (response: RunsResponse) => response.runs.length === 0;
 const never = () => false;
 const noModels = (response: ModelsResponse) => response.models.length === 0;
-const noReadyModels = (response: ModelsResponse) =>
-  !response.models.some((model) => model.status === "READY");
+/** APP-06: solo se puede inferir con una versión cuyo paquete está en este servidor. */
+const noServableModels = (response: ModelsResponse) =>
+  !response.models.some((model) => model.servable);
 
 export function useTrainingJobs() {
   return useMlResource(ML_ENDPOINTS.trainingJobs, trainingJobsResponseSchema, noJobs);
@@ -61,6 +62,12 @@ export function useEvaluationOverview() {
   return useMlResource(ML_ENDPOINTS.evaluation, evaluationOverviewSchema, never);
 }
 
+/** APP-06: descarga de un archivo del paquete de una versión (ml-api lo verifica). */
+export function modelFileUrl(version: string, name: string): string {
+  const path = name.split("/").map(encodeURIComponent).join("/");
+  return `${API_BASE_URL}${ML_ENDPOINTS.models}/${encodeURIComponent(version)}/files/${path}`;
+}
+
 /** URL del recorte de una predicción: `crop_id = img<image_id>-ann<annotation_id>` (ML-01). */
 export function cropUrl(imageId: number, annotationId: number): string {
   return `${API_BASE_URL}${ML_ENDPOINTS.crops}/img${imageId}-ann${annotationId}`;
@@ -71,7 +78,7 @@ export function useRegisteredModels() {
 }
 
 export function useReadyModels() {
-  return useMlResource(ML_ENDPOINTS.models, modelsResponseSchema, noReadyModels);
+  return useMlResource(ML_ENDPOINTS.models, modelsResponseSchema, noServableModels);
 }
 
 export type CreateTrainingJobResult =
