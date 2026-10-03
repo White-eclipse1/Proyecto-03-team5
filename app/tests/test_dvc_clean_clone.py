@@ -51,3 +51,12 @@ def test_the_quality_gate_marker_is_the_one_recorded_in_dvc_lock():
     assert (
         hashlib.md5(marker.read_bytes()).hexdigest() == recorded["../reports/.quality_gate.passed"]
     )
+
+
+def test_dvc_ignores_python_bytecode_inside_code_dependencies():
+    # Un __pycache__ dentro de app/policies o app/splits cambiaba su hash: `dvc status`
+    # marcaba el pipeline como cambiado apenas se corría Python (por ejemplo, pytest).
+    patterns = (REPO_ROOT / ".dvcignore").read_text(encoding="utf-8").split()
+
+    assert "__pycache__/" in patterns
+    assert "*.pyc" in patterns
