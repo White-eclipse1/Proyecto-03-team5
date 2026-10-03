@@ -210,6 +210,155 @@ export async function classifyImage(input: InferenceInput): Promise<InferenceRes
   return { ok: true, response };
 }
 
+export type EnqueueInferenceResult =
+  | {
+      ok: true;
+      imageId: number;
+      created: boolean;
+      idempotencyKey: string;
+    }
+  | {
+      ok: false;
+      error: ContractError;
+    };
+
+/**
+ * APP-08 — envía el resultado real de Inference a la cola existente
+ * de anotación.
+ *
+ * Para uploads reutiliza el archivo original.
+ * Para crops descarga el recorte real servido por el portal.
+ */
+export async function enqueueInferenceResult(
+  response: InferenceResponse,
+  originalFile: File | null
+): Promise<EnqueueInferenceResult> {
+  let file: File;
+
+  try {
+    if (response.source === "upload") {
+      if (originalFile === null || response.upload === null) {
+        return {
+          ok: false,
+          error: {
+            code: "missing_inference_source",
+            message: "No está disponible la imagen original de esta inferencia.",
+            retryable: false,
+          },
+        };
+      }
+
+      file = originalFile;
+    } else {
+      if (response.crop === null) {
+        return {
+          ok: false,
+          error: {
+            code: "missing_inference_source",
+            message: "No está disponible el recorte de esta inferencia.",
+            retryable: false,
+          },
+        };
+      }
+
+      const cropResponse = await fetch(
+        cropUrl(response.crop.image_id, response.crop.annotation_id)
+      );
+
+      if (!cropResponse.ok) {
+        return {
+          ok: false,
+          error: {
+            code: "crop_download_failed",
+            message: "No se pudo recuperar el recorte para enviarlo a anotación.",
+            retryable: true,
+          },
+        };
+      }
+
+      const blob = await cropResponse.blob();
+      file = new File(
+        [blob],
+        `img${response.crop.image_id}-ann${response.crop.annotation_id}.png`,
+        { type: blob.type || "image/png" }
+      );
+    }
+
+    const sourceRef =
+      response.source === "crop" && response.crop !== null
+        ? `${response.crop.dataset_version}:img${response.crop.image_id}-ann${response.crop.annotation_id}`
+        : `sha256:${response.upload?.sha256 ?? ""}`;
+
+    const metadata = {
+      sourceKind: response.source,
+      sourceRef,
+      modelName: response.model_name,
+      modelVersion: response.model_version,
+      runId: response.run_id,
+      checkpointSha256: response.checkpoint_sha256,
+      predictedClass: response.predicted_class,
+      probabilities: {
+        dog: response.probabilities.dog ?? 0,
+        cat: response.probabilities.cat ?? 0,
+      },
+    };
+
+    const form = new FormData();
+    form.append("image", file);
+    form.append("metadata", JSON.stringify(metadata));
+
+    const queueResponse = await fetch(`${API_BASE_URL}/images/from-inference`, {
+      method: "POST",
+      body: form,
+    });
+
+    if (!queueResponse.ok) {
+      return {
+        ok: false,
+        error: await errorFromResponse(queueResponse),
+      };
+    }
+
+    const body: unknown = await queueResponse.json().catch(() => null);
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("imageId" in body) ||
+      !("created" in body) ||
+      !("idempotencyKey" in body) ||
+      typeof body.imageId !== "number" ||
+      typeof body.created !== "boolean" ||
+      typeof body.idempotencyKey !== "string"
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: "contract_mismatch",
+          message: "La respuesta de la cola no cumple el contrato esperado.",
+          retryable: false,
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      imageId: body.imageId,
+      created: body.created,
+      idempotencyKey: body.idempotencyKey,
+    };
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "network_error",
+        message: "No se pudo contactar al servidor de anotación.",
+        retryable: true,
+      },
+    };
+  }
+}
+
 export type TrainingLogsState = {
   entries: TrainingLogEntry[];
   error: ContractError | null;

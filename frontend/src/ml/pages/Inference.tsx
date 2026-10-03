@@ -3,7 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { Cell, DataTable } from "../components/DataTable";
 import { MlPage } from "../components/MlPage";
 import { MlResourceBoundary } from "../components/MlResourceBoundary";
-import { classifyImage, cropUrl, type InferenceInput, useReadyModels } from "../dataSource";
+import {
+  classifyImage,
+  cropUrl,
+  enqueueInferenceResult,
+  type InferenceInput,
+  useReadyModels,
+} from "../dataSource";
 import type { ContractError, InferenceResponse, RegisteredModelVersion } from "../schemas";
 
 /** Igual que `MAX_UPLOAD_BYTES` de `training/inference.py`; el servidor vuelve a validar. */
@@ -136,6 +142,9 @@ function InferenceForm({ models }: Readonly<{ models: RegisteredModelVersion[] }
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<InferenceResponse | null>(null);
   const [error, setError] = useState<ContractError | null>(null);
+  const [queueBusy, setQueueBusy] = useState(false);
+  const [queueMessage, setQueueMessage] = useState<string | null>(null);
+  const [queueError, setQueueError] = useState<ContractError | null>(null);
 
   if (model === undefined) return null;
   const cropRelease = release.trim() || model.dataset_version;
@@ -181,6 +190,28 @@ function InferenceForm({ models }: Readonly<{ models: RegisteredModelVersion[] }
     setBusy(false);
     if (outcome.ok) setResult(outcome.response);
     else setError(outcome.error);
+  };
+
+  const sendToAnnotationQueue = async () => {
+    if (result === null || queueBusy) return;
+
+    setQueueBusy(true);
+    setQueueMessage(null);
+    setQueueError(null);
+
+    const outcome = await enqueueInferenceResult(result, result.source === "upload" ? file : null);
+
+    setQueueBusy(false);
+
+    if (outcome.ok) {
+      setQueueMessage(
+        outcome.created
+          ? `Enviado a la cola de anotación como imagen ${outcome.imageId}.`
+          : `La inferencia ya estaba en la cola de anotación como imagen ${outcome.imageId}.`
+      );
+    } else {
+      setQueueError(outcome.error);
+    }
   };
 
   const tab = (active: boolean) =>
@@ -314,7 +345,36 @@ function InferenceForm({ models }: Readonly<{ models: RegisteredModelVersion[] }
           <p className="mt-1 font-mono text-xs text-ink-muted">{error.code}</p>
         </div>
       )}
-      {result !== null && <InferenceResult response={result} />}
+      {result !== null && (
+        <>
+          <InferenceResult response={result} />
+
+          <section className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+            <button
+              type="button"
+              disabled={queueBusy}
+              onClick={() => void sendToAnnotationQueue()}
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-surface disabled:opacity-40"
+            >
+              {queueBusy ? "Enviando…" : "Enviar a cola de anotación"}
+            </button>
+
+            {queueMessage !== null && (
+              <p className="mt-3 text-sm font-medium text-ink">{queueMessage}</p>
+            )}
+
+            {queueError !== null && (
+              <div
+                role="alert"
+                className="mt-3 rounded-xl bg-status-pending-soft px-4 py-3 text-sm text-ink"
+              >
+                <p>{queueError.message}</p>
+                <p className="mt-1 font-mono text-xs text-ink-muted">{queueError.code}</p>
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
