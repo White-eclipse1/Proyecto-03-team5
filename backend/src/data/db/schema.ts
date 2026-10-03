@@ -210,6 +210,74 @@ export const annotationsRelations = relations(annotations, ({ one }) => ({
 }));
 
 /**
+ * APP-08 — vínculo entre una inferencia y la imagen real que entra
+ * a la cola existente de anotación.
+ *
+ * La imagen sigue viviendo en `images` y por eso aparece en el flujo
+ * pending/in_progress normal. Esta tabla conserva su procedencia ML.
+ */
+export const inferenceQueueEntries = mysqlTable(
+  'inference_queue_entries',
+  {
+    id: bigint('id', {
+      mode: 'number',
+      unsigned: true,
+    })
+      .autoincrement()
+      .primaryKey(),
+
+    imageId: bigint('image_id', {
+      mode: 'number',
+      unsigned: true,
+    })
+      .notNull()
+      .references(() => images.id, {
+        onDelete: 'cascade',
+      }),
+
+    idempotencyKey: varchar('idempotency_key', {
+      length: 64,
+    }).notNull(),
+
+    sourceKind: mysqlEnum('source_kind', ['upload', 'crop']).notNull(),
+
+    sourceRef: varchar('source_ref', {
+      length: 255,
+    }).notNull(),
+
+    modelName: varchar('model_name', {
+      length: 255,
+    }).notNull(),
+
+    modelVersion: varchar('model_version', {
+      length: 32,
+    }).notNull(),
+
+    runId: varchar('run_id', {
+      length: 64,
+    }).notNull(),
+
+    checkpointSha256: varchar('checkpoint_sha256', {
+      length: 64,
+    }).notNull(),
+
+    predictedClass: varchar('predicted_class', {
+      length: 150,
+    }).notNull(),
+
+    probabilityDog: double('probability_dog').notNull(),
+    probabilityCat: double('probability_cat').notNull(),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('inference_queue_idempotency_key_unique').on(table.idempotencyKey),
+    uniqueIndex('inference_queue_image_id_unique').on(table.imageId),
+    index('inference_queue_created_at_idx').on(table.createdAt),
+  ],
+);
+
+/**
  * Tipos TypeScript generados automáticamente desde el esquema.
  */
 export type Image = typeof images.$inferSelect;
@@ -220,3 +288,6 @@ export type NewCategory = typeof categories.$inferInsert;
 
 export type Annotation = typeof annotations.$inferSelect;
 export type NewAnnotation = typeof annotations.$inferInsert;
+
+export type InferenceQueueEntry = typeof inferenceQueueEntries.$inferSelect;
+export type NewInferenceQueueEntry = typeof inferenceQueueEntries.$inferInsert;

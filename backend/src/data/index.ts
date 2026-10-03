@@ -38,6 +38,10 @@ export {
   findRecentImages,
   updateImageStatus,
 } from './repositories/image.repository.js';
+export {
+  createInferenceQueueEntry,
+  findInferenceQueueEntryByKey,
+} from './repositories/inference-queue.repository.js';
 // Funciones de almacenamiento en MinIO.
 export {
   deleteImageObject,

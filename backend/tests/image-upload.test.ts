@@ -6,7 +6,19 @@ import { validateImageUpload } from '../src/logic/image-upload.validation.js';
  * Pruebas asociadas a SPEC-UPLOAD-001.
  */
 describe('SPEC-UPLOAD-001 - validación de imágenes', () => {
-  const maxSizeBytes = 5 * 1024 * 1024;
+  const maxSizeBytes = 10 * 1024 * 1024;
+
+  it('acepta una imagen de 6 MiB con el límite unificado de 10 MiB', () => {
+    const result = validateImageUpload(
+      {
+        mimeType: 'image/jpeg',
+        sizeBytes: 6 * 1024 * 1024,
+      },
+      maxSizeBytes,
+    );
+
+    expect(result.success).toBe(true);
+  });
 
   it('acepta una imagen JPEG válida', () => {
     const result = validateImageUpload(

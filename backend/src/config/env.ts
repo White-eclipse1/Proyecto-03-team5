@@ -36,7 +36,7 @@ const envSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(5 * 1024 * 1024),
+    .default(10 * 1024 * 1024),
 });
 
 /**
