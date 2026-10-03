@@ -14,7 +14,13 @@ const PUBLICATION_LABEL: Record<ModelPublication["status"], string> = {
 };
 
 /** Más nueva primero, comparando MAJOR.MINOR.PATCH como números (0.10.0 > 0.9.0). */
-export function bySemverDesc(a: RegisteredModelVersion, b: RegisteredModelVersion): number {
+export /** OPS-10: una versión anterior no se evaluó en test (el test se usa una sola vez). */
+function TestMetric({ value }: Readonly<{ value: number | undefined }>) {
+  if (value === undefined) return <span className="text-ink-muted">Sin evaluación en test</span>;
+  return <span className="font-mono">{metric(value)}</span>;
+}
+
+function bySemverDesc(a: RegisteredModelVersion, b: RegisteredModelVersion): number {
   const parts = (version: string) => version.split(".").map(Number);
   const [left, right] = [parts(a.model_version), parts(b.model_version)];
   for (let index = 0; index < 3; index++) {
@@ -204,10 +210,10 @@ function VersionDetail({ model }: Readonly<{ model: RegisteredModelVersion }>) {
           <span className="font-mono text-xs">{model.run_id}</span>
         </Field>
         <Field label="Accuracy top-1 (test)">
-          <span className="font-mono">{metric(model.test_metrics.accuracy_top1)}</span>
+          <TestMetric value={model.test_metrics?.accuracy_top1} />
         </Field>
         <Field label="F1 macro (test)">
-          <span className="font-mono">{metric(model.test_metrics.f1_macro)}</span>
+          <TestMetric value={model.test_metrics?.f1_macro} />
         </Field>
       </dl>
 

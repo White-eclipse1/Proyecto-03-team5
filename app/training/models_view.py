@@ -212,9 +212,13 @@ def _version(
         manifest_hash=package.manifest_hash,
         architecture=package.architecture.name,
         image_size=package.architecture.image_size,
-        test_metrics=ModelTestMetrics(
-            accuracy_top1=package.metrics["accuracy_top1"],
-            f1_macro=package.metrics["f1_macro"],
+        test_metrics=(
+            ModelTestMetrics(
+                accuracy_top1=package.metrics["accuracy_top1"],
+                f1_macro=package.metrics["f1_macro"],
+            )
+            if "accuracy_top1" in package.metrics
+            else None  # versión anterior: no se evaluó en test (OPS-10)
         ),
         model_card=ModelCardSummary(
             purpose=package.model_card.purpose,
