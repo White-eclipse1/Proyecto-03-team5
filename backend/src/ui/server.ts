@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
 import {
+  checkEdgeDeviceKey,
   checkHealth,
   createAnnotationForImage,
   createSettingsService,
@@ -12,11 +13,14 @@ import {
   getAnnotationsForImage,
   getCategories,
   getDashboardSummary,
+  getEdgeCapture,
   getImageFile,
   idParamSchema,
   imageSearchSchema,
   initializeApplication,
+  listEdgeCaptures,
   NotFoundError,
+  saveEdgeCapture,
   searchImages,
   setImageStatus,
   TraceabilityUnavailableError,
@@ -196,6 +200,98 @@ app.post('/images/from-inference', upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     sendError(res, error, 'No se pudo enviar la inferencia a la cola de anotación.');
+  }
+});
+
+/**
+ * AWS-2 — POST /edge-captures exige la clave del dispositivo edge (laptop) en el
+ * encabezado `X-Device-Key`, comparada con `EDGE_DEVICE_KEY` del servidor.
+ *
+ * Va antes de multer: una petición sin clave se rechaza sin leer la foto. Nunca se
+ * registra la clave recibida ni la esperada.
+ */
+function requireEdgeDeviceKey(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+): void {
+  const result = checkEdgeDeviceKey(req.get('X-Device-Key'));
+
+  if (result === 'not-configured') {
+    res.status(503).json({
+      error: 'El servidor no tiene configurada la clave de dispositivo (EDGE_DEVICE_KEY).',
+    });
+    return;
+  }
+
+  if (result === 'rejected') {
+    res.status(401).json({
+      error: 'Clave de dispositivo ausente o incorrecta (encabezado X-Device-Key).',
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * AWS-1 — recibe la foto y el evento de una captura del dispositivo edge (laptop).
+ *
+ * Encabezado `X-Device-Key` (AWS-2). multipart/form-data:
+ * - image: foto JPEG
+ * - capture_id, captured_at, device_id, model_version, predicted_class,
+ *   confidence, latency_ms
+ * - crop (opcional, AWS-2): JSON {"x","y","width","height"} en píxeles
+ *
+ * 201 si se guardó; 200 con el registro existente si el capture_id ya estaba.
+ * Sin CORS: lo llama un programa en Python, no un navegador de otro origen.
+ */
+app.post('/edge-captures', requireEdgeDeviceKey, upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({
+      error: 'Debe enviarse una imagen.',
+    });
+    return;
+  }
+
+  try {
+    const result = await saveEdgeCapture({
+      image: {
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        buffer: req.file.buffer,
+      },
+      fields: req.body,
+    });
+
+    res.status(result.created ? 201 : 200).json(result.capture);
+  } catch (error) {
+    sendError(res, error, 'No se pudo guardar la captura.');
+  }
+});
+
+/**
+ * AWS-2 — capturas para el portal, de la más reciente a la más antigua por
+ * captured_at, con una URL temporal firmada por foto. Abierta (sin clave).
+ *
+ * Query params: page (desde 1), pageSize (1 a 100, 20 por defecto).
+ */
+app.get('/edge-captures', async (req, res) => {
+  try {
+    res.status(200).json(await listEdgeCaptures(req.query));
+  } catch (error) {
+    sendError(res, error, 'No se pudieron consultar las capturas.');
+  }
+});
+
+/**
+ * AWS-2 — una sola captura por su capture_id. Abierta (sin clave).
+ */
+app.get('/edge-captures/:captureId', async (req, res) => {
+  try {
+    res.status(200).json(await getEdgeCapture(req.params.captureId));
+  } catch (error) {
+    sendError(res, error, 'No se pudo consultar la captura.');
   }
 });
 

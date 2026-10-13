@@ -1,0 +1,373 @@
+# Dispositivo edge: captura, clasificación local, historial y envío a AWS (EDG-1 a EDG-4)
+
+Programa que abre la webcam y, al presionar la barra espaciadora, guarda una foto JPEG
+y clasifica el objeto en la propia laptop con el modelo optimizado (ONNX INT8) y
+onnxruntime en CPU, sin llamar a ningún servidor. Es la parte "cámara y clasificación
+local" del recorrido del Proyecto 4. Depende de OpenCV, NumPy, PyYAML, onnxruntime y
+Pillow; no incluye PyTorch ni nada de entrenamiento.
+
+Hardware de referencia: MacBook Air Intel con Ubuntu Server y una webcam USB
+Acteck HD (UVC). Los datos exactos del equipo salen de `python device_info.py`.
+
+## Contenido
+
+| Archivo | Para qué sirve |
+|---|---|
+| `capture.py` | Vista previa, captura de fotos y clasificación |
+| `classifier.py` | Carga del modelo ONNX, preprocesamiento e inferencia local |
+| `events.py` | Historial local de capturas en SQLite |
+| `export_events.py` | Exporta el historial a JSON |
+| `list_events.py` | Lista en la terminal los últimos eventos |
+| `sender.py` | Envío de cada evento y su foto al endpoint de Capturas Edge |
+| `retry.py` | Reenvía eventos con su mismo `capture_id` |
+| `benchmark.py` | Mide p50/p95 del original y del optimizado en esta laptop (EDG-5) |
+| `config.example.yaml` | Plantilla de configuración sin secretos |
+| `tests/` | Pruebas del clasificador, del historial y del envío (con un servidor local de prueba) |
+| `run_display.sh` | Arranca `capture.py` con vista previa en la pantalla del equipo (consola física) |
+| `config.yaml` | Cámara, carpeta de salida, recorte, modelo y preprocesamiento |
+| `device_info.py` | Imprime marca y modelo, procesador, RAM, sistema operativo y cámaras |
+| `requirements.txt` | Dependencias con versiones fijas |
+
+## Instalación desde cero (Ubuntu Server 24.04 o superior)
+
+Requiere Python 3.12 o superior. Las versiones fijadas de `requirements.txt` tienen
+paquetes binarios para Python 3.12 a 3.14 en Linux x86_64, así que no se compila nada.
+
+**1. Paquetes del sistema.** OpenCV necesita dos bibliotecas que Ubuntu Server no trae
+(`libgl1` y `libglib2.0-0`), y `git` sirve para descargar el repositorio:
+
+```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv python3-pip libgl1 libglib2.0-0
+python3 --version
+```
+
+La última línea debe mostrar 3.12 o superior.
+
+**2. Descarga el repositorio:**
+
+```bash
+git clone https://github.com/alebonita/Proyecto4-team2.git
+cd Proyecto4-team2
+```
+
+**3. Permiso para usar la cámara.** El dispositivo `/dev/video0` pertenece al grupo
+`video`. Por SSH tu usuario no recibe ese permiso solo:
+
+```bash
+sudo usermod -aG video $USER
+```
+
+Cierra la sesión SSH y vuelve a entrar. Comprueba que aparece `video`:
+
+```bash
+groups
+```
+
+**4. Conecta la webcam y confirma que el sistema la ve:**
+
+```bash
+ls /dev/video*
+```
+
+Debe aparecer al menos `/dev/video0`.
+
+**5. Entorno virtual y dependencias**, dentro de la carpeta `edge/` del repositorio:
+
+```bash
+cd edge
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**6. Modelo.** El `.onnx` no está en git (pesa 10.8 MB). Es la variante INT8 de MOD-3,
+`dog-cat-resnet18-1.0.0-int8.onnx`, que está en el bucket del equipo. En una computadora
+con acceso a ese bucket:
+
+```bash
+aws s3 cp s3://mlops-p4-equipo-452857281704/models/dog-cat-resnet18/1.0.0/onnx/dog-cat-resnet18-1.0.0-int8.onnx . \
+  --region us-east-2 --profile <tu-perfil>
+shasum -a 256 dog-cat-resnet18-1.0.0-int8.onnx
+# 9c28368acaf04e184e0712946c08e319d2b7ee2dc83d3f8ef0367d0b9c8935cd
+```
+
+Cópialo a `edge/models/` en la laptop edge (por ejemplo con
+`scp dog-cat-resnet18-1.0.0-int8.onnx usuario@equipo-edge:ruta/al/repo/edge/models/`).
+`config.yaml` trae ese SHA-256: si el archivo es otro, el programa no arranca. También se
+puede regenerar idéntico con el script de MOD-3 (`evidencias/mod-03/README.md`).
+
+**7. Prueba del modelo.** Clasifica 5 recortes de validación conocidos y compara su clase
+con la del modelo original; mide la accuracy en las 128 de validación (no puede caer más de
+2 puntos respecto al original) y clasifica con la red bloqueada:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Deben pasar las 18 pruebas (con `-b` se ocultan los mensajes de las capturas de prueba).
+
+**8. Clave del dispositivo.** El endpoint pide una clave en el encabezado `X-Device-Key`
+(la entrega quien administra el servidor). Nunca va en git ni en `config.yaml`: se guarda en
+un archivo que solo tu usuario puede leer. Corre esta línea, pega la clave cuando la pida
+(no se ve al escribir) y presiona Enter:
+
+```bash
+mkdir -p ~/.config/edge && chmod 700 ~/.config/edge
+read -rsp "Clave de dispositivo: " KEY && echo && printf 'EDGE_DEVICE_KEY=%s\n' "$KEY" > ~/.config/edge/device.env && unset KEY
+chmod 600 ~/.config/edge/device.env
+awk -F= '{print "largo de la clave:", length($2)}' ~/.config/edge/device.env   # mayor que 0
+```
+
+También se puede definir la variable de entorno `EDGE_DEVICE_KEY`, que tiene prioridad.
+
+**9. Datos del equipo (para la ficha de entrega):**
+
+```bash
+python device_info.py
+```
+
+**10. Arranque por SSH (sin ventana):**
+
+```bash
+python capture.py
+```
+
+**11. Vista previa en la pantalla del equipo.** Ubuntu Server no tiene escritorio, así
+que para ver la cámara en vivo se instala un servidor gráfico mínimo (Xorg y el gestor
+de ventanas openbox, sin escritorio ni inicio de sesión gráfico). No arranca solo con el
+sistema ni consume recursos mientras no se use:
+
+```bash
+sudo apt install -y --no-install-recommends xserver-xorg xinit openbox
+```
+
+Luego, **con el teclado y la pantalla del equipo** (no por SSH), inicia sesión y corre:
+
+```bash
+Proyecto4-team2/edge/run_display.sh
+```
+
+Se abre la ventana con la cámara; con `q` se cierra y se vuelve a la consola de texto.
+Este es el modo para la demostración: no depende de la red, así que sigue funcionando
+al desconectar el cable de red, mientras que una sesión SSH se corta.
+
+## Uso
+
+| Tecla | Acción |
+|---|---|
+| Barra espaciadora | Guarda el cuadro actual en `captures/capture_AAAAMMDD_HHMMSS_mmm.jpg` y clasifica el recorte |
+| `q` | Cierra el programa |
+
+Al arrancar imprime qué modelo cargó, para poder demostrarlo:
+
+```
+Modelo:      dog-cat-resnet18-1.0.0-int8.onnx
+SHA-256:     9c28368acaf04e184e0712946c08e319d2b7ee2dc83d3f8ef0367d0b9c8935cd
+Version:     dog-cat-resnet18-1.0.0-int8
+onnxruntime: 1.30.0
+Proveedor:   CPUExecutionProvider
+```
+
+Cada captura imprime la clase, la confianza (softmax, entre 0 y 1) y los milisegundos de
+preprocesamiento más inferencia:
+
+```
+Foto guardada: .../captures/capture_20261010_011010_237.jpg
+  Clase: cat  confianza: 0.9133  tiempo: 23.6 ms (preprocesamiento + inferencia)
+```
+
+Se clasifica un **recorte fijo**: el cuadrado verde de la vista previa (por defecto,
+centrado y con el 80 % del lado corto del cuadro). El objeto se presenta dentro de ese
+recuadro, porque el modelo se entrenó con recortes de un solo objeto. La foto guardada es
+el cuadro completo, sin el recuadro dibujado. En la ventana, el último resultado queda
+arriba a la izquierda.
+
+La clasificación es local: la sesión de onnxruntime se crea una vez al arrancar, solo con
+`CPUExecutionProvider`, y no hay llamadas de red. Sigue funcionando con la red
+desconectada.
+
+El preprocesamiento replica el del modelo original (`evidencias/mod-01/README.md`):
+recorte, BGR → RGB, redimensión directa a 128 × 128 bilineal con antialias, división
+entre 255 y normalización con la media y desviación de ImageNet. La redimensión usa
+Pillow porque es el filtro que torchvision replica con `antialias=True`; el `resize` de
+OpenCV no aplica antialias y llega a cambiar la probabilidad hasta 0.5.
+
+### Historial de capturas
+
+Cada captura clasificada queda como **evento** en un historial SQLite (`events.db`, junto a
+`config.yaml`), que se conserva al cerrar el programa:
+
+| Campo | Contenido |
+|---|---|
+| `capture_id` | UUID generado una sola vez por captura; también va en el nombre de la foto |
+| `captured_at` | Fecha y hora de la captura, ISO 8601 con zona horaria (`2026-10-10T20:11:19.515+00:00`) |
+| `device_id`, `model_version` | De `config.yaml` |
+| `predicted_class`, `confidence`, `latency_ms` | Resultado local: clase, confianza (0 a 1) y ms de preprocesamiento + inferencia |
+| `crop` | Recorte clasificado, en píxeles de la foto: `{x, y, width, height}` |
+| `photo_path`, `photo_sha256` | Foto guardada en `captures/` y su SHA-256 |
+| `status` | Estado de envío a AWS: `pendiente`, `enviado` o `error` |
+| `received_at`, `image_key`, `send_error`, `send_ms` | Los llena el envío a AWS (EDG-4) |
+
+En la terminal, cada captura imprime su evento:
+
+```
+  Evento: d5b5e774-14cf-47bf-9454-4142f3070479  2026-10-10T20:11:19.515+00:00  estado: pendiente
+```
+
+Para consultarlo (con el entorno virtual activo):
+
+```bash
+python list_events.py            # últimos 10: ID, hora, clase, confianza y estado
+python list_events.py -n 25
+python export_events.py -o eventos.json   # todos los eventos en JSON (sin -o, a la terminal)
+```
+
+### Benchmark (EDG-5)
+
+```bash
+python benchmark.py --optimizado models/dog-cat-resnet18-1.0.0-int8-rr.onnx
+```
+
+Mide el original exportado (fp32 de MOD-2) y el optimizado con la misma imagen fija, el mismo
+número de hilos, 10 repeticiones de calentamiento y 100 medidas de preprocesamiento +
+inferencia. Escribe `artifacts/p4/benchmark.csv` y `artifacts/p4/benchmark-condiciones.json` e
+imprime p50 y p95. Conviene correrlo conectado a la corriente y sin otros programas abiertos.
+Resultados en [`evidencias/edg-5/`](../evidencias/edg-5/README.md).
+
+### Envío a AWS
+
+Cada evento se envía al endpoint de Capturas Edge (`upload.api_url`) en un hilo aparte:
+la captura y la clasificación **no esperan a la red** y siguen funcionando sin ella. Va un
+`POST` multipart con la foto JPEG en `image`, los campos del evento, `crop` como JSON y la
+clave en `X-Device-Key`. Al arrancar se imprime el destino y de dónde sale la clave (sin
+mostrarla):
+
+```
+Envio:       http://18.216.36.30/api/edge-captures (clave: /home/steph/.config/edge/device.env)
+```
+
+| Respuesta | Qué hace el programa |
+|---|---|
+| **201** captura nueva / **200** ese `capture_id` ya existía | Marca el evento `enviado` y guarda `received_at` e `image_key` |
+| Red caída, tiempo de espera, 5xx | Marca `error`, lo muestra en la ventana y en la terminal, y sigue; se reintenta con `retry.py` |
+| **400** dato inválido / **401** clave ausente o incorrecta | Marca `error` con el motivo del servidor; no se reintenta solo |
+
+El tiempo de envío se guarda aparte (`send_ms`) y nunca se suma a `latency_ms`.
+
+**Reintento con el mismo ID** (el servidor guarda cada `capture_id` una sola vez, así que
+reenviar nunca duplica):
+
+```bash
+python retry.py <capture_id>        # reenvía ese evento y muestra su registro en AWS
+python retry.py --todos             # todos los que están en error o pendientes
+```
+
+**Demostrar el fallo de forma reversible:** `--simular-fallo` manda los envíos a
+`http://127.0.0.1:9/...`, donde nada escucha. No cambia `config.yaml` ni toca el servidor:
+
+```bash
+python capture.py --simular-fallo   # captura: el envío falla y el evento queda en error
+python list_events.py -n 1          # estado: error
+python retry.py <capture_id>        # sin la opción: llega con el mismo ID (201)
+python retry.py <capture_id>        # otra vez: 200, ya existía; sigue habiendo un registro
+```
+
+El programa elige el modo según el equipo:
+
+- **Con pantalla** (`run_display.sh` en la consola física, o un equipo con escritorio):
+  abre una ventana con la vista previa en vivo. Las teclas se presionan con la ventana
+  en foco.
+- **Sin pantalla** (Ubuntu Server, SSH): no existe una ventana donde dibujar, así que
+  lee las teclas de la terminal mientras la cámara sigue capturando cuadros. No se ve
+  la imagen en vivo; el resultado se comprueba abriendo las fotos de `captures/`.
+  Se puede forzar con `python capture.py --headless`.
+
+Cada foto guardada imprime su ruta. Para revisarlas desde otra computadora:
+
+```bash
+scp 'usuario@equipo-edge:ruta/al/repo/edge/captures/*.jpg' .
+```
+
+## Configuración (`config.yaml`)
+
+| Clave | Valor por defecto | Descripción |
+|---|---|---|
+| `camera_index` | `0` | Cámara a usar: `0` es `/dev/video0` |
+| `output_dir` | `captures` | Carpeta de las fotos. Una ruta relativa se toma desde `edge/` |
+| `jpeg_quality` | `95` | Calidad JPEG de 1 a 100 |
+| `preview` | `auto` | `auto`, `true` o `false` |
+| `warmup_frames` | `5` | Cuadros descartados al abrir (ajuste de exposición) |
+| `width`, `height` | vacío | Resolución opcional; se definen las dos o ninguna |
+| `device_id` | `edge-macbookair-01` | Identidad del dispositivo en cada evento (1 a 128 caracteres) |
+| `events_db` | `events.db` | Archivo SQLite del historial. Una ruta relativa se toma desde `edge/` |
+| `upload.api_url` | `http://18.216.36.30/api/edge-captures` | Endpoint de Capturas Edge (la variable `EDGE_API_URL` lo pisa) |
+| `upload.key_header` | `X-Device-Key` | Encabezado de la clave (`EDGE_KEY_HEADER` lo pisa) |
+| `upload.key_env`, `upload.key_file` | `EDGE_DEVICE_KEY`, `~/.config/edge/device.env` | De dónde se lee la clave; nunca va en este archivo |
+| `upload.timeout_s` | `10` | Tiempo de espera de cada envío |
+| `upload.auto_send` | `true` | `false`: no se envía al capturar; se envía con `retry.py --todos` |
+| `crop_fraction` | `0.8` | Lado del recorte que se clasifica, como fracción del lado corto del cuadro |
+| `model.path` | `models/dog-cat-resnet18-1.0.0-int8.onnx` | Archivo ONNX. Una ruta relativa se toma desde `edge/` |
+| `model.version` | `dog-cat-resnet18-1.0.0-int8` | Versión que se imprime y se registra con cada captura |
+| `model.sha256` | el de la variante INT8 | Si no coincide, el programa no arranca. Vacío: no se comprueba |
+| `model.classes` | `[dog, cat]` | Clases en el orden de salida del modelo |
+| `preprocess.*` | 128, RGB, ImageNet | Tamaño de entrada, orden de canales, media y desviación |
+
+Para probar otro ONNX sin tocar `config.yaml`, copia el archivo, cambia `model.*` y
+arranca con `python capture.py --config otra-config.yaml`.
+
+## Problemas frecuentes
+
+| Mensaje o síntoma | Causa y solución |
+|---|---|
+| `No existe ningun /dev/video*` | El sistema no detecta la cámara. Revisa el puerto USB y busca la webcam con `lsusb` |
+| `Sin permiso sobre /dev/video0` | Falta el grupo `video`: paso 3 y volver a entrar por SSH |
+| `No se pudo abrir la camara con indice 0` pero existe `/dev/video0` | Otro proceso la usa, o el índice es otro: prueba `camera_index: 1` |
+| `No se pudo importar OpenCV ... libGL.so.1` | Falta `libgl1`: paso 1 |
+| `No existe el modelo .../models/...onnx` | Falta el paso 6: copia el `.onnx` a `edge/models/` |
+| `... no es el modelo esperado: SHA-256 ...` | El archivo no es la variante INT8 de MOD-3. Vuelve a bajarlo y comprueba su SHA-256 |
+| `Envio ... error: Falta la clave de dispositivo` | Falta el paso 8, o la clave quedó vacía (`largo de la clave: 0`) |
+| `HTTP 401: Clave de dispositivo ausente o incorrecta` | La clave no es la del servidor. Corrígela (paso 8) y reenvía con `retry.py --todos --incluir-rechazados` |
+| `Sin conexion con el servidor` o `Tiempo de espera agotado` | Sin red o servidor caído. La clasificación sigue; reenvía con `retry.py --todos` |
+| `Falta onnxruntime` | El entorno virtual no está activo o faltan dependencias: paso 5 |
+| `ModuleNotFoundError` o `Falta PyYAML` | El entorno virtual no está activo: `source .venv/bin/activate` |
+| `Ejecuta este script desde la consola fisica` | `run_display.sh` se corrió por SSH. Córrelo con el teclado del equipo, o usa `python capture.py` por SSH |
+| `Faltan xinit u openbox` | Falta el paso 11 |
+| La pantalla del equipo está en negro | La consola se apaga sola: presiona una tecla. Si sigue en negro, el brillo está en 0 (ver abajo) |
+| `El modo sin ventana necesita una terminal interactiva` | Se ejecutó sin terminal (por ejemplo con `nohup` o redirecciones). Ejecútalo directo en la sesión SSH |
+
+## Verificación en el dispositivo
+
+Con el entorno instalado solo con estos pasos, `python capture.py` abre la cámara y,
+al presionar la barra espaciadora, aparece un JPEG nuevo en `captures/`:
+
+```bash
+ls -l captures/
+```
+
+Verificado el 2026-10-09 en el dispositivo edge, instalando desde cero con estos pasos:
+
+| Dato | Valor (`python device_info.py`) |
+|---|---|
+| Marca y modelo | Apple MacBook Air (MacBookAir6,1) |
+| Procesador | Intel Core i5-4260U @ 1.40GHz, 2 núcleos físicos, 4 lógicos |
+| Memoria RAM | 3.3 GiB visibles para el sistema |
+| Sistema operativo | Ubuntu 26.04.1 LTS (kernel 7.0.0-38-generic, x86_64) |
+| Cámara | Webcam USB externa Acteck HD (UVC, chip IMC Networks `13d3:784b`, se anuncia como "Integrated Camera"); 640×480 en `/dev/video0`. La FaceTime HD interna no tiene driver en Ubuntu y no aparece como `/dev/video*` |
+| Python | 3.14.4 |
+
+Probados los dos modos: sin ventana por SSH (`python capture.py`) y con vista previa
+en la pantalla del equipo (`run_display.sh`). En ambos, la barra espaciadora guarda una
+foto de 640×480 en `captures/` y `q` cierra el programa.
+
+**Pantalla de este equipo.** La laptop trabaja como servidor encendido todo el tiempo y
+un servicio (`backlight-off.service`) pone el brillo en 0 al arrancar. Para la demo se
+prende desde SSH y se apaga al terminar; al reiniciar vuelve a apagarse sola:
+
+```bash
+echo 80 | sudo tee /sys/class/backlight/acpi_video0/brightness   # prender
+sudo systemctl start backlight-off                               # apagar
+```
+
+Evidencia de la verificación (fotos y datos del equipo): [`evidencias/edg-1/`](../evidencias/edg-1/README.md).

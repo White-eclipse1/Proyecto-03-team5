@@ -240,7 +240,11 @@ definidos por el administrador.
 
 Los remotes no son intercambiables:
 
-- `prod` = AWS S3 compartido, bucket `mlops-p2-dvc-cache-280764207006`.
+- `prod` = AWS S3 del equipo, bucket `mlops-p4-equipo-452857281704` (us-east-2),
+  remoto por defecto desde AWS-3. Ver [Datos del proyecto](#datos-del-proyecto).
+- `p2-origen` = el remoto original de la cuenta anterior, bucket
+  `mlops-p2-dvc-cache-280764207006` (solo lectura, con el perfil SSO `mlops-p2`
+  de los pasos 6 a 8). Se conserva sin cambios.
 - `dev` = MinIO local, bucket `dvc-cache`.
 
 Si solo necesitas recuperar el dataset de producción, no levantes MinIO. El
@@ -267,6 +271,114 @@ Copilot; nunca pongas una API key real en esta documentación.
 
 Cada persona usa su propia identidad AWS, no comparte passwords, sesiones SSO
 ni access keys, y mantiene `.dvc/config.local` fuera de Git.
+
+## Datos del proyecto
+
+El dataset y el modelo del Proyecto 3 están en el bucket de la **cuenta del
+equipo** (AWS-3). La entrega ya no depende de la cuenta anterior.
+
+| Remoto DVC | Bucket | Región | Uso |
+|---|---|---|---|
+| `prod` (por defecto) | `s3://mlops-p4-equipo-452857281704` | `us-east-2` | El que usa todo el equipo |
+| `p2-origen` | `s3://mlops-p2-dvc-cache-280764207006` | `us-east-1` | Original de la cuenta anterior, solo lectura. No se modifica |
+
+El bucket está en `us-east-2`, y no en `us-east-1`, porque el proyecto de AWS del
+equipo bloquea `us-east-1` con una política de la organización y el bucket va en la
+misma región que el servidor del portal.
+
+El bucket es privado: acceso público bloqueado, objetos con dueño único, cifrado
+SSE-S3, versionado activo y política que rechaza conexiones sin HTTPS. Contiene:
+
+| Prefijo | Qué hay | Quién escribe |
+|---|---|---|
+| `files/md5/...` | Caché de DVC: dataset, recortes, modelos y snapshot de MLflow | El equipo con `dvc push` |
+| `models/dog-cat-resnet18/<versión>/` | Paquetes publicados del modelo (1.0.0 y 0.9.0), registrados en `reports/models/s3_publications.json` con `ChecksumSHA256` y `VersionId` | El equipo con `classification.publication publish` |
+| `edge-captures/` | Capturas de Capturas Edge (AWS-1) | El servidor del portal, con su rol |
+
+### Bajar los datos
+
+Con tu propia identidad en el proyecto de AWS del equipo (no la de la cuenta
+anterior). Las credenciales quedan en tu perfil de AWS y en `.dvc/config.local`,
+nunca en archivos versionados:
+
+```bash
+aws login --profile <tu-perfil>          # región us-east-2
+uv venv .venv-dvc --python 3.12
+uv pip install --python .venv-dvc 'dvc[s3]==3.67.1' 'botocore[crt]'
+source .venv-dvc/bin/activate             # Windows: .venv-dvc\Scripts\activate
+dvc remote modify --local prod profile <tu-perfil>
+dvc pull
+```
+
+`botocore[crt]` es obligatorio con perfiles de `aws login`. Sin él, DVC falla con
+`Using the login credential provider requires an additional dependency`.
+
+Los comandos de este README que dicen `dvc pull -r prod ...` ya apuntan al bucket
+del equipo. El CI sigue leyendo `p2-origen`, porque su rol OIDC vive en la cuenta
+anterior y este repo no lo tiene configurado (`AWS_ROLE_ARN`). En la cuenta del equipo
+no se puede crear uno: la política de la organización prohíbe crear proveedores OIDC,
+y el equipo decidió no activar las funciones avanzadas. Por eso los jobs del CI que
+bajan datos de AWS se saltan con un aviso.
+
+### Cómo se copió (y cómo repetirlo)
+
+El 2026-10-06 la copia se hizo desde una copia local del bucket original, que tiene
+la misma estructura `files/md5/...` que el remoto de DVC:
+
+```bash
+aws s3 sync <copia-local>/files s3://mlops-p4-equipo-452857281704/files --profile <perfil-equipo>
+```
+
+Para repetirla directo de bucket a bucket con DVC, se usan dos perfiles: uno con
+lectura del origen y otro con escritura en el destino:
+
+```bash
+dvc remote modify --local p2-origen profile mlops-p2       # lectura, cuenta anterior
+dvc remote modify --local prod profile <perfil-equipo>      # escritura, cuenta del equipo
+dvc pull -r p2-origen                                       # todo lo versionado
+dvc push -r prod
+dvc status -c -r prod                                       # "Cache and remote 'prod' are in sync."
+```
+
+El bucket se creó así (no hace falta repetirlo):
+
+```bash
+B=mlops-p4-equipo-452857281704; P="--profile <perfil-equipo> --region us-east-2"
+aws s3api create-bucket --bucket $B --create-bucket-configuration LocationConstraint=us-east-2 $P
+aws s3api put-public-access-block --bucket $B $P \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-versioning --bucket $B --versioning-configuration Status=Enabled $P
+# Más cifrado SSE-S3 por defecto y una bucket policy que niega `aws:SecureTransport = false`.
+```
+
+**Verificación (2026-10-06):** en un checkout limpio, fuera del repo de trabajo y
+con una identidad del proyecto del equipo (sin la cuenta anterior), `dvc pull` bajó
+600 imágenes, 10 anotaciones, 8 archivos de modelos, 52 del snapshot de MLflow y 668
+recortes. `dvc status` respondió "Data and pipelines are up to date" y
+`dvc status -c -r prod` "Cache and remote 'prod' are in sync". En el bucket hay
+1367 objetos en `files/`, los mismos de la copia del original.
+
+### Rol de IAM del servidor
+
+La instancia del portal (ver [Despliegue en AWS](#despliegue-en-aws)) usa el rol
+`portal-proyecto4-ec2`, mediante el perfil de instancia del mismo nombre, sin access
+keys. Su política inline `s3-models-read-edge-captures-write` permite solo:
+
+| Acción | Recurso |
+|---|---|
+| `s3:GetObject`, `s3:GetObjectVersion` | `models/*` |
+| `s3:PutObject` | `edge-captures/*` |
+| `s3:GetObject` | `edge-captures/*` (AWS-2: las URL firmadas de las fotos se ejecutan con este permiso) |
+| `s3:ListBucket` | El bucket, solo con prefijo `models/` o `edge-captures/` |
+
+Probado desde el contenedor `ml-api`: escribir en `edge-captures/` y leer o listar
+`models/` funciona. Escribir en `models/`, listar `files/` y borrar en
+`edge-captures/` responde `AccessDenied`. El permiso de lectura en `edge-captures/*`
+se agregó en AWS-2 (ver [Capturas Edge](#capturas-edge-aws-1-aws-2)).
+
+Para que los contenedores puedan usar el rol, la instancia tiene IMDSv2 obligatorio
+con `HttpPutResponseHopLimit=2`, y `docker-compose.aws.yml` pone
+`AWS_EC2_METADATA_DISABLED=false` en `ml-api`. `backend` no define esa variable.
 
 ## Requisitos
 
@@ -626,6 +738,443 @@ El servidor de producción escucha en `http://localhost:3100`. El script usa
 La plantilla `.env.production.example` contiene la configuración de
 producción, con `PORT=3100`.
 
+Para publicar el portal en un servidor de AWS, ver
+[Despliegue en AWS](#despliegue-en-aws).
+
+## Despliegue en AWS
+
+El portal corre en **un solo servidor EC2 con IP pública** que ejecuta el mismo
+`docker-compose.yml` del repo, más
+[`docker-compose.aws.yml`](docker-compose.aws.yml). Ese archivo solo cambia dos
+cosas: publica nginx en el puerto 80 (en local es el 8080) y deja los demás puertos
+accesibles únicamente desde el propio servidor. No se usa Terraform ni RDS: MariaDB
+y MinIO siguen en contenedores, con sus volúmenes en el disco de la instancia.
+
+Todo se hace desde la consola web de AWS y una terminal SSH. Esta guía no contiene
+claves ni contraseñas, y ninguna debe agregarse aquí.
+
+> **Región: `us-east-2` (Ohio).** La cuenta nueva del equipo es un *proyecto* de la
+> nueva experiencia de AWS: todos sus recursos van en la región del proyecto. Las
+> políticas del proyecto bloquean `us-east-1` (una consulta de solo lectura a EC2 en
+> esa región devuelve `explicit deny in a service control policy`). Para confirmar
+> la región: AWS Settings > View all projects > Overview > Additional info > Region.
+> Desde AWS-3, los datos y el modelo también están en un bucket del equipo en esta
+> misma región (ver [Datos del proyecto](#datos-del-proyecto)).
+
+### Datos del despliegue
+
+Actualiza esta tabla cuando cambie algo del servidor (sin secretos):
+
+| Dato | Valor |
+|---|---|
+| Estado | Encendida desde el 2026-10-06. Para no consumir créditos: EC2 > Instances > *Instance state* > **Stop**; para volver a usarla, **Start** |
+| URL del portal | **http://18.216.36.30**. Es una Elastic IP (`eipalloc-06bfd73237d154119`, asignada el 2026-10-07): no cambia aunque la instancia se detenga y se vuelva a iniciar |
+| Región | `us-east-2` (zona `us-east-2a`) |
+| Instancia | `portal-proyecto4` (`i-02234c3f51db2446e`), `m7i-flex.large`, Ubuntu Server 24.04 LTS, 30 GiB gp3 cifrado |
+| Security group | `portal-proyecto4-sg`: 80 abierto, 22 solo desde la IP de quien administra |
+| Llave SSH | Key pair `portal-proyecto4` (ED25519); la `.pem` la guarda Angel |
+| Rol de IAM | `portal-proyecto4-ec2` (perfil de instancia del mismo nombre): lee `models/` y escribe en `edge-captures/` del bucket del equipo. IMDSv2 con *hop limit* 2. Ver [Rol de IAM del servidor](#rol-de-iam-del-servidor) |
+| Bucket del equipo | `mlops-p4-equipo-452857281704` (`us-east-2`) |
+| Commit desplegado | `git rev-parse --short HEAD` en el servidor |
+
+### 1. Tipo de instancia y disco
+
+La cuenta está en el plan gratuito, que solo permite tipos elegibles para la capa
+gratuita. Estos son los de `us-east-2` (consultado el 2026-10-06):
+
+| Tipo | vCPU | Memoria | ¿Alcanza para este stack? |
+|---|---|---|---|
+| **`m7i-flex.large`** | 2 | 8 GiB | **Sí, recomendado.** Corre todos los servicios, incluido el entrenamiento |
+| `c7i-flex.large` | 2 | 4 GiB | Solo con los servicios indispensables y swap (ver paso 8) |
+| `t3.small`, `t4g.small`, `t8i.small` | 2 | 2 GiB | No: compilar las imágenes y los procesos Python con PyTorch no caben |
+| `t3.micro`, `t4g.micro`, `t8i.micro` | 2 | 1 GiB | No |
+
+- **Disco:** 30 GiB `gp3`. Las imágenes de Python con PyTorch, MLflow y Node, más la
+  caché de compilación, ocupan varios GB, y los volúmenes de MariaDB y MinIO crecen
+  con las imágenes que se suban.
+- **Costo:** la instancia consume créditos del plan por cada hora encendida, aunque
+  nadie la use. Revisa el saldo en AWS Settings > Billing y apágala al terminar
+  (paso 12).
+
+### 2. Lanzar la instancia (consola web)
+
+1. Entra a la consola de AWS y, arriba a la derecha, elige la región
+   **US East (Ohio) `us-east-2`**.
+2. Ve a **EC2 > Instances > Launch instances**.
+3. **Name:** `portal-proyecto4`.
+4. **Application and OS Images:** *Ubuntu Server 24.04 LTS (HVM), SSD Volume Type*,
+   arquitectura **64-bit (x86)**. Debe decir *Free tier eligible*.
+5. **Instance type:** `m7i-flex.large`.
+6. **Key pair:** *Create new key pair*. Nombre `portal-proyecto4`, tipo **ED25519**,
+   formato **.pem**. El archivo se descarga una sola vez. Guárdalo fuera del repo y no
+   lo compartas por chat ni lo subas a git.
+7. **Network settings > Edit:**
+   - VPC por defecto y cualquier subred; **Auto-assign public IP: Enable**.
+   - **Firewall:** *Create security group*, nombre `portal-proyecto4-sg`.
+   - Regla 1: **SSH**, TCP 22, *Source type* **My IP**.
+   - *Add security group rule*: **HTTP**, TCP 80, *Source type* **Anywhere**
+     (`0.0.0.0/0`).
+   - No abras 3100, 3306, 5000, 9000 ni 9001: esos servicios no tienen autenticación
+     pensada para internet.
+8. **Configure storage:** `30` GiB, `gp3`.
+9. **Advanced details:** deja *Metadata version* en **V2 only (token required)** y
+   pon *Metadata response hop limit* en **2**, para que los contenedores lleguen al
+   metadata service. En *IAM instance profile* elige `portal-proyecto4-ec2`; ese
+   perfil se creó en AWS-3, ver [Rol de IAM del servidor](#rol-de-iam-del-servidor).
+10. **Launch instance.** En el detalle de la instancia, copia la
+    **Public IPv4 address**.
+
+Notas:
+
+- *My IP* es la IP de la red desde la que estás. Si cambias de red (casa,
+  universidad), SSH dará *timeout*. Edita la regla 22 del security group y vuelve a
+  elegir *My IP*. Si otra persona del equipo necesita entrar por SSH, agrega su IP
+  como otra regla 22.
+- El botón **Connect > EC2 Instance Connect** de la consola no funciona con SSH
+  restringido a tu IP. Usa la terminal (paso 3).
+- Sin Elastic IP, la IP pública **cambia si detienes e inicias** la instancia. Para
+  una URL fija: **EC2 > Elastic IPs > Allocate Elastic IP address**, luego **Actions >
+  Associate** con la instancia. La de este servidor ya está asignada (ver
+  [Datos del despliegue](#datos-del-despliegue)). Cuesta lo mismo que la IP pública
+  normal (0.005 USD/hora), pero **también cobra con la instancia detenida**, así que
+  libérala al terminar.
+
+### 3. Conectarse por SSH
+
+macOS / Linux:
+
+```bash
+chmod 400 ~/Downloads/portal-proyecto4.pem
+ssh -i ~/Downloads/portal-proyecto4.pem ubuntu@<IP-pública>
+```
+
+Windows (PowerShell). El `icacls` evita el error *UNPROTECTED PRIVATE KEY FILE*:
+
+```powershell
+icacls "$HOME\Downloads\portal-proyecto4.pem" /inheritance:r /grant:r "$($env:USERNAME):R"
+ssh -i "$HOME\Downloads\portal-proyecto4.pem" ubuntu@<IP-pública>
+```
+
+### 4. Swap, Docker y Docker Compose
+
+Todo esto se ejecuta en el servidor. Primero, 4 GiB de swap como margen para la
+compilación de las imágenes:
+
+```bash
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Docker Engine con los plugins de Compose y Buildx, desde el repositorio oficial de
+Docker para Ubuntu. Los Dockerfiles usan `RUN --mount`, que requiere BuildKit/Buildx:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker ubuntu
+exit
+```
+
+Vuelve a entrar por SSH para que el grupo `docker` aplique, y comprueba:
+
+```bash
+docker compose version     # 2.24.4 o más nuevo (docker-compose.aws.yml usa !override)
+docker run --rm hello-world
+```
+
+### 5. Clonar el repo
+
+El repo es público, así que no hace falta ninguna credencial de GitHub en el
+servidor:
+
+```bash
+git clone https://github.com/alebonita/Proyecto4-team2.git
+cd Proyecto4-team2
+```
+
+### 6. Crear el `.env` sin exponer secretos
+
+Las contraseñas se generan **en el servidor** y nunca salen de él. No las imprimas,
+no las copies a un chat y no las pongas en este README.
+
+```bash
+cp .env.example .env
+chmod 600 .env
+sed -i "s/^MARIADB_ROOT_PASSWORD=.*/MARIADB_ROOT_PASSWORD=$(openssl rand -hex 32)/" .env
+sed -i "s/^MINIO_ROOT_USER=.*/MINIO_ROOT_USER=portal-admin/" .env
+sed -i "s/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=$(openssl rand -hex 32)/" .env
+# Que todos los `docker compose` del servidor usen también docker-compose.aws.yml:
+echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.aws.yml' >> .env
+```
+
+Copilot (opcional). `read -s` no muestra la key ni la guarda en el historial:
+
+```bash
+read -rsp "ANTHROPIC_API_KEY: " KEY && echo
+sed -i "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=$KEY|" .env && unset KEY
+```
+
+Para comprobar qué variables quedaron definidas sin ver sus valores:
+
+```bash
+awk -F= '/^[A-Z_]+=/{print $1, ($2=="" ? "(vacía)" : "(definida)")}' .env
+```
+
+- **No cambies `MARIADB_ROOT_PASSWORD` después del primer arranque.** MariaDB la
+  guarda en su volumen al inicializarse. Si la cambias en `.env`, el backend ya no
+  podrá conectarse.
+- No pongas credenciales de AWS en `.env`.
+
+Todos los comandos `docker compose` (incluso `ps` y `logs`) exigen `GIT_COMMIT`.
+Para que cada sesión SSH lo tenga definido:
+
+```bash
+echo 'export GIT_COMMIT="$(git -C ~/Proyecto4-team2 rev-parse HEAD 2>/dev/null)"' >> ~/.bashrc
+```
+
+Después de un `git pull` en la misma sesión, vuelve a exportarlo (paso 11).
+
+En Linux, el servicio `app` escribe en `./reports` con el usuario `appuser` del
+contenedor, no con `ubuntu`. Sin este permiso, la compuerta de calidad se reinicia
+con `PermissionError`. En Docker Desktop (macOS/Windows) no pasa. Git no registra ese
+permiso, así que no ensucia el repo:
+
+```bash
+chmod -R a+rwX reports
+```
+
+### 7. Datos del Proyecto 3 (opcional; antes del primer arranque)
+
+El portal funciona sin estos datos, pero entonces Models, Evaluation, Experiments e
+Inference salen vacíos. Los datos están en el remoto DVC `prod`, el bucket del equipo
+(ver [Datos del proyecto](#datos-del-proyecto)). El rol del servidor no lee `files/`
+a propósito: solo necesita `models/` y `edge-captures/`. Por eso los datos se suben al
+servidor desde una máquina que ya los tenga (opciones A y B), o con `dvc pull` en el
+servidor usando credenciales temporales tuyas, solo para ese comando (opción C). El
+2026-10-06 se usó la opción A:
+
+**Opción A (la que se usó): copia local del caché DVC.** Sirve una copia de la
+carpeta del bucket `mlops-p2-dvc-cache` (con `files/md5/...`, unos 700 MB). En tu
+máquina, desde la carpeta que contiene esa copia (el `.tar` queda fuera del repo):
+
+```bash
+tar cf dvc-cache.tar -C mlops-p2-dvc-cache files
+scp -i <ruta-a>/portal-proyecto4.pem dvc-cache.tar ubuntu@<IP-pública>:~/
+```
+
+En Git Bash de Windows, usa rutas `/c/...` en lugar de `C:\...`: con `C:` el `tar`
+cree que es un servidor remoto.
+
+En el servidor, `dvc pull` lee esa copia como remote local. No toca S3 ni necesita
+credenciales, y el remote se agrega solo en `.dvc/config.local`, que está ignorado
+por git:
+
+```bash
+mkdir -p ~/dvc-cache && tar xf ~/dvc-cache.tar -C ~/dvc-cache && rm ~/dvc-cache.tar
+curl -LsSf https://astral.sh/uv/install.sh | sh && source "$HOME/.local/bin/env"
+cd ~/Proyecto4-team2
+DVC="uvx --from dvc==3.67.1 dvc"
+$DVC remote add --local -f localcache /home/ubuntu/dvc-cache
+$DVC pull -r localcache data/raw/images.dvc data/raw/annotations.dvc data/models.dvc data/mlflow-snapshot.dvc crops
+$DVC status data/raw/images.dvc data/raw/annotations.dvc data/models.dvc data/mlflow-snapshot.dvc crops
+$DVC remote remove --local localcache
+rm -rf ~/dvc-cache .dvc/cache          # libera ~1.4 GB; los datos ya están en data/
+```
+
+Resultado esperado: `data/raw/images` 600 archivos, `data/raw/annotations` 10,
+`data/models` 8, `data/mlflow-snapshot` 52 y `data/crops` 668.
+
+**Opción B: datos ya materializados en una laptop** (que hizo `dvc pull`, ver
+[Proyecto 3 completo en un clon limpio](#proyecto-3-completo-en-un-clon-limpio-datos-modelo-y-corridas)).
+Desde la raíz del repo en la laptop:
+
+```bash
+tar czf ../p3-data.tgz data/raw/images data/raw/annotations data/crops data/models data/mlflow-snapshot
+scp -i <ruta-a>/portal-proyecto4.pem ../p3-data.tgz ubuntu@<IP-pública>:~/Proyecto4-team2/
+# En el servidor:
+cd ~/Proyecto4-team2 && tar xzf p3-data.tgz && rm p3-data.tgz
+```
+
+**Opción C: `dvc pull` en el servidor con tus credenciales temporales.** Desde tu
+máquina, con tu perfil del proyecto. Las credenciales viajan por la entrada de SSH y
+no se escriben en el servidor. `tr -d '
+'` hace falta si lo corres desde Windows:
+
+```bash
+{ aws configure export-credentials --profile <tu-perfil> --format env
+  echo 'cd ~/Proyecto4-team2 && uvx --from "dvc[s3]==3.67.1" dvc pull'
+} | tr -d '
+' | ssh -i <ruta-a>/portal-proyecto4.pem ubuntu@<IP-pública> 'bash -s'
+```
+
+Hazlo **antes** del paso 8. Si Docker arranca primero, crea `data/crops` y
+`data/models` vacías y con dueño `root`, y la copia falla con *Permission denied*.
+En ese caso, corre `sudo chown -R ubuntu:ubuntu data` y repite la copia.
+
+### 8. Arrancar
+
+```bash
+cd ~/Proyecto4-team2
+export GIT_COMMIT="$(git rev-parse HEAD)"
+docker compose config --quiet      # valida que no falte ninguna variable
+docker compose up -d --build
+docker compose ps
+```
+
+En `m7i-flex.large`, la compilación de todas las imágenes tardó unos 3 minutos y
+el arranque con `--wait` unos 5, la primera vez porque descarga MariaDB y MinIO.
+Si copiaste los datos del paso 7, carga después las corridas de MLflow. Hazlo solo
+en un stack nuevo, porque reemplaza la base `mlflow`. Termina listando los 12 run IDs
+con `OK`:
+
+```bash
+cd ~/Proyecto4-team2/app      # uv ya quedó instalado en el paso 7
+MLFLOW_TRACKING_URI=http://localhost:5000 uv run python -m tracking.snapshot restore
+```
+
+Memoria medida con todo el stack arriba (2026-10-06): unos 4.1 de 7.6 GiB. `mlflow`
+usa unos 2.3 GiB por sí solo; `ml-api` y `training-worker` en reposo, unos 340 MiB
+cada uno; los demás, menos de 120 MiB cada uno.
+
+**Qué servicios son indispensables:**
+
+| Servicio | ¿Indispensable? | Por qué |
+|---|---|---|
+| `frontend` (nginx) | Sí | Sirve el portal y reenvía `/api`, `/api/ml` y `/copilot-api` |
+| `backend` | Sí | API del portal (imágenes, anotaciones, búsqueda) |
+| `mariadb` | Sí | Metadatos, anotaciones y cola de jobs |
+| `minio` | Sí | Archivos de las imágenes |
+| `ml-api` | Sí | nginx espera a que esté *healthy*. Atiende Training, Models e Inference |
+| `copilot` | Sí, aunque no tenga key | nginx no arranca si no existe el host `copilot`. Sin `ANTHROPIC_API_KEY` el chat responde 503 |
+| `mlflow` | No | Experiments y "Abrir en MLflow". Sin él, `ml-api` responde 503 en esas vistas. Es el que más memoria usa en reposo (~2.3 GiB): el primero a apagar si falta memoria |
+| `training-worker` | No | Ejecuta los jobs de entrenamiento. Es el que más memoria usa mientras entrena |
+| `app` | No | Compuerta de calidad. Necesita `data/raw` del paso 7: sin esos datos falla 5 veces y se detiene, sin afectar al portal |
+
+Si la memoria no alcanza (por ejemplo en `c7i-flex.large`), levanta solo lo
+indispensable. `frontend` arrastra a sus dependencias:
+
+```bash
+docker compose up -d --build frontend
+docker compose stop training-worker mlflow app   # si ya estaban corriendo
+free -h && docker stats --no-stream               # memoria por contenedor
+```
+
+### 9. Frontend apuntando a la IP pública
+
+**No hay que cambiar código.** El frontend se compila con `VITE_API_BASE_URL=/api`,
+una ruta relativa. El navegador llama a `/api/...` en el mismo host desde el que cargó
+la página (`http://<IP-pública>`), y nginx lo reenvía dentro de la red de Docker a
+`backend`, `ml-api` y `copilot`. El único cambio es el puerto (8080 → 80), y ya está
+en `docker-compose.aws.yml`.
+
+No pongas `VITE_API_BASE_URL=http://<IP>:3100`. Habría que abrir el 3100 a internet
+y recompilar cada vez que cambie la IP.
+
+La excepción es el enlace **"Abrir en MLflow"**, que usa `VITE_MLFLOW_UI_URL` (por
+defecto `http://localhost:5000`). MLflow no tiene autenticación y no se publica. Para
+verlo, abre un túnel SSH desde tu máquina y el enlace funcionará tal cual:
+
+```bash
+ssh -i <ruta-a>/portal-proyecto4.pem -L 5000:127.0.0.1:5000 -L 9001:127.0.0.1:9001 ubuntu@<IP-pública>
+# Con el túnel abierto: MLflow en http://localhost:5000 y consola de MinIO en http://localhost:9001
+```
+
+### 10. Lista de verificación
+
+En el servidor:
+
+- [ ] `docker compose ps`: `mariadb`, `minio`, `backend`, `ml-api`, `copilot` y
+      `frontend` en `running`, y `ml-api` en `healthy`.
+- [ ] `curl -fsS http://localhost/api/health` responde
+      `{"status":"ok","database":"connected",...}`.
+- [ ] `curl -fsS http://localhost/api/ml/health` responde 200.
+- [ ] `df -h /` por debajo de 80 % y `free -h` con memoria disponible.
+
+Desde tu máquina, idealmente desde otra red (por ejemplo, datos del celular):
+
+- [ ] `http://<IP-pública>` abre el portal.
+- [ ] Subir una imagen y verla en el listado. Eso prueba backend, MariaDB y MinIO.
+- [ ] Los puertos internos no responden: `curl -m 5 http://<IP-pública>:3100/health`
+      y `curl -m 5 http://<IP-pública>:9001` deben terminar en *timeout*.
+- [ ] Después de `sudo reboot` (o *Stop*/*Start*), el portal vuelve solo. En la
+      prueba, la página cargó a los ~10 s y `/api` dio `502` unos 40 s más, mientras
+      arrancaban `backend` y `ml-api`.
+- [ ] La tabla [Datos del despliegue](#datos-del-despliegue) está llena.
+- [ ] Opcional, con los datos del paso 7, el smoke test del portal:
+      `cd app && APP10_PORTAL_URL=http://<IP-pública> uv run pytest tests/test_app10_portal_smoke.py -v`.
+      Desde AWS-3 pasa completo: Models confirma la publicación en el bucket del
+      equipo con el rol del servidor. Evidencia:
+      [aws-3-smoke-test-ec2.md](app/tests/evidence/aws-3-smoke-test-ec2.md).
+
+Resultado de la prueba del 2026-10-06 (todo el stack, con los datos del paso 7):
+todos los servicios arriba, `/api/health` y `/api/ml/health` en 200 desde internet,
+3100, 3306, 5000, 9000 y 9001 en *timeout* desde fuera, una imagen subida por la IP
+pública llegó a MinIO y se borró (204), la compuerta de calidad terminó en
+`status=warning` y las 12 corridas de MLflow quedaron restauradas. Ese día el smoke
+test falló en el paso 5 (Models: `'unverifiable' == 'published'`), porque el modelo
+solo estaba publicado en el S3 de la cuenta anterior y los pasos 6 y 7 no llegaron a
+correr. Con AWS-3 (bucket del equipo y rol del servidor) **pasa completo**.
+
+### 11. Actualizar el servidor después de un cambio en el código
+
+```bash
+ssh -i <ruta-a>/portal-proyecto4.pem ubuntu@<IP-pública>
+cd ~/Proyecto4-team2
+git pull
+export GIT_COMMIT="$(git rev-parse HEAD)"
+docker compose up -d --build          # o con la lista mínima del paso 8: ... --build frontend
+docker compose restart frontend        # nginx vuelve a resolver backend/ml-api/copilot
+docker compose ps
+docker image prune -f                  # libera disco de imágenes viejas
+```
+
+- Solo se reconstruyen las imágenes cuyo código cambió. Para un cambio solo de
+  frontend: `docker compose up -d --build frontend`.
+- Las migraciones nuevas de la base se aplican solas al reiniciar `backend` (ver
+  [Producción](#producción)).
+- Logs de un servicio: `docker compose logs -f --tail=100 backend`.
+
+### 12. Apagar y limpiar al terminar la entrega
+
+- **Pausa:** EC2 > Instances > *Instance state* > **Stop**. La instancia deja de
+  consumir créditos; el disco (unos 0.08 USD/día) y la Elastic IP (unos 0.12 USD/día)
+  siguen consumiendo. Al volver a iniciarla, la dirección sigue siendo la misma
+  gracias a la Elastic IP.
+- **Final:** **Terminate instance**. Eso borra el disco con los datos de MariaDB y
+  MinIO, así que respalda antes lo que necesites. Después: **EC2 > Elastic IPs >
+  Release** de `eipalloc-06bfd73237d154119`, y borrar el security group
+  `portal-proyecto4-sg` y el key pair.
+- Revisa el saldo de créditos en AWS Settings > Billing.
+
+### Problemas comunes
+
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| SSH da *Connection timed out* | Tu IP cambió | Edita la regla 22 del security group con *My IP* |
+| *UNPROTECTED PRIVATE KEY FILE* | Permisos de la `.pem` | `chmod 400` (macOS/Linux) o el `icacls` del paso 3 |
+| *UnauthorizedOperation* o *explicit deny* al lanzar | Región equivocada | Usa `us-east-2` |
+| No se puede elegir el tipo de instancia | El plan gratuito solo permite tipos elegibles | Usa uno de la tabla del paso 1 |
+| Accesos que funcionaban empiezan a dar *Access Denied* | Créditos agotados o límite de gasto | Revisa AWS Settings > Billing |
+| El portal no abre | Falta la regla 80, o `frontend` no arrancó | Revisa el security group, `docker compose ps` y `docker compose logs frontend` |
+| `502 Bad Gateway` en `/api` | `backend` caído o migrando | `docker compose logs backend` |
+| `502` en `/api` o `/api/ml` justo después de actualizar | Se recreó `backend` o `ml-api` con otra IP interna y nginx guarda la anterior (resuelve los nombres al arrancar) | `docker compose restart frontend` |
+| Models dice "No verificable" en el servidor | `ml-api` no obtiene credenciales del rol | Comprueba el perfil de instancia `portal-proyecto4-ec2`, el *hop limit* 2 y que `docker compose exec ml-api printenv AWS_EC2_METADATA_DISABLED` diga `false` |
+| La compilación muere con *exit code 137* o *Killed* | Falta memoria | Confirma el swap (`free -h`), levanta solo lo indispensable o usa `m7i-flex.large` |
+| *unknown tag !override* | Compose anterior a 2.24.4 | `sudo apt-get install --only-upgrade docker-compose-plugin` |
+| *Define GIT_COMMIT…*, incluso en `docker compose ps` o `logs` | Falta la variable en esa terminal | `export GIT_COMMIT="$(git rev-parse HEAD)"`, o la línea de `~/.bashrc` del paso 6 |
+| `app` se reinicia con `PermissionError: '/app/reports/quality.json'` | `./reports` no es escribible por el usuario del contenedor (solo en Linux) | `chmod -R a+rwX reports` y `docker compose up -d --force-recreate app` |
+| `tar: Cannot connect to C: resolve failed` | `tar` de Git Bash con una ruta `C:\...` | Usa `/c/...` |
+
 ## Variables de entorno
 
 Se copian de `.env.example`. Ningún valor real se versiona: `.gitignore`
@@ -644,6 +1193,9 @@ ignora todo `.env*` salvo las plantillas de ejemplo.
 | `MAX_UPLOAD_SIZE_BYTES` | Tamaño máximo por imagen (10 MiB por defecto)   |
 | `MLFLOW_TRACKING_URI`   | Servidor MLflow (`http://mlflow:5000` dentro de Compose, `http://localhost:5000` desde el host) |
 | `MLFLOW_PORT`           | Puerto del host para la UI de MLflow (opcional, 5000 por defecto) |
+| `EDGE_CAPTURES_BUCKET`  | Bucket de S3 para las fotos de Capturas Edge (AWS-1). Vacío en local: se usa MinIO |
+| `EDGE_CAPTURES_REGION`  | Región de ese bucket (`us-east-2` por defecto) |
+| `EDGE_DEVICE_KEY`       | Clave del dispositivo edge (laptop) para `POST /edge-captures` (encabezado `X-Device-Key`). Solo en el `.env`, nunca en git. Vacía: el endpoint responde 503 |
 
 Los `.env` son configuración local de Compose/backend/MinIO/Copilot. Las
 credenciales AWS se obtienen mediante el perfil SSO `mlops-p2`; nunca las
@@ -666,6 +1218,68 @@ copies a un `.env`.
 | GET    | `/categories`               | Categorías disponibles con su color         |
 | GET    | `/dashboard/summary`        | Métricas calculadas en SQL                  |
 | GET    | `/export/coco`              | Descarga el dataset en formato COCO         |
+| POST   | `/edge-captures`            | Capturas Edge: foto JPEG y evento del dispositivo edge (laptop), con clave `X-Device-Key`, idempotente por `capture_id` (AWS-1, AWS-2) |
+| GET    | `/edge-captures`            | Capturas de la más reciente a la más antigua, paginadas, con URL firmada de cada foto (AWS-2) |
+| GET    | `/edge-captures/:capture_id`| Una captura, con URL firmada de su foto (AWS-2) |
+
+### Capturas Edge (AWS-1, AWS-2)
+
+El **dispositivo edge** es una laptop con un programa en Python que clasifica fotos con
+el modelo optimizado y las envía al portal.
+
+**Enviar**: `POST /edge-captures` (desde fuera, `POST /api/edge-captures`).
+- Exige el encabezado **`X-Device-Key`** con la clave del dispositivo
+  (`EDGE_DEVICE_KEY` en el `.env` del servidor). Sin ella o con otra, responde `401`.
+- Recibe en `multipart/form-data` la foto (`image`, JPEG) y los campos `capture_id`,
+  `captured_at`, `device_id`, `model_version`, `predicted_class` (`dog` o `cat`),
+  `confidence` (0 a 1), `latency_ms` y, opcional, `crop`: el recorte clasificado
+  como JSON `{"x","y","width","height"}` en píxeles, que debe caber en la foto.
+- La foto va a `s3://mlops-p4-equipo-452857281704/edge-captures/<capture_id>.jpg`,
+  con el rol del servidor y una copia del registro en los metadatos del objeto. En
+  local, sin `EDGE_CAPTURES_BUCKET`, va a MinIO.
+- El evento va a la tabla `edge_captures` de MariaDB.
+- Responde `201` con el registro; si el `capture_id` ya existía, `200` con el
+  registro existente, sin crear otro registro ni otra foto.
+- Sin CORS: lo llama un programa, no una página web.
+
+```python
+import json, requests
+
+with open("captura.jpg", "rb") as foto:
+    r = requests.post(
+        "http://18.216.36.30/api/edge-captures",
+        headers={"X-Device-Key": CLAVE_DEL_DISPOSITIVO},  # léela de una variable de entorno
+        files={"image": ("captura.jpg", foto, "image/jpeg")},
+        data={
+            "capture_id": capture_id, "captured_at": "2026-10-08T18:30:00-06:00",
+            "device_id": "laptop-equipo", "model_version": "1.0.0",
+            "predicted_class": "dog", "confidence": "0.93", "latency_ms": "41.7",
+            "crop": json.dumps({"x": 120, "y": 80, "width": 200, "height": 160}),
+        },
+        timeout=30,
+    )
+r.raise_for_status()  # 201 nueva, 200 si ya existía
+```
+
+**Consultar** (abierto para el portal, sin clave):
+- **`GET /edge-captures?page=1&pageSize=20`:** de la más reciente a la más antigua
+  por `captured_at`. Devuelve `{ items, page, pageSize, total }`.
+- **`GET /edge-captures/<capture_id>`:** una sola captura (`404` si no existe).
+
+Cada captura trae sus campos, `crop` (o `null`), `image_key` e `image_url`: una URL
+firmada de S3 que abre la foto durante 15 minutos.
+
+**Demostrar que los datos están en AWS** (solo lectura, desde cualquier máquina con
+la AWS CLI y una identidad del proyecto):
+
+```bash
+AWS_PROFILE=<tu-perfil> bash scripts/p4/consulta-aws.sh <capture_id>
+```
+
+Muestra que la foto existe en el bucket (tamaño, versión, cifrado) y el registro
+guardado con ella. Permisos y detalles en el propio script.
+
+Reglas completas: [backend/specs/edge-captures.spec.md](backend/specs/edge-captures.spec.md).
 
 ### Búsqueda
 
@@ -808,6 +1422,10 @@ que el portal funcione de punta a punta:
 
 Esta sección contiene los detalles del remote DVC opcional de desarrollo. Para
 el onboarding completo, empieza por [Onboarding de desarrollo](#onboarding-de-desarrollo).
+
+> **Desde AWS-3**, `prod` apunta al bucket del equipo
+> (`mlops-p4-equipo-452857281704`, `us-east-2`) y el bucket original de esta sección
+> se conserva como el remoto `p2-origen`. Ver [Datos del proyecto](#datos-del-proyecto).
 No necesitas MinIO para leer el dataset compartido de producción.
 
 - `dev` usa `s3://dvc-cache` con endpoint `http://localhost:9000` (MinIO local).

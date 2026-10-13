@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  datetime,
   double,
   index,
   int,
@@ -278,6 +279,74 @@ export const inferenceQueueEntries = mysqlTable(
 );
 
 /**
+ * AWS-1 — fotos que el dispositivo edge (laptop) clasificó con el modelo optimizado
+ * (Capturas Edge).
+ *
+ * La foto vive en S3 (`imageKey`, prefijo edge-captures/) y aquí queda el evento.
+ * `captureId` lo genera el dispositivo: el índice único hace que un reenvío del mismo
+ * evento no cree un segundo registro.
+ */
+export const edgeCaptures = mysqlTable(
+  'edge_captures',
+  {
+    id: bigint('id', {
+      mode: 'number',
+      unsigned: true,
+    })
+      .autoincrement()
+      .primaryKey(),
+
+    captureId: varchar('capture_id', {
+      length: 64,
+    }).notNull(),
+
+    // Momento en que el dispositivo edge tomó la foto (lo reporta el dispositivo).
+    capturedAt: datetime('captured_at', {
+      mode: 'date',
+      fsp: 3,
+    }).notNull(),
+
+    deviceId: varchar('device_id', {
+      length: 128,
+    }).notNull(),
+
+    modelVersion: varchar('model_version', {
+      length: 64,
+    }).notNull(),
+
+    predictedClass: varchar('predicted_class', {
+      length: 150,
+    }).notNull(),
+
+    confidence: double('confidence').notNull(),
+
+    latencyMs: double('latency_ms').notNull(),
+
+    // AWS-2: recorte clasificado dentro de la foto, en píxeles (opcional: o vienen
+    // los cuatro o ninguno).
+    cropX: double('crop_x'),
+    cropY: double('crop_y'),
+    cropWidth: double('crop_width'),
+    cropHeight: double('crop_height'),
+
+    // Key del objeto en S3 (edge-captures/<captureId>.jpg).
+    imageKey: varchar('image_key', {
+      length: 512,
+    }).notNull(),
+
+    // Momento en que el backend recibió el evento.
+    receivedAt: timestamp('received_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('edge_captures_capture_id_unique').on(table.captureId),
+    // AWS-2: la consulta del portal ordena por captured_at (desempate por id).
+    index('edge_captures_captured_at_id_idx').on(table.capturedAt, table.id),
+    index('edge_captures_received_at_idx').on(table.receivedAt),
+    index('edge_captures_device_id_idx').on(table.deviceId),
+  ],
+);
+
+/**
  * Tipos TypeScript generados automáticamente desde el esquema.
  */
 export type Image = typeof images.$inferSelect;
@@ -291,3 +360,6 @@ export type NewAnnotation = typeof annotations.$inferInsert;
 
 export type InferenceQueueEntry = typeof inferenceQueueEntries.$inferSelect;
 export type NewInferenceQueueEntry = typeof inferenceQueueEntries.$inferInsert;
+
+export type EdgeCapture = typeof edgeCaptures.$inferSelect;
+export type NewEdgeCapture = typeof edgeCaptures.$inferInsert;
